@@ -1,0 +1,24 @@
+{
+  "name": "mkdoc",
+  "version": "0.0.1",
+  "description": "-",
+  "license": "ISC",
+  "repository": "-",
+  "dependencies": {
+    "canvas": "^1.6.10",
+    "fontkit": "*",
+    "format-currency": "*",
+    "i18n": "^0.14.1",
+    "lodash": "*",
+    "moment": "^2.22.1",
+    "node-canvas-text": "*",
+    "opentype.js": "*",
+    "pdfkit": "*",
+    "polyglot": "^0.5.0",
+    "sprintf-js": "*",
+    "stateful": "file:../_stateful",
+    "tracer": "^0.8.15",
+    "xlsx": "^0.12.12",
+    "xmlbuilder2": "^3.1.1"
+  }
+}

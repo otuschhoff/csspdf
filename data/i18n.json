@@ -1,0 +1,136 @@
+{
+  "docType": {
+    "quote": {
+      "en": "Quote",
+      "de": "Angebot"
+    },
+    "invoice": {
+      "en": "Invoice",
+      "de": "Rechnung"
+    },
+    "response": {
+      "en": "Antwort",
+      "de": "Response"
+    }
+  },
+  "descServices": {
+    "en": "Description of Services",
+    "de": "Leistungsbeschreibung"
+  },
+  "manHours": {
+    "en": "Man-hours",
+    "de": "Stunden"
+  },
+  "manHoursSub": {
+    "en": "per workday",
+    "de": "pro Tag"
+  },
+  "manDays": {
+    "en": "Man-days",
+    "de": "Personentage"
+  },
+  "manDaysShort": {
+    "en": "MD",
+    "de": "PT"
+  },
+  "manDaysSub": {
+    "en": "8 hour equivalents",
+    "de": "8 Std. equivalent"
+  },
+  "dailyRate": {
+    "en": "Daily rate",
+    "de": "Tagessatz"
+  },
+  "dailyRateSub": {
+    "en": "in {{currency}} per 8 hours",
+    "de": "in {{currency}} pro 8 Std."
+  },
+  "date": { 
+    "en": "Date",
+    "de": "Datum"
+  },
+  "month": {
+    "en": "Month",
+    "de": "Monat"
+  },
+  "workWeekShort": {
+    "en": "WW",
+    "de": "KW"
+  },
+  "timesheet": {
+    "en": "Timesheet",
+    "de": "Leistungsnachweis"
+  },
+  "poHistTitle": {
+    "en": "PO History",
+    "de": "Abrechnungshistorie"
+  },
+  "poHistPoSub": {
+    "en": "man-days invoiced",
+    "de": "abgerechnete Personentage"
+  },
+  "poHistStatus": {
+    "en": "Status",
+    "de": "Status"
+  },
+  "poHistStatusSub": {
+    "en": "of Invoice",
+    "de": "der Rechnung"
+  },
+  "poHistInvoiced": {
+    "en": "Invoiced",
+    "de": "Berechnet"
+  },
+  "poHistPayed": {
+    "en": "Payed",
+    "de": "Beglichen"
+  },
+  "poHistRemaining": {
+    "en": "Remaining",
+    "de": "Offen"
+  },
+  "subTotal": {
+    "en": "Total",
+    "de": "Summe"
+  },
+  "netDue": {
+    "en": "Net Due",
+    "de": "Netto"
+  },
+  "vat": {
+    "en": "19% VAT (USt)",
+    "de": "19% USt"
+  },
+  "totalDue": {
+    "en": "Total Due",
+    "de": "Brutto"
+  },
+  "greeting": {
+    "en": "Dear Ladies and Gentlemen",
+    "de": "Sehr geehrte Damen und Herren"
+  },
+  "invoiceIntro": {
+    "en": "According to the services rendered in {{dateShort}} I'd like to invoice the following positions",
+    "de": "Entsprechend der erbrachten Leistungen stelle ich für den Monat {{dateShort}} folgende Positionen in Rechnung"
+  },
+  "invoiceOutro": {
+    "en": "I kindly ask to settle this invoice in 30 days time after first notification by wiring the total amount due to the bank account named above. I look forward to supporting you & your team and thank for the trust & succesful collaboration.",
+    "de": "Bitte überweisen Sie den genannten Brutto-Rechnungsbetrag innerhalb von 30 Tagen auf oben genanntes Konto. Ich freue mich auch weiterhin auf erfolgreiche Zusammenarbeit."
+  },
+  "closing": {
+    "en": "With Best Regards",
+    "de": "Mit freundlichen Grüßen"
+  },
+  "bankAccount": {
+    "en": "Bank Account",
+    "de": "Bankkonto"
+  },
+  "_floatSeparator": {
+    "en": ".",
+    "de": ","
+  },
+  "_kiloSeparator": {
+    "en": ",",
+    "de": "."
+  }
+}

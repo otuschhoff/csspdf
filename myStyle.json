@@ -1,0 +1,74 @@
+{
+  "fontFace":         "Helvetica",
+  "fontColor":        "#000",
+  "fontColorSub":     "#666",
+  "fontSize":         10,
+  "fontSizeSmall":    7,
+  "fontSizeTitle":    20,
+  "tableCellYOffset": 1.5,
+  "normal": {
+    "fontFace":         "Helvetica",
+    "fontColor":        "#000",
+    "fontSize":         10
+  },
+  "small": {
+    "fontFace":         "Helvetica",
+    "fontColor":        "#333",
+    "fontSize":         7
+  },
+  "smallGreyed": {
+    "fontFace":         "Helvetica",
+    "fontColor":        "#999",
+    "fontSize":         7
+  },
+  "sub": {
+    "fontFace":         "Helvetica",
+    "fontColor":        "#666",
+    "fontSize":         7
+  },
+  "pageNum": {
+    "fontFace":         "Helvetica",
+    "fontColor":        "#222",
+    "fontSize":         10
+  },
+  "pageTot": {
+    "fontFace":         "Helvetica",
+    "fontColor":        "#666",
+    "fontSize":         7
+  },
+  "footer": {
+    "fontFace":         "Helvetica",
+    "fontColor":        "#222",
+    "fontSize":         7
+  },
+  "title": {
+    "fontFace":         "Helvetica",
+    "fontColor":        "#111",
+    "fontSize":         20
+  },
+  "companyName": {
+    "fontFace":         "Futura-Medium",
+    "fontColor":        "#222",
+    "fontSize":         20
+  },
+  "companyNameSmall": {
+    "fontFace":         "Futura-Medium",
+    "fontColor":        "#222",
+    "fontSize":         10
+  },
+  "companySuffix": {
+    "fontFace":         "Helvetica",
+    "fontColor":        "#444",
+    "fontSize":         15
+  },
+  "companySuffixSmall": {
+    "fontFace":         "Helvetica",
+    "fontColor":        "#444",
+    "fontSize":         7
+  },
+  "docType": {
+    "fontFace":         "Helvetica",
+    "fontColor":        "#DDD",
+    "fontSize":         35
+  }
+}
