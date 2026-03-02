@@ -97,7 +97,11 @@ func main() {
 
 	// Generate PDF
 	log("Generating PDF...")
-	generator := invoice.NewPDFGenerator(inv, company, style)
+	generator, err := invoice.NewPDFGenerator(inv, company, style, *locale)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing PDF generator: %v\n", err)
+		os.Exit(1)
+	}
 	if err := generator.Generate(*outputPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Error generating PDF: %v\n", err)
 		os.Exit(1)
