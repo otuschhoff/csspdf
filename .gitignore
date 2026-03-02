@@ -1,1 +1,6 @@
 .DS_Store
+
+# Temporary image optimization files
+Unterschrift*.jpg
+*.150dpi.*
+*.300dpi.*
