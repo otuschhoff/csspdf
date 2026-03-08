@@ -21,6 +21,8 @@ func main() {
 	switch os.Args[1] {
 	case "full":
 		os.Exit(runFull(os.Args[2:]))
+	case "render-logo":
+		os.Exit(runRenderLogo(os.Args[2:]))
 	case "version", "-version", "--version":
 		fmt.Printf("invoice-gen version %s\n", version)
 	case "help", "-h", "--help":
@@ -41,9 +43,61 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Subcommands:")
 	fmt.Fprintln(w, "  full      Generate full invoice PDF output")
+	fmt.Fprintln(w, "  render-logo  Generate a PDF containing only the ring logo")
 	fmt.Fprintln(w, "  version   Print version and exit")
 	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Use 'invoice-gen full -h' for full command options.")
+	fmt.Fprintln(w, "Use 'invoice-gen full -h' or 'invoice-gen render-logo -h' for command options.")
+}
+
+func runRenderLogo(args []string) int {
+	logoCmd := flag.NewFlagSet("render-logo", flag.ContinueOnError)
+	logoCmd.SetOutput(os.Stderr)
+
+	var (
+		outputPath = logoCmd.String("o", "output/ring-logo.pdf", "Output PDF path")
+		pageWidth  = logoCmd.Float64("page-width", invoice.DocWidth, "Page width in points")
+		pageHeight = logoCmd.Float64("page-height", invoice.DocHeight, "Page height in points")
+		x          = logoCmd.Float64("x", -1, "Logo center X in points (default: centered)")
+		y          = logoCmd.Float64("y", -1, "Logo center Y in points (default: centered)")
+		radius     = logoCmd.Float64("r", 16.5, "Logo radius in points")
+	)
+
+	logoCmd.Usage = func() {
+		fmt.Fprintln(os.Stderr, "Usage:")
+		fmt.Fprintln(os.Stderr, "  invoice-gen render-logo [options]")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Options:")
+		logoCmd.PrintDefaults()
+	}
+
+	if err := logoCmd.Parse(args); err != nil {
+		return 2
+	}
+
+	if *pageWidth <= 0 || *pageHeight <= 0 || *radius <= 0 {
+		fmt.Fprintln(os.Stderr, "Error: page size and radius must be greater than zero")
+		return 2
+	}
+
+	if *x < 0 {
+		*x = *pageWidth / 2
+	}
+	if *y < 0 {
+		*y = *pageHeight / 2
+	}
+
+	if err := os.MkdirAll(filepath.Dir(*outputPath), 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		return 1
+	}
+
+	if err := invoice.RenderLogoPDF(*outputPath, *pageWidth, *pageHeight, *x, *y, *radius); err != nil {
+		fmt.Fprintf(os.Stderr, "Error rendering logo PDF: %v\n", err)
+		return 1
+	}
+
+	fmt.Printf("✓ Logo PDF generated successfully: %s\n", *outputPath)
+	return 0
 }
 
 func runFull(args []string) int {

@@ -78,6 +78,7 @@ Top-level:
 
 ```
 invoice-gen full [options]
+invoice-gen render-logo [options]
 invoice-gen version
 ```
 
@@ -125,6 +126,9 @@ invoice-gen version
 
 # Verbose mode for debugging
 ./bin/invoice-gen full -i invoices/RA-2026-01.json -v
+
+# Render only the ring logo to a standalone PDF
+./bin/invoice-gen render-logo -o output/ring-logo.pdf
 ```
 
 ## Configuration Files
