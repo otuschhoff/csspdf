@@ -129,6 +129,33 @@ invoice-gen version
 
 # Render only the ring logo to a standalone PDF
 ./bin/invoice-gen render-logo -o output/ring-logo.pdf
+
+# Dump PDF structure with binary streams hidden
+./bin/invoice-gen dump-pdf -i output/invoice.pdf
+```
+
+## dump-pdf Command
+
+Displays the internal structure of a PDF file with all binary streams hidden for debugging and analysis.
+
+### Options
+
+```
+-i string
+    Path to PDF file to dump (required)
+```
+
+### Examples
+
+```bash
+# Dump a generated invoice
+./bin/invoice-gen dump-pdf -i output/RA-2026-01.pdf
+
+# Dump and save to file
+./bin/invoice-gen dump-pdf -i output/logo.pdf > /tmp/pdf-structure.txt
+
+# Dump and analyze specific objects
+./bin/invoice-gen dump-pdf -i output/invoice.pdf | grep -A5 "obj"
 ```
 
 ## Configuration Files

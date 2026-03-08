@@ -23,6 +23,8 @@ func main() {
 		os.Exit(runFull(os.Args[2:]))
 	case "render-logo":
 		os.Exit(runRenderLogo(os.Args[2:]))
+	case "dump-pdf":
+		os.Exit(runDumpPDF(os.Args[2:]))
 	case "version", "-version", "--version":
 		fmt.Printf("invoice-gen version %s\n", version)
 	case "help", "-h", "--help":
@@ -42,9 +44,10 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  invoice-gen <subcommand> [options]")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Subcommands:")
-	fmt.Fprintln(w, "  full      Generate full invoice PDF output")
-	fmt.Fprintln(w, "  render-logo  Generate a PDF containing only the ring logo")
-	fmt.Fprintln(w, "  version   Print version and exit")
+	fmt.Fprintln(w, "  full        Generate full invoice PDF output")
+	fmt.Fprintln(w, "  render-logo Generate a PDF containing only the ring logo")
+	fmt.Fprintln(w, "  dump-pdf    Display PDF structure with binary streams hidden")
+	fmt.Fprintln(w, "  version     Print version and exit")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Use 'invoice-gen full -h' or 'invoice-gen render-logo -h' for command options.")
 }
@@ -97,6 +100,40 @@ func runRenderLogo(args []string) int {
 	}
 
 	fmt.Printf("✓ Logo PDF generated successfully: %s\n", *outputPath)
+	return 0
+}
+
+func runDumpPDF(args []string) int {
+	dumpCmd := flag.NewFlagSet("dump-pdf", flag.ContinueOnError)
+	dumpCmd.SetOutput(os.Stderr)
+
+	var (
+		pdfPath = dumpCmd.String("i", "", "Path to PDF file (required)")
+	)
+
+	dumpCmd.Usage = func() {
+		fmt.Fprintln(os.Stderr, "Usage:")
+		fmt.Fprintln(os.Stderr, "  invoice-gen dump-pdf -i <file.pdf>")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Options:")
+		dumpCmd.PrintDefaults()
+	}
+
+	if err := dumpCmd.Parse(args); err != nil {
+		return 2
+	}
+
+	if *pdfPath == "" {
+		fmt.Fprintf(os.Stderr, "Error: PDF path (-i) is required\n\n")
+		dumpCmd.Usage()
+		return 2
+	}
+
+	if err := invoice.DumpPDF(*pdfPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error dumping PDF: %v\n", err)
+		return 1
+	}
+
 	return 0
 }
 
