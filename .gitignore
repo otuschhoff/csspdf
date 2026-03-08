@@ -4,3 +4,5 @@
 Unterschrift*.jpg
 *.150dpi.*
 *.300dpi.*
+output/*.pdf
+.*.swp
