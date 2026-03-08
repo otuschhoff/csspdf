@@ -7,3 +7,4 @@ Unterschrift*.jpg
 output/*.pdf
 .*.swp
 bin/*
+output/*.txt
