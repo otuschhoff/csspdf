@@ -69,10 +69,19 @@ go build -o bin/invoice-gen ./cmd/invoice-gen
 ### Basic Usage
 
 ```bash
-./bin/invoice-gen -i invoices/RA-2026-01.json
+./bin/invoice-gen full -i invoices/RA-2026-01.json
 ```
 
 ### Command-Line Options
+
+Top-level:
+
+```
+invoice-gen full [options]
+invoice-gen version
+```
+
+`full` options:
 
 ```
 -i string
@@ -103,19 +112,19 @@ go build -o bin/invoice-gen ./cmd/invoice-gen
 
 ```bash
 # Generate invoice with default settings
-./bin/invoice-gen -i invoices/RA-2026-01.json
+./bin/invoice-gen full -i invoices/RA-2026-01.json
 
 # Specify output path
-./bin/invoice-gen -i invoices/RA-2026-01.json -o output/custom-name.pdf
+./bin/invoice-gen full -i invoices/RA-2026-01.json -o output/custom-name.pdf
 
 # Use custom company configuration
-./bin/invoice-gen -i invoices/RA-2026-01.json -company configs/company-branch.json
+./bin/invoice-gen full -i invoices/RA-2026-01.json -company configs/company-branch.json
 
 # Generate in English
-./bin/invoice-gen -i invoices/RA-2026-01.json -locale en
+./bin/invoice-gen full -i invoices/RA-2026-01.json -locale en
 
 # Verbose mode for debugging
-./bin/invoice-gen -i invoices/RA-2026-01.json -v
+./bin/invoice-gen full -i invoices/RA-2026-01.json -v
 ```
 
 ## Configuration Files
@@ -226,7 +235,28 @@ Benefits:
 
 ## Development
 
-### Code Organization
+## Tasks
+
+Run tasks with `xc <task>`. The task definitions below are xc-compatible.
+
+### build
+
+Build the CLI binary into `bin/invoice-gen`.
+
+```sh
+go build -o bin/invoice-gen ./cmd/invoice-gen
+```
+
+### render-sample
+
+Build and render the sample invoice in verbose mode.
+
+```sh
+go build -o bin/invoice-gen ./cmd/invoice-gen
+./bin/invoice-gen -i invoices/RA-2026-01.json -v
+```
+
+## Code Organization
 
 The codebase follows clean architecture principles:
 
@@ -252,7 +282,7 @@ The codebase follows clean architecture principles:
 - Orchestration
 - User feedback
 
-### Testing
+## Testing
 
 To test the generator:
 

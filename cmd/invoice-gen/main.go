@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -12,30 +13,77 @@ import (
 const version = "0.1.0"
 
 func main() {
-	// Define command-line flags
+	if len(os.Args) < 2 {
+		printUsage(os.Stderr)
+		os.Exit(2)
+	}
+
+	switch os.Args[1] {
+	case "full":
+		os.Exit(runFull(os.Args[2:]))
+	case "version", "-version", "--version":
+		fmt.Printf("invoice-gen version %s\n", version)
+	case "help", "-h", "--help":
+		printUsage(os.Stdout)
+	case "":
+		printUsage(os.Stderr)
+		os.Exit(2)
+	default:
+		fmt.Fprintf(os.Stderr, "Error: unknown subcommand %q\n\n", os.Args[1])
+		printUsage(os.Stderr)
+		os.Exit(2)
+	}
+}
+
+func printUsage(w io.Writer) {
+	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintln(w, "  invoice-gen <subcommand> [options]")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "Subcommands:")
+	fmt.Fprintln(w, "  full      Generate full invoice PDF output")
+	fmt.Fprintln(w, "  version   Print version and exit")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "Use 'invoice-gen full -h' for full command options.")
+}
+
+func runFull(args []string) int {
+	fullCmd := flag.NewFlagSet("full", flag.ContinueOnError)
+	fullCmd.SetOutput(os.Stderr)
+
+	// Define full subcommand flags
 	var (
-		invoicePath = flag.String("i", "", "Path to invoice JSON file (required)")
-		outputPath  = flag.String("o", "", "Output PDF path (default: auto-generated)")
-		companyPath = flag.String("company", "configs/myCompany.json", "Company JSON path")
-		stylePath   = flag.String("style", "configs/myStyle.json", "Style JSON path")
-		locale      = flag.String("locale", "", "Locale (de/en, default: from customer)")
-		showVersion = flag.Bool("version", false, "Show version")
-		verbose     = flag.Bool("v", false, "Verbose output")
+		invoicePath = fullCmd.String("i", "", "Path to invoice JSON file (required)")
+		outputPath  = fullCmd.String("o", "", "Output PDF path (default: auto-generated)")
+		companyPath = fullCmd.String("company", "configs/myCompany.json", "Company JSON path")
+		stylePath   = fullCmd.String("style", "configs/myStyle.json", "Style JSON path")
+		locale      = fullCmd.String("locale", "", "Locale (de/en, default: from customer)")
+		showVersion = fullCmd.Bool("version", false, "Show version")
+		verbose     = fullCmd.Bool("v", false, "Verbose output")
 	)
 
-	flag.Parse()
+	fullCmd.Usage = func() {
+		fmt.Fprintln(os.Stderr, "Usage:")
+		fmt.Fprintln(os.Stderr, "  invoice-gen full -i <invoice.json> [options]")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Options:")
+		fullCmd.PrintDefaults()
+	}
+
+	if err := fullCmd.Parse(args); err != nil {
+		return 2
+	}
 
 	// Show version
 	if *showVersion {
 		fmt.Printf("invoice-gen version %s\n", version)
-		os.Exit(0)
+		return 0
 	}
 
 	// Validate required flags
 	if *invoicePath == "" {
 		fmt.Fprintf(os.Stderr, "Error: invoice path (-i) is required\n\n")
-		flag.Usage()
-		os.Exit(1)
+		fullCmd.Usage()
+		return 2
 	}
 
 	// Log if verbose
@@ -50,7 +98,7 @@ func main() {
 	inv, err := invoice.LoadInvoice(*invoicePath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading invoice: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	log("Loaded invoice %s", inv.Invoice.ID)
 
@@ -59,7 +107,7 @@ func main() {
 	company, err := invoice.LoadCompany(*companyPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading company: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	log("Loaded company %s", company.Name)
 
@@ -83,7 +131,7 @@ func main() {
 		outputDir := "output"
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 
 		filename := fmt.Sprintf("%s - Invoice %s (%s).pdf",
@@ -100,14 +148,15 @@ func main() {
 	generator, err := invoice.NewPDFGenerator(inv, company, style, *locale)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error initializing PDF generator: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	if err := generator.Generate(*outputPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Error generating PDF: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	fmt.Printf("✓ Invoice generated successfully: %s\n", *outputPath)
+	return 0
 }
 
 // sanitizeFilename removes characters that are problematic in filenames
