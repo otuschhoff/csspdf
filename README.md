@@ -61,7 +61,7 @@ go build -o bin/invoice-gen ./cmd/invoice-gen
 
 ### Dependencies
 
-- `github.com/jung-kurt/gofpdf` - PDF generation
+- `github.com/phpdave11/gofpdf` - PDF generation
 - `github.com/example/pdfa3-go` - PDF/A-3 conversion (local)
 
 ## Usage

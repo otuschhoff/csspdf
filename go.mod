@@ -2,7 +2,7 @@ module github.com/otuschhoff/invoice-gen
 
 go 1.25.0
 
-require github.com/jung-kurt/gofpdf v1.16.2
+require github.com/phpdave11/gofpdf v1.4.2
 
 require (
 	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
