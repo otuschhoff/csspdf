@@ -6,3 +6,4 @@ Unterschrift*.jpg
 *.300dpi.*
 output/*.pdf
 .*.swp
+bin/*
