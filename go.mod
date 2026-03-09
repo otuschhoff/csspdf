@@ -2,7 +2,9 @@ module github.com/otuschhoff/invoice-gen
 
 go 1.25.0
 
-require github.com/phpdave11/gofpdf v1.4.2
+require github.com/otuschhoff/gofpdf v1.4.2
+
+require github.com/phpdave11/gofpdf v1.4.3 // indirect
 
 require (
 	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
@@ -20,3 +22,5 @@ require (
 )
 
 replace github.com/example/pdfa3-go => ../pdfa3-go
+
+replace github.com/otuschhoff/gofpdf => ../gofpdf

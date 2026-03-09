@@ -37,7 +37,7 @@ golang-invoice/
 
 ## 2. Core Dependencies
 
-- **PDF Generation**: `github.com/phpdave11/gofpdf` or `github.com/signintech/gopdf`
+- **PDF Generation**: `github.com/otuschhoff/gofpdf` (local at ../gofpdf) or `github.com/signintech/gopdf`
   - Alternative: `github.com/unidoc/unipdf` (commercial but more feature-rich)
 - **XML Generation** (for ZUGFeRD): `encoding/xml` (stdlib)
 - **JSON Parsing**: `encoding/json` (stdlib)
