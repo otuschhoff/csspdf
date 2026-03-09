@@ -63,6 +63,8 @@ func runRenderLogo(args []string) int {
 		x          = logoCmd.Float64("x", -1, "Logo center X in points (default: centered)")
 		y          = logoCmd.Float64("y", -1, "Logo center Y in points (default: centered)")
 		radius     = logoCmd.Float64("r", 16.5, "Logo radius in points")
+		renderBg   = logoCmd.Bool("bg", false, "Render only background radial shadow")
+		renderFg   = logoCmd.Bool("fg", false, "Render only foreground ring with red linear gradient")
 	)
 
 	logoCmd.Usage = func() {
@@ -94,7 +96,11 @@ func runRenderLogo(args []string) int {
 		return 1
 	}
 
-	if err := invoice.RenderLogoPDF(*outputPath, *pageWidth, *pageHeight, *x, *y, *radius); err != nil {
+	// Default to rendering both if neither flag is specified
+	showBg := *renderBg || (!*renderBg && !*renderFg)
+	showFg := *renderFg || (!*renderBg && !*renderFg)
+
+	if err := invoice.RenderLogoPDF(*outputPath, *pageWidth, *pageHeight, *x, *y, *radius, showBg, showFg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error rendering logo PDF: %v\n", err)
 		return 1
 	}
