@@ -8,3 +8,6 @@ output/*.pdf
 .*.swp
 bin/*
 output/*.txt
+inv_builder.go
+pdfdump.go
+invoice-gen
