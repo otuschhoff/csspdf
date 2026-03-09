@@ -23,8 +23,8 @@ func main() {
 		os.Exit(runFull(os.Args[2:]))
 	case "render-logo":
 		os.Exit(runRenderLogo(os.Args[2:]))
-		case "footer":
-			os.Exit(runRenderFooter(os.Args[2:]))
+	case "footer":
+		os.Exit(runRenderFooter(os.Args[2:]))
 	case "dump-pdf":
 		os.Exit(runDumpPDF(os.Args[2:]))
 	case "version", "-version", "--version":
@@ -48,7 +48,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Subcommands:")
 	fmt.Fprintln(w, "  full        Generate full invoice PDF output")
 	fmt.Fprintln(w, "  render-logo Generate a PDF containing only the ring logo")
-		fmt.Fprintln(w, "  footer      Generate a PDF containing only the footer template")
+	fmt.Fprintln(w, "  footer      Generate a PDF containing only the footer template")
 	fmt.Fprintln(w, "  dump-pdf    Display PDF structure with binary streams hidden")
 	fmt.Fprintln(w, "  version     Print version and exit")
 	fmt.Fprintln(w, "")
