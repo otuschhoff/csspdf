@@ -23,6 +23,10 @@ func main() {
 		os.Exit(runFull(os.Args[2:]))
 	case "render-logo":
 		os.Exit(runRenderLogo(os.Args[2:]))
+	case "pageNum":
+		os.Exit(runPageNum(os.Args[2:]))
+	case "logo-and-footer":
+		os.Exit(runLogoAndFooter(os.Args[2:]))
 	case "footer":
 		os.Exit(runRenderFooter(os.Args[2:]))
 	case "dump-pdf":
@@ -48,6 +52,8 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Subcommands:")
 	fmt.Fprintln(w, "  full        Generate full invoice PDF output")
 	fmt.Fprintln(w, "  render-logo Generate a PDF containing only the ring logo")
+	fmt.Fprintln(w, "  pageNum     Generate logo+footer PDF with page numbers on pages > 1")
+	fmt.Fprintln(w, "  logo-and-footer Generate a PDF with title logo and footer template")
 	fmt.Fprintln(w, "  footer      Generate a PDF containing only the footer template")
 	fmt.Fprintln(w, "  dump-pdf    Display PDF structure with binary streams hidden")
 	fmt.Fprintln(w, "  version     Print version and exit")
@@ -151,6 +157,92 @@ func runRenderFooter(args []string) int {
 	}
 
 	fmt.Printf("✓ Footer PDF generated successfully: %s\n", *outputPath)
+	return 0
+}
+
+func runLogoAndFooter(args []string) int {
+	cmd := flag.NewFlagSet("logo-and-footer", flag.ContinueOnError)
+	cmd.SetOutput(os.Stderr)
+
+	var (
+		outputPath  = cmd.String("o", "output/logo-and-footer.pdf", "Output PDF path")
+		companyPath = cmd.String("company", "configs/myCompany.json", "Company JSON path")
+		pageWidth   = cmd.Float64("page-width", invoice.DocWidth, "Page width in points")
+		pageHeight  = cmd.Float64("page-height", invoice.DocHeight, "Page height in points")
+		pageCount   = cmd.Int("pages", 2, "Number of pages to generate")
+	)
+
+	cmd.Usage = func() {
+		fmt.Fprintln(os.Stderr, "Usage:")
+		fmt.Fprintln(os.Stderr, "  invoice-gen logo-and-footer [options]")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Options:")
+		cmd.PrintDefaults()
+	}
+
+	if err := cmd.Parse(args); err != nil {
+		return 2
+	}
+
+	if *pageWidth <= 0 || *pageHeight <= 0 || *pageCount < 1 {
+		fmt.Fprintln(os.Stderr, "Error: page size must be greater than zero and pages must be at least 1")
+		return 2
+	}
+
+	if err := os.MkdirAll(filepath.Dir(*outputPath), 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		return 1
+	}
+
+	if err := invoice.RenderLogoAndFooterPDF(*outputPath, *companyPath, *pageWidth, *pageHeight, *pageCount); err != nil {
+		fmt.Fprintf(os.Stderr, "Error rendering logo-and-footer PDF: %v\n", err)
+		return 1
+	}
+
+	fmt.Printf("✓ Logo+Footer PDF generated successfully: %s\n", *outputPath)
+	return 0
+}
+
+func runPageNum(args []string) int {
+	cmd := flag.NewFlagSet("pageNum", flag.ContinueOnError)
+	cmd.SetOutput(os.Stderr)
+
+	var (
+		outputPath  = cmd.String("o", "output/pageNum.pdf", "Output PDF path")
+		companyPath = cmd.String("company", "configs/myCompany.json", "Company JSON path")
+		pageWidth   = cmd.Float64("page-width", invoice.DocWidth, "Page width in points")
+		pageHeight  = cmd.Float64("page-height", invoice.DocHeight, "Page height in points")
+		pageCount   = cmd.Int("pages", 2, "Number of pages to generate")
+	)
+
+	cmd.Usage = func() {
+		fmt.Fprintln(os.Stderr, "Usage:")
+		fmt.Fprintln(os.Stderr, "  invoice-gen pageNum [options]")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Options:")
+		cmd.PrintDefaults()
+	}
+
+	if err := cmd.Parse(args); err != nil {
+		return 2
+	}
+
+	if *pageWidth <= 0 || *pageHeight <= 0 || *pageCount < 1 {
+		fmt.Fprintln(os.Stderr, "Error: page size must be greater than zero and pages must be at least 1")
+		return 2
+	}
+
+	if err := os.MkdirAll(filepath.Dir(*outputPath), 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		return 1
+	}
+
+	if err := invoice.RenderPageNumPDF(*outputPath, *companyPath, *pageWidth, *pageHeight, *pageCount); err != nil {
+		fmt.Fprintf(os.Stderr, "Error rendering pageNum PDF: %v\n", err)
+		return 1
+	}
+
+	fmt.Printf("✓ PageNum PDF generated successfully: %s\n", *outputPath)
 	return 0
 }
 
