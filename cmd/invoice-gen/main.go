@@ -23,6 +23,8 @@ func main() {
 		os.Exit(runFull(os.Args[2:]))
 	case "render-logo":
 		os.Exit(runRenderLogo(os.Args[2:]))
+		case "footer":
+			os.Exit(runRenderFooter(os.Args[2:]))
 	case "dump-pdf":
 		os.Exit(runDumpPDF(os.Args[2:]))
 	case "version", "-version", "--version":
@@ -46,10 +48,11 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Subcommands:")
 	fmt.Fprintln(w, "  full        Generate full invoice PDF output")
 	fmt.Fprintln(w, "  render-logo Generate a PDF containing only the ring logo")
+		fmt.Fprintln(w, "  footer      Generate a PDF containing only the footer template")
 	fmt.Fprintln(w, "  dump-pdf    Display PDF structure with binary streams hidden")
 	fmt.Fprintln(w, "  version     Print version and exit")
 	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Use 'invoice-gen full -h' or 'invoice-gen render-logo -h' for command options.")
+	fmt.Fprintln(w, "Use 'invoice-gen <subcommand> -h' for command-specific options.")
 }
 
 func runRenderLogo(args []string) int {
@@ -109,33 +112,70 @@ func runRenderLogo(args []string) int {
 	return 0
 }
 
+func runRenderFooter(args []string) int {
+	footerCmd := flag.NewFlagSet("footer", flag.ContinueOnError)
+	footerCmd.SetOutput(os.Stderr)
+
+	var (
+		outputPath  = footerCmd.String("o", "output/footer.pdf", "Output PDF path")
+		companyPath = footerCmd.String("company", "configs/myCompany.json", "Company JSON path")
+		pageWidth   = footerCmd.Float64("page-width", invoice.DocWidth, "Page width in points")
+		pageHeight  = footerCmd.Float64("page-height", invoice.DocHeight, "Page height in points")
+	)
+
+	footerCmd.Usage = func() {
+		fmt.Fprintln(os.Stderr, "Usage:")
+		fmt.Fprintln(os.Stderr, "  invoice-gen footer [options]")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Options:")
+		footerCmd.PrintDefaults()
+	}
+
+	if err := footerCmd.Parse(args); err != nil {
+		return 2
+	}
+
+	if *pageWidth <= 0 || *pageHeight <= 0 {
+		fmt.Fprintln(os.Stderr, "Error: page size must be greater than zero")
+		return 2
+	}
+
+	if err := os.MkdirAll(filepath.Dir(*outputPath), 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		return 1
+	}
+
+	if err := invoice.RenderFooterPDF(*outputPath, *companyPath, *pageWidth, *pageHeight); err != nil {
+		fmt.Fprintf(os.Stderr, "Error rendering footer PDF: %v\n", err)
+		return 1
+	}
+
+	fmt.Printf("✓ Footer PDF generated successfully: %s\n", *outputPath)
+	return 0
+}
+
 func runDumpPDF(args []string) int {
 	dumpCmd := flag.NewFlagSet("dump-pdf", flag.ContinueOnError)
 	dumpCmd.SetOutput(os.Stderr)
 
-	var (
-		pdfPath = dumpCmd.String("i", "", "Path to PDF file (required)")
-	)
-
 	dumpCmd.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage:")
-		fmt.Fprintln(os.Stderr, "  invoice-gen dump-pdf -i <file.pdf>")
-		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintln(os.Stderr, "Options:")
-		dumpCmd.PrintDefaults()
+		fmt.Fprintln(os.Stderr, "  invoice-gen dump-pdf <file.pdf>")
 	}
 
 	if err := dumpCmd.Parse(args); err != nil {
 		return 2
 	}
 
-	if *pdfPath == "" {
-		fmt.Fprintf(os.Stderr, "Error: PDF path (-i) is required\n\n")
+	if len(dumpCmd.Args()) < 1 {
+		fmt.Fprintf(os.Stderr, "Error: PDF file path is required\n\n")
 		dumpCmd.Usage()
 		return 2
 	}
 
-	if err := invoice.DumpPDF(*pdfPath); err != nil {
+	pdfPath := dumpCmd.Args()[0]
+
+	if err := invoice.DumpPDF(pdfPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Error dumping PDF: %v\n", err)
 		return 1
 	}
