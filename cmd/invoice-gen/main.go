@@ -25,6 +25,8 @@ func main() {
 		os.Exit(runRenderLogo(os.Args[2:]))
 	case "intro":
 		os.Exit(runIntro(os.Args[2:]))
+	case "totals":
+		os.Exit(runTotals(os.Args[2:]))
 	case "letter-type":
 		os.Exit(runLetterType(os.Args[2:]))
 	case "letter":
@@ -59,6 +61,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  full        Generate full invoice PDF output")
 	fmt.Fprintln(w, "  render-logo Generate a PDF containing only the ring logo")
 	fmt.Fprintln(w, "  intro       Generate letter-type layout plus intro text block")
+	fmt.Fprintln(w, "  totals      Generate intro layout plus table with service line items")
 	fmt.Fprintln(w, "  letter-type Generate letter layout with document type header and info box")
 	fmt.Fprintln(w, "  letter      Generate pageNum layout plus letter address block")
 	fmt.Fprintln(w, "  pageNum     Generate logo+footer PDF with page numbers on pages > 1")
@@ -338,6 +341,49 @@ func runIntro(args []string) int {
 	}
 
 	fmt.Printf("✓ Intro PDF generated successfully: %s\n", *outputPath)
+	return 0
+}
+
+func runTotals(args []string) int {
+	cmd := flag.NewFlagSet("totals", flag.ContinueOnError)
+	cmd.SetOutput(os.Stderr)
+
+	var (
+		outputPath  = cmd.String("o", "output/totals.pdf", "Output PDF path")
+		companyPath = cmd.String("company", "configs/myCompany.json", "Company JSON path")
+		pageWidth   = cmd.Float64("page-width", invoice.DocWidth, "Page width in points")
+		pageHeight  = cmd.Float64("page-height", invoice.DocHeight, "Page height in points")
+		pageCount   = cmd.Int("pages", 2, "Number of pages to generate")
+	)
+
+	cmd.Usage = func() {
+		fmt.Fprintln(os.Stderr, "Usage:")
+		fmt.Fprintln(os.Stderr, "  invoice-gen totals [options]")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Options:")
+		cmd.PrintDefaults()
+	}
+
+	if err := cmd.Parse(args); err != nil {
+		return 2
+	}
+
+	if *pageWidth <= 0 || *pageHeight <= 0 || *pageCount < 1 {
+		fmt.Fprintln(os.Stderr, "Error: page size must be greater than zero and pages must be at least 1")
+		return 2
+	}
+
+	if err := os.MkdirAll(filepath.Dir(*outputPath), 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		return 1
+	}
+
+	if err := invoice.RenderTotalsPDF(*outputPath, *companyPath, *pageWidth, *pageHeight, *pageCount); err != nil {
+		fmt.Fprintf(os.Stderr, "Error rendering totals PDF: %v\n", err)
+		return 1
+	}
+
+	fmt.Printf("✓ Totals PDF generated successfully: %s\n", *outputPath)
 	return 0
 }
 
