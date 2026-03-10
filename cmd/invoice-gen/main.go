@@ -23,6 +23,10 @@ func main() {
 		os.Exit(runFull(os.Args[2:]))
 	case "render-logo":
 		os.Exit(runRenderLogo(os.Args[2:]))
+	case "letter-type":
+		os.Exit(runLetterType(os.Args[2:]))
+	case "letter":
+		os.Exit(runLetter(os.Args[2:]))
 	case "pageNum":
 		os.Exit(runPageNum(os.Args[2:]))
 	case "logo-and-footer":
@@ -52,6 +56,8 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Subcommands:")
 	fmt.Fprintln(w, "  full        Generate full invoice PDF output")
 	fmt.Fprintln(w, "  render-logo Generate a PDF containing only the ring logo")
+	fmt.Fprintln(w, "  letter-type Generate letter layout with document type header and info box")
+	fmt.Fprintln(w, "  letter      Generate pageNum layout plus letter address block")
 	fmt.Fprintln(w, "  pageNum     Generate logo+footer PDF with page numbers on pages > 1")
 	fmt.Fprintln(w, "  logo-and-footer Generate a PDF with title logo and footer template")
 	fmt.Fprintln(w, "  footer      Generate a PDF containing only the footer template")
@@ -243,6 +249,92 @@ func runPageNum(args []string) int {
 	}
 
 	fmt.Printf("✓ PageNum PDF generated successfully: %s\n", *outputPath)
+	return 0
+}
+
+func runLetterType(args []string) int {
+	cmd := flag.NewFlagSet("letter-type", flag.ContinueOnError)
+	cmd.SetOutput(os.Stderr)
+
+	var (
+		outputPath  = cmd.String("o", "output/letter-type.pdf", "Output PDF path")
+		companyPath = cmd.String("company", "configs/myCompany.json", "Company JSON path")
+		pageWidth   = cmd.Float64("page-width", invoice.DocWidth, "Page width in points")
+		pageHeight  = cmd.Float64("page-height", invoice.DocHeight, "Page height in points")
+		pageCount   = cmd.Int("pages", 2, "Number of pages to generate")
+	)
+
+	cmd.Usage = func() {
+		fmt.Fprintln(os.Stderr, "Usage:")
+		fmt.Fprintln(os.Stderr, "  invoice-gen letter-type [options]")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Options:")
+		cmd.PrintDefaults()
+	}
+
+	if err := cmd.Parse(args); err != nil {
+		return 2
+	}
+
+	if *pageWidth <= 0 || *pageHeight <= 0 || *pageCount < 1 {
+		fmt.Fprintln(os.Stderr, "Error: page size must be greater than zero and pages must be at least 1")
+		return 2
+	}
+
+	if err := os.MkdirAll(filepath.Dir(*outputPath), 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		return 1
+	}
+
+	if err := invoice.RenderLetterTypePDF(*outputPath, *companyPath, *pageWidth, *pageHeight, *pageCount); err != nil {
+		fmt.Fprintf(os.Stderr, "Error rendering letter-type PDF: %v\n", err)
+		return 1
+	}
+
+	fmt.Printf("✓ Letter-type PDF generated successfully: %s\n", *outputPath)
+	return 0
+}
+
+func runLetter(args []string) int {
+	cmd := flag.NewFlagSet("letter", flag.ContinueOnError)
+	cmd.SetOutput(os.Stderr)
+
+	var (
+		outputPath  = cmd.String("o", "output/letter.pdf", "Output PDF path")
+		companyPath = cmd.String("company", "configs/myCompany.json", "Company JSON path")
+		pageWidth   = cmd.Float64("page-width", invoice.DocWidth, "Page width in points")
+		pageHeight  = cmd.Float64("page-height", invoice.DocHeight, "Page height in points")
+		pageCount   = cmd.Int("pages", 2, "Number of pages to generate")
+	)
+
+	cmd.Usage = func() {
+		fmt.Fprintln(os.Stderr, "Usage:")
+		fmt.Fprintln(os.Stderr, "  invoice-gen letter [options]")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Options:")
+		cmd.PrintDefaults()
+	}
+
+	if err := cmd.Parse(args); err != nil {
+		return 2
+	}
+
+	if *pageWidth <= 0 || *pageHeight <= 0 || *pageCount < 1 {
+		fmt.Fprintln(os.Stderr, "Error: page size must be greater than zero and pages must be at least 1")
+		return 2
+	}
+
+	if err := os.MkdirAll(filepath.Dir(*outputPath), 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		return 1
+	}
+
+	if err := invoice.RenderLetterPDF(*outputPath, *companyPath, *pageWidth, *pageHeight, *pageCount); err != nil {
+		fmt.Fprintf(os.Stderr, "Error rendering letter PDF: %v\n", err)
+		return 1
+	}
+
+	fmt.Printf("✓ Letter PDF generated successfully: %s\n", *outputPath)
 	return 0
 }
 
