@@ -13,3 +13,4 @@ pdfdump.go
 /invoice-gen
 letter.pdf
 gen_inv
+output/test.html
