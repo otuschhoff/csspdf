@@ -273,10 +273,11 @@ Run tasks with `xc <task>`. The task definitions below are xc-compatible.
 
 ### build
 
-Build the CLI binary into `bin/invoice-gen`.
+Build CLI binaries into `bin/`.
 
 ```sh
 go build -o bin/invoice-gen ./cmd/invoice-gen
+go build -o bin/dom-parse ./cmd/dom-parse
 ```
 
 ### render-sample
