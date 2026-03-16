@@ -2,11 +2,16 @@ module github.com/otuschhoff/invoice-gen
 
 go 1.25.0
 
-require github.com/otuschhoff/gofpdf v1.4.2
+require (
+	github.com/andybalholm/cascadia v1.3.3
+	github.com/aymerick/douceur v0.2.0
+	github.com/otuschhoff/gofpdf v1.4.2
+	golang.org/x/net v0.52.0
+)
 
 require (
+	github.com/gorilla/css v1.0.1 // indirect
 	github.com/phpdave11/gofpdf v1.4.3 // indirect
-	golang.org/x/net v0.52.0 // indirect
 )
 
 require (
