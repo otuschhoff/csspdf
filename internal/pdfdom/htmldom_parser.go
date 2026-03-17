@@ -73,7 +73,8 @@ func ParseHTMLIntroElem(htmlStr, cssStyle string) (*ElemDiv, error) {
 
 // ParseHTMLDocFlow parses an HTML fragment into top-level renderable elements
 // in source order. cssStyle is applied before parsing (may be empty).
-// Supported root-level tags are <div>, <table>, <img>, and headings <h1>..<h3>.
+// Supported root-level tags are <div>, <footer>, <table>, <img>, and headings
+// <h1>..<h3>.
 func ParseHTMLDocFlow(htmlStr, cssStyle string) ([]PDFElementNode, error) {
 	doc, err := tmpl.ParseStyledFragment(htmlStr, cssStyle)
 	if err != nil {
@@ -89,6 +90,8 @@ func ParseHTMLDocFlow(htmlStr, cssStyle string) ([]PDFElementNode, error) {
 	for _, child := range tmpl.ElemChildren(body) {
 		switch child.Data {
 		case "div":
+			out = append(out, htmlBuildIntroDiv(child))
+		case "footer":
 			out = append(out, htmlBuildIntroDiv(child))
 		case "h1", "h2", "h3":
 			heading, err := htmlBuildHeading(child)

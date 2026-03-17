@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	css "github.com/aymerick/douceur/css"
@@ -258,4 +259,31 @@ func parseCSSPageLength(raw, property string, parseLength func(string) (float64,
 		return 0, fmt.Errorf("invalid %s value %q", property, raw)
 	}
 	return value, nil
+}
+
+var (
+	runningFooterRe = regexp.MustCompile(`(?is)footer\s*\{[^}]*position\s*:\s*running\(\s*([a-z0-9_-]+)\s*\)\s*;?[^}]*\}`)
+	pageElementRe   = regexp.MustCompile(`(?is)@page(?:\s+[^\{]+)?\s*\{[\s\S]*?@bottom-center\s*\{[^}]*content\s*:\s*element\(\s*([a-z0-9_-]+)\s*\)\s*;?[^}]*\}`)
+)
+
+// ParseRunningFooterName returns the running footer name when both rules exist:
+//   - footer { position: running(name); }
+//   - @page { @bottom-center { content: element(name); } }
+// and both names match.
+func ParseRunningFooterName(cssText string) (string, bool) {
+	if strings.TrimSpace(cssText) == "" {
+		return "", false
+	}
+	runningMatch := runningFooterRe.FindStringSubmatch(strings.ToLower(cssText))
+	if len(runningMatch) < 2 {
+		return "", false
+	}
+	elementMatch := pageElementRe.FindStringSubmatch(strings.ToLower(cssText))
+	if len(elementMatch) < 2 {
+		return "", false
+	}
+	if runningMatch[1] != elementMatch[1] {
+		return "", false
+	}
+	return runningMatch[1], true
 }

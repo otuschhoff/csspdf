@@ -3,12 +3,60 @@ package pdfrender
 import (
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/otuschhoff/invoice-gen/internal/pdfdom"
 )
 
+var runningPositionRe = regexp.MustCompile(`^running\(\s*([a-z0-9_-]+)\s*\)$`)
+
+// ExtractRunningFooterElement finds the first element with
+// position="running(name)" and returns the matched name, the element, and a
+// filtered slice without it. When name is empty, the first element with any
+// position="running(...)" value is matched. Returns ("", nil, elements) when
+// no match is found.
+func ExtractRunningFooterElement(elements []pdfdom.PDFElementNode, name string) (matchedName string, elem pdfdom.PDFElementNode, remaining []pdfdom.PDFElementNode) {
+	if len(elements) == 0 {
+		return "", nil, elements
+	}
+	want := strings.ToLower(strings.TrimSpace(name))
+	filtered := make([]pdfdom.PDFElementNode, 0, len(elements))
+	var footer pdfdom.PDFElementNode
+	var foundName string
+
+	for _, el := range elements {
+		if footer == nil {
+			if raw, ok := el.Attribute("position"); ok {
+				match := runningPositionRe.FindStringSubmatch(strings.ToLower(strings.TrimSpace(raw)))
+				if len(match) == 2 && (want == "" || match[1] == want) {
+					foundName = match[1]
+					footer = el
+					continue
+				}
+			}
+		}
+		filtered = append(filtered, el)
+	}
+
+	if footer == nil {
+		return "", nil, elements
+	}
+	return foundName, footer, filtered
+}
+
 // RenderDocTemplateFlow renders a document flow from pre-built PDFDOM elements.
+// Elements with CSS position:running(name) are extracted, registered as
+// running footer templates, and stamped on every page via BeginPage.
 func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
+	// Extract and register any running-positioned footer element.
+	if name, footerElem, remaining := ExtractRunningFooterElement(elements, ""); footerElem != nil {
+		elements = remaining
+		if err := l.SetRunningFooterTemplateFromElement(name, footerElem); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to register running footer %q: %v\n", name, err)
+		}
+	}
+
 	x, y, maxW := l.CurrentFlowBox()
 	engine := NewPDFTextEngine(l.PDF, l.I18n)
 

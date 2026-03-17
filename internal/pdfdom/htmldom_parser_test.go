@@ -124,6 +124,28 @@ func TestParseHTMLDocFlow_IncludesTopLevelUseTemplate(t *testing.T) {
 	}
 }
 
+func TestParseHTMLDocFlow_IncludesTopLevelFooterAsContainer(t *testing.T) {
+	h := `<footer><span>Footer Line 1</span><br><span>Footer Line 2</span></footer>`
+	css := `footer { position: running(site-footer); }`
+	elements, err := ParseHTMLDocFlow(h, css)
+	if err != nil {
+		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
+	}
+	if len(elements) != 1 {
+		t.Fatalf("expected 1 top-level element, got %d", len(elements))
+	}
+	footer, ok := elements[0].(*ElemDiv)
+	if !ok {
+		t.Fatalf("expected footer to map to *ElemDiv container, got %T", elements[0])
+	}
+	if got, ok := footer.Attribute("position"); !ok || got != "running(site-footer)" {
+		t.Fatalf("expected footer position=running(site-footer), got %q (present=%v)", got, ok)
+	}
+	if len(footer.ElementChildren()) == 0 {
+		t.Fatalf("expected footer container to keep children")
+	}
+}
+
 func TestParseHTMLDocFlow_IncludesTopLevelHeading(t *testing.T) {
 	const h1CSS = "h1 { font-size: 20; font-weight: normal; }"
 	elements, err := ParseHTMLDocFlow("<h1>Leistungsnachweis</h1>", h1CSS)

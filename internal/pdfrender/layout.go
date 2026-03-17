@@ -75,26 +75,28 @@ const (
 // standalone rendering subcommands. Build one with NewLayoutPDF; use the
 // exported methods to compose pages.
 type LayoutPDF struct {
-	PDF              *gofpdf.Fpdf
-	Style            *Style
-	Formatter        *format.Formatter
-	I18n             *i18n.I18n
-	TableRdr         *TableRenderer
-	DeferFlowPageNum bool
-	CurrentPage      int
-	TotalPages       int
-	pageWidth        float64
-	pageHeight       float64
-	currentMargins   templateload.PageMargins
-	defaultPage      templateload.PageSettings
-	firstPage        templateload.PageSettings
-	defaultAssets    layoutPageAssets
-	firstAssets      layoutPageAssets
-	footerTpl        gofpdf.Template
-	footerSize       gofpdf.SizeType
-	footerPos        gofpdf.PointType
-	logoHeaderTpl    gofpdf.Template
-	logoHeaderSize   gofpdf.SizeType
+	PDF               *gofpdf.Fpdf
+	Style             *Style
+	Formatter         *format.Formatter
+	I18n              *i18n.I18n
+	TableRdr          *TableRenderer
+	DeferFlowPageNum  bool
+	CurrentPage       int
+	TotalPages        int
+	pageWidth         float64
+	pageHeight        float64
+	currentMargins    templateload.PageMargins
+	defaultPage       templateload.PageSettings
+	firstPage         templateload.PageSettings
+	defaultAssets     layoutPageAssets
+	firstAssets       layoutPageAssets
+	footerTpl         gofpdf.Template
+	footerSize        gofpdf.SizeType
+	footerPos         gofpdf.PointType
+	logoHeaderTpl     gofpdf.Template
+	logoHeaderSize    gofpdf.SizeType
+	runningFooterTpl  gofpdf.Template
+	runningFooterSize gofpdf.SizeType
 }
 
 type layoutPageAssets struct {
@@ -248,6 +250,143 @@ func (l *LayoutPDF) BeginPage(page int) {
 		l.PDF.UseTemplateScaled(l.logoHeaderTpl, gofpdf.PointType{X: 0, Y: 0}, l.logoHeaderSize)
 	}
 	l.PDF.UseTemplateScaled(l.footerTpl, l.footerPos, l.footerSize)
+	l.renderRunningFooterTemplate()
+}
+
+// SetRunningFooterTemplateFromElement creates and stores a reusable footer
+// template from a running footer element and applies it to the current page.
+func (l *LayoutPDF) SetRunningFooterTemplateFromElement(name string, footerElem pdfdom.PDFElementNode) error {
+	if footerElem == nil {
+		return fmt.Errorf("running footer element is nil")
+	}
+
+	flowX, _, flowW := l.CurrentFlowBox()
+	lines := runningFooterTextLines(footerElem)
+	if len(lines) == 0 {
+		return fmt.Errorf("running footer %q has no renderable content", name)
+	}
+
+	fontFace := "Helvetica"
+	fontSize := 9.0
+	if l.Style != nil {
+		if strings.TrimSpace(l.Style.Normal.FontFace) != "" {
+			fontFace = l.Style.Normal.FontFace
+		}
+		if l.Style.Normal.FontSize > 0 {
+			fontSize = float64(l.Style.Normal.FontSize)
+		}
+	}
+
+	lineHeight := fontSize * 1.2
+	padding := 4.0
+	height := padding*2 + lineHeight*float64(len(lines))
+	if height > l.pageHeight {
+		height = l.pageHeight
+	}
+
+	safeName := strings.ToUpper(strings.TrimSpace(name))
+	if safeName == "" {
+		safeName = "RUNNING-FOOTER"
+	} else {
+		safeName = "RUNNING-" + safeName
+	}
+
+	tpl := l.PDF.CreateTemplateCustomNamed(
+		gofpdf.PointType{X: 0, Y: 0},
+		gofpdf.SizeType{Wd: flowW, Ht: height},
+		safeName,
+		func(t *gofpdf.Tpl) {
+			t.SetTextColor(0x22, 0x22, 0x22)
+			t.SetFont(fontFace, "", fontSize)
+			y := padding + fontSize
+			for _, line := range lines {
+				text := strings.TrimSpace(line)
+				if text == "" {
+					y += lineHeight
+					continue
+				}
+				lineW := t.GetStringWidth(text)
+				x := (flowW - lineW) / 2
+				if x < 0 {
+					x = 0
+				}
+				t.Text(x, y, text)
+				y += lineHeight
+			}
+		},
+	)
+
+	l.runningFooterTpl = tpl
+	l.runningFooterSize = gofpdf.SizeType{Wd: flowW, Ht: height}
+
+	if flowX >= 0 {
+		l.renderRunningFooterTemplate()
+	}
+
+	return nil
+}
+
+func (l *LayoutPDF) renderRunningFooterTemplate() {
+	if l.runningFooterTpl == nil || l.runningFooterSize.Wd <= 0 || l.runningFooterSize.Ht <= 0 {
+		return
+	}
+	x := (l.pageWidth - l.runningFooterSize.Wd) / 2
+	if x < 0 {
+		x = 0
+	}
+	y := l.pageHeight - l.currentMargins.Bottom - l.runningFooterSize.Ht
+	if y < 0 {
+		y = l.pageHeight - l.runningFooterSize.Ht
+	}
+	if y < 0 {
+		y = 0
+	}
+	l.PDF.UseTemplateScaled(l.runningFooterTpl, gofpdf.PointType{X: x, Y: y}, l.runningFooterSize)
+}
+
+func runningFooterTextLines(node pdfdom.PDFNode) []string {
+	lines := []string{""}
+	appendToken := func(token string) {
+		t := strings.TrimSpace(token)
+		if t == "" {
+			return
+		}
+		last := len(lines) - 1
+		if strings.TrimSpace(lines[last]) == "" {
+			lines[last] = t
+			return
+		}
+		lines[last] += " " + t
+	}
+
+	var walk func(pdfdom.PDFNode)
+	walk = func(n pdfdom.PDFNode) {
+		switch v := n.(type) {
+		case *pdfdom.PDFTextNode:
+			appendToken(v.Text)
+		case *pdfdom.ElemBr:
+			lines = append(lines, "")
+		case pdfdom.PDFElementNode:
+			children := v.ElementChildren()
+			lineBreaks := v.ElementChildLineBreaks()
+			for idx, child := range children {
+				if idx < len(lineBreaks) && lineBreaks[idx] {
+					lines = append(lines, "")
+				}
+				walk(child)
+			}
+		}
+	}
+
+	walk(node)
+	trimmed := make([]string, 0, len(lines))
+	for _, line := range lines {
+		t := strings.TrimSpace(line)
+		if t != "" {
+			trimmed = append(trimmed, t)
+		}
+	}
+	return trimmed
 }
 
 func (l *LayoutPDF) pageConfigFor(page int) (templateload.PageSettings, layoutPageAssets) {

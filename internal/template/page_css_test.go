@@ -82,3 +82,34 @@ func TestParseCSSPageSettings_PageAndFirstOverride(t *testing.T) {
 		t.Fatalf("unexpected first-page margins: %+v", firstPage.Margins)
 	}
 }
+
+func TestParseRunningFooterName_MatchingRules(t *testing.T) {
+	cssText := `
+footer {
+	position: running(site-footer);
+}
+
+@page {
+	@bottom-center {
+		content: element(site-footer);
+	}
+}
+`
+	name, ok := ParseRunningFooterName(cssText)
+	if !ok {
+		t.Fatalf("expected running footer name to be detected")
+	}
+	if name != "site-footer" {
+		t.Fatalf("expected site-footer, got %q", name)
+	}
+}
+
+func TestParseRunningFooterName_MismatchedRules(t *testing.T) {
+	cssText := `
+footer { position: running(site-footer); }
+@page { @bottom-center { content: element(other-footer); } }
+`
+	if name, ok := ParseRunningFooterName(cssText); ok {
+		t.Fatalf("expected no running footer match, got %q", name)
+	}
+}
