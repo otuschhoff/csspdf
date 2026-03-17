@@ -1,4 +1,4 @@
-package pdflayout
+package pdfrender
 
 import (
 	"fmt"

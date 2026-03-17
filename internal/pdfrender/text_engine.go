@@ -1,4 +1,4 @@
-package pdfdom
+package pdfrender
 
 import (
 	"fmt"
@@ -10,7 +10,28 @@ import (
 	"unicode/utf8"
 
 	"github.com/otuschhoff/gofpdf"
+	"github.com/otuschhoff/invoice-gen/internal/pdfdom"
 )
+
+type Translator = pdfdom.Translator
+type PDFTextStyle = pdfdom.PDFTextStyle
+type PDFTextBox = pdfdom.PDFTextBox
+type TextAlign = pdfdom.TextAlign
+
+const (
+	TextAlignLeft   = pdfdom.TextAlignLeft
+	TextAlignCenter = pdfdom.TextAlignCenter
+	TextAlignRight  = pdfdom.TextAlignRight
+	TextFitClip     = pdfdom.TextFitClip
+	TextFitWrap     = pdfdom.TextFitWrap
+)
+
+type PDFNode = pdfdom.PDFNode
+type PDFDocumentNode = pdfdom.PDFDocumentNode
+type PDFElementNode = pdfdom.PDFElementNode
+type PDFTextNode = pdfdom.PDFTextNode
+type ElemBr = pdfdom.ElemBr
+type ElemImg = pdfdom.ElemImg
 
 // PDFTextMetrics contains calculated dimensions and rendering metadata.
 type PDFTextMetrics struct {
@@ -88,7 +109,7 @@ func NewPDFTextEngine(pdf *gofpdf.Fpdf, i18n Translator) *PDFTextEngine {
 }
 
 func (e *PDFTextEngine) SetDefaultStyle(style PDFTextStyle) {
-	e.defaultStyle = style.withDefaults()
+	e.defaultStyle = ensureTextStyleDefaults(style)
 }
 
 func (e *PDFTextEngine) GlyphRegistry() *FontGlyphRegistry {
@@ -646,9 +667,35 @@ func alignedX(align TextAlign, x, width, lineWidth float64) float64 {
 
 func resolveBox(box *PDFTextBox) PDFTextBox {
 	if box != nil {
-		return box.withDefaults()
+		return ensureTextBoxDefaults(*box)
 	}
-	return PDFTextBox{X: 0, Y: 0, Width: 0, Height: 0, Fit: TextFitWrap}
+	return ensureTextBoxDefaults(PDFTextBox{X: 0, Y: 0, Width: 0, Height: 0, Fit: TextFitWrap})
+}
+
+func ensureTextStyleDefaults(style PDFTextStyle) PDFTextStyle {
+	if style.FontFace == "" {
+		style.FontFace = "Helvetica"
+	}
+	if style.FontSize <= 0 {
+		style.FontSize = 10
+	}
+	if style.FontColor == "" {
+		style.FontColor = "#000"
+	}
+	if style.Align == "" {
+		style.Align = TextAlignLeft
+	}
+	if style.LineHeight <= 0 {
+		style.LineHeight = 1.2
+	}
+	return style
+}
+
+func ensureTextBoxDefaults(box PDFTextBox) PDFTextBox {
+	if box.Fit == "" {
+		box.Fit = TextFitWrap
+	}
+	return box
 }
 
 func htmlLengthToFloat(node PDFElementNode, keys ...string) float64 {
