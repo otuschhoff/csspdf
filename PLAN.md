@@ -272,28 +272,11 @@ Proceed with **Phase 5 (Finalize Template Separation)**.
 - `ccc2e1f`: added temporary invoice-level `pdf_dumper` compatibility shim
 
 ### Phase 5 Progress
-- In progress: remove invoice-level forwarding helpers that only proxy to `internal/template`
-- Implemented in working tree:
-  - direct `template.*` helper calls in `internal/invoice/html_flow_parser.go`
-  - removed redundant forwarding helper functions from that file
-  - updated `internal/invoice/page_settings.go` to pass `template.ParseLengthValue` directly
-  - updated parser tests to assert `template.CSSDeclarationToAttr` directly
+- **Phase 5a committed** (`744362b`): removed invoice-level template forwarding helpers from `html_flow_parser`, updated parser tests, and cleaned plan status.
+- **Phase 5b implemented in working tree**: removed `internal/invoice/page_settings.go` compatibility wrapper; `pdf_generator` and tests now call `template.ParseCSSPageSettings` directly.
 
 ### Next Step
-Validate, commit Phase 5 changes, then continue with remaining template/data boundary cleanup.
-1. Set up Go project structure and initialize go.mod
-2. Define all data models in `models.go`
-3. Implement JSON file readers:
-   - `LoadInvoice(path string) (*Invoice, error)`
-   - `LoadCompany(path string) (*Company, error)`
-   - `LoadStyle(path string) (*Style, error)`
-4. Create basic PDF output with company header
-5. Test font loading (Helvetica + Futura)
-
-### Phase 2: Core PDF Generation (Days 3-5)
-1. Implement generic table renderer with:
-   - Column width calculation
-   - Cell rendering with padding
+Commit Phase 5b and continue with remaining template/data boundary cleanup in Phase 5/6.
    - Row styling (background, borders)
    - Text alignment
 2. Create formatters for currency, dates, numbers
