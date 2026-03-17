@@ -258,106 +258,29 @@ If a task exceeds budget, split it into two sub-phases before coding.
 ---
 
 ## Recommended Immediate Next Step
-Start with **Phase 1 (pdfdump extraction)** because it has the least coupling and gives a clean template for subsequent package moves.
+Proceed with **Phase 5 (Finalize Template Separation)**.
 
-type CellElement struct {
-    Text         string
-    Face         string
-    Size         int
-    Color        string
-    Align        string
-    Hide         bool
-    Continued    bool
-    LineBreak    bool
-    OffsetX      float64
-}
+## Execution Status (Updated 2026-03-17)
 
-func RenderTable(pdf *PDF, table *Table, startY float64) error
-```
+### Completed Phases
+- **Phase 0+2** completed (`77482dc`): smoke task + app/invoice service boundary
+- **Phase 1** completed (`76c8976`): PDF dump extraction into `internal/pdfdump`
+- **Phase 3** completed (`5da99ba`): PDF core extraction into `internal/pdfcore`
+- **Phase 4** completed (`faafb4f`): table renderer extraction into `internal/pdflayout`
 
-### 4.3 Formatters (`formatter.go`)
+### Follow-up Commits
+- `ccc2e1f`: added temporary invoice-level `pdf_dumper` compatibility shim
 
-Locale-aware formatting for numbers, currency, and dates:
+### Phase 5 Progress
+- In progress: remove invoice-level forwarding helpers that only proxy to `internal/template`
+- Implemented in working tree:
+  - direct `template.*` helper calls in `internal/invoice/html_flow_parser.go`
+  - removed redundant forwarding helper functions from that file
+  - updated `internal/invoice/page_settings.go` to pass `template.ParseLengthValue` directly
+  - updated parser tests to assert `template.CSSDeclarationToAttr` directly
 
-```go
-type Formatter struct {
-    Locale       string
-    Currency     string
-    DecSeparator string
-    ThouSeparator string
-}
-
-func (f *Formatter) FormatCurrency(value float64) string
-// German: "21.375,00 €"
-// English: "€21,375.00"
-
-func (f *Formatter) FormatFloat(value float64, decimals int) string
-// German: "13,5"
-// English: "13.5"
-
-func (f *Formatter) FormatDate(date time.Time, format string) string
-// ISO: "2026-03-02"
-// Full: "2. März 2026" / "March 2, 2026"
-
-func (f *Formatter) FormatDuration(hours float64) string
-// "13:30" for 13.5 hours
-
-func (f *Formatter) FormatWorkWeek(date time.Time) string
-// "9.1" (week 9, day 1)
-```
-
-### 4.4 Internationalization (`i18n.go`)
-
-Load and manage translations from JSON files:
-
-```go
-type I18n struct {
-    Translations map[string]map[string]string
-    Locale       string
-}
-
-func NewI18n(locale string) (*I18n, error)
-func (i *I18n) LoadLocale(path string) error
-func (i *I18n) T(key string) string
-
-// Translation keys (matching JS implementation):
-// - docType (quote, invoice, response)
-// - descServices, manHours, manDays, dailyRate
-// - date, month, workWeekShort, timesheet
-// - netDue, vat, totalDue
-// - greeting, invoiceIntro, invoiceOutro, closing
-// - bankAccount
-// - poHistTitle, poHistStatus, poHistInvoiced, poHistPayed, poHistRemaining
-```
-
-### 4.5 ZUGFeRD/Factur-X (`zugferd.go`)
-
-Generate XRechnung-compliant XML and embed into PDF:
-
-```go
-type ZUGFeRDGenerator struct {
-    Invoice      *Invoice
-    Company      *Company
-    Customer     *CustomerDetails
-}
-
-func (z *ZUGFeRDGenerator) GenerateXML() ([]byte, error)
-func (z *ZUGFeRDGenerator) EmbedIntoPDF(pdfPath, xmlPath, outputPath string) error
-
-// XML Structure:
-// - CrossIndustryInvoice (root)
-// - ExchangedDocumentContext (specification)
-// - ExchangedDocument (invoice metadata)
-// - SupplyChainTradeTransaction
-//   - IncludedSupplyChainTradeLineItem (line items)
-//   - ApplicableHeaderTradeAgreement (buyer/seller)
-//   - ApplicableHeaderTradeDelivery (delivery date)
-//   - ApplicableHeaderTradeSettlement (payment terms, totals)
-```
-
-## 5. Implementation Steps
-
-### Phase 1: Foundation (Days 1-2)
+### Next Step
+Validate, commit Phase 5 changes, then continue with remaining template/data boundary cleanup.
 1. Set up Go project structure and initialize go.mod
 2. Define all data models in `models.go`
 3. Implement JSON file readers:
