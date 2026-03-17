@@ -71,11 +71,15 @@ type logoGeometry struct {
 }
 
 func CreateRingLogoTemplate(pdf *gofpdf.Fpdf, r, cx, cy float64) gofpdf.Template {
+	return CreateRingLogoTemplateWithLayers(pdf, r, cx, cy, true, true)
+}
+
+func CreateRingLogoTemplateWithLayers(pdf *gofpdf.Fpdf, r, cx, cy float64, renderBg, renderFg bool) gofpdf.Template {
 	return pdf.CreateTemplateCustom(
 		gofpdf.PointType{X: 0, Y: 0},
 		gofpdf.SizeType{Wd: 3.4 * r, Ht: 3.4 * r},
 		func(t *gofpdf.Tpl) {
-			drawRingLogoCore(t, r, cx, cy, true, true)
+			drawRingLogoCore(t, r, cx, cy, renderBg, renderFg)
 		},
 	)
 }
