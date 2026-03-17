@@ -280,6 +280,17 @@ go build -o bin/invoice-gen ./cmd/invoice-gen
 go build -o bin/dom-parse ./cmd/dom-parse
 ```
 
+### smoke
+
+Build all packages, run tests, and generate the totals PDF. Use this as a quick sanity check after code changes.
+
+```sh
+go build ./internal/... ./cmd/...
+go test ./internal/...
+go build -o bin/invoice-gen ./cmd/invoice-gen
+bin/invoice-gen totals
+```
+
 ### render-sample
 
 Build and render the sample invoice in verbose mode.

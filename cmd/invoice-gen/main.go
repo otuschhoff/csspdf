@@ -7,7 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/otuschhoff/invoice-gen/internal/invoice"
+	appinvoice "github.com/otuschhoff/invoice-gen/internal/app/invoice"
+	"github.com/otuschhoff/invoice-gen/internal/pdfdump"
 )
 
 const version = "0.1.0"
@@ -56,8 +57,8 @@ func runTotals(args []string) int {
 	var (
 		outputPath  = cmd.String("o", "output/totals.pdf", "Output PDF path")
 		companyPath = cmd.String("company", "configs/myCompany.json", "Company JSON path")
-		pageWidth   = cmd.Float64("page-width", invoice.DocWidth, "Page width in points")
-		pageHeight  = cmd.Float64("page-height", invoice.DocHeight, "Page height in points")
+		pageWidth   = cmd.Float64("page-width", appinvoice.DocWidth, "Page width in points")
+		pageHeight  = cmd.Float64("page-height", appinvoice.DocHeight, "Page height in points")
 		pageCount   = cmd.Int("pages", 2, "Number of pages to generate")
 	)
 
@@ -83,7 +84,13 @@ func runTotals(args []string) int {
 		return 1
 	}
 
-	if err := invoice.RenderTotalsPDF(*outputPath, *companyPath, *pageWidth, *pageHeight, *pageCount); err != nil {
+	if err := appinvoice.RenderTotals(appinvoice.RenderTotalsOptions{
+		OutputPath:  *outputPath,
+		CompanyPath: *companyPath,
+		PageWidth:   *pageWidth,
+		PageHeight:  *pageHeight,
+		PageCount:   *pageCount,
+	}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error rendering totals PDF: %v\n", err)
 		return 1
 	}
@@ -113,7 +120,7 @@ func runDumpPDF(args []string) int {
 
 	pdfPath := dumpCmd.Args()[0]
 
-	if err := invoice.DumpPDF(pdfPath); err != nil {
+	if err := pdfdump.DumpPDF(pdfPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Error dumping PDF: %v\n", err)
 		return 1
 	}
