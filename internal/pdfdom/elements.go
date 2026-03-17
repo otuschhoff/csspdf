@@ -103,6 +103,7 @@ type ElemUl struct{ baseElementNode }
 type ElemOl struct{ baseElementNode }
 type ElemLi struct{ baseElementNode }
 type ElemImg struct{ baseElementNode }
+type ElemUseTemplate struct{ baseElementNode }
 
 // ElemCurrencyValue formats a float64 as a locale-aware currency string.
 type ElemCurrencyValue struct {
@@ -152,6 +153,7 @@ func (*ElemUl) isPDFNode()            {}
 func (*ElemOl) isPDFNode()            {}
 func (*ElemLi) isPDFNode()            {}
 func (*ElemImg) isPDFNode()           {}
+func (*ElemUseTemplate) isPDFNode()   {}
 func (*ElemCurrencyValue) isPDFNode() {}
 func (*ElemDateValue) isPDFNode()     {}
 func (*ElemDurationValue) isPDFNode() {}
@@ -177,6 +179,7 @@ func (e *ElemUl) ElementType() string            { return "ul" }
 func (e *ElemOl) ElementType() string            { return "ol" }
 func (e *ElemLi) ElementType() string            { return "li" }
 func (e *ElemImg) ElementType() string           { return "img" }
+func (e *ElemUseTemplate) ElementType() string   { return "use-template" }
 func (e *ElemCurrencyValue) ElementType() string { return "currency-value" }
 func (e *ElemDateValue) ElementType() string     { return "date-value" }
 func (e *ElemDurationValue) ElementType() string { return "duration-value" }
@@ -299,6 +302,12 @@ func NewElemLi() *ElemLi {
 
 func NewElemImg() *ElemImg {
 	n := &ElemImg{}
+	n.owner = n
+	return n
+}
+
+func NewElemUseTemplate() *ElemUseTemplate {
+	n := &ElemUseTemplate{}
 	n.owner = n
 	return n
 }
@@ -449,6 +458,10 @@ func (e *ElemBr) validateChild(_ PDFNode) error {
 
 func (e *ElemImg) validateChild(_ PDFNode) error {
 	return fmt.Errorf("img may not have children")
+}
+
+func (e *ElemUseTemplate) validateChild(_ PDFNode) error {
+	return fmt.Errorf("use-template may not have children")
 }
 
 func (e *ElemCurrencyValue) validateChild(_ PDFNode) error {

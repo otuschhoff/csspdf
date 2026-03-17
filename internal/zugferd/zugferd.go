@@ -7,18 +7,18 @@ import (
 
 	domain "github.com/otuschhoff/invoice-gen/internal/domain/invoice"
 	"github.com/otuschhoff/invoice-gen/internal/format"
-	invoice "github.com/otuschhoff/invoice-gen/internal/invoice"
+	"github.com/otuschhoff/invoice-gen/internal/pdfrender"
 )
 
 // ZUGFeRDGenerator generates ZUGFeRD/XRechnung XML
 type ZUGFeRDGenerator struct {
 	invoice   *domain.Invoice
-	company   *invoice.Company
+	company   *pdfrender.Company
 	formatter *format.Formatter
 }
 
 // NewZUGFeRDGenerator creates a new ZUGFeRD generator
-func NewZUGFeRDGenerator(inv *domain.Invoice, company *invoice.Company, formatter *format.Formatter) *ZUGFeRDGenerator {
+func NewZUGFeRDGenerator(inv *domain.Invoice, company *pdfrender.Company, formatter *format.Formatter) *ZUGFeRDGenerator {
 	return &ZUGFeRDGenerator{
 		invoice:   inv,
 		company:   company,

@@ -104,6 +104,8 @@ func ParseHTMLDocFlow(htmlStr, cssStyle string) ([]PDFElementNode, error) {
 			out = append(out, table)
 		case "img":
 			out = append(out, htmlBuildImage(child))
+		case "use-template":
+			out = append(out, htmlBuildUseTemplate(child))
 		}
 	}
 
@@ -225,6 +227,12 @@ func htmlBuildImage(n *html.Node) *ElemImg {
 	img := NewElemImg()
 	htmlSetAttrs(img, n.Attr)
 	return img
+}
+
+func htmlBuildUseTemplate(n *html.Node) *ElemUseTemplate {
+	elem := NewElemUseTemplate()
+	htmlSetAttrs(elem, n.Attr)
+	return elem
 }
 
 func htmlBuildHeading(n *html.Node) (PDFElementNode, error) {

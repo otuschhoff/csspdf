@@ -94,6 +94,36 @@ func TestParseHTMLDocFlow_IncludesNestedImageInDiv(t *testing.T) {
 	}
 }
 
+func TestParseHTMLDocFlow_IncludesTopLevelUseTemplate(t *testing.T) {
+	h := "<use-template name=\"Logo1\" x=\"75\" y=\"67\" width=\"56.1\" height=\"56.1\"></use-template>"
+	elements, err := ParseHTMLDocFlow(h, "")
+	if err != nil {
+		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
+	}
+	if len(elements) != 1 {
+		t.Fatalf("expected 1 top-level element, got %d", len(elements))
+	}
+	useTpl, ok := elements[0].(*ElemUseTemplate)
+	if !ok {
+		t.Fatalf("expected first element to be *ElemUseTemplate, got %T", elements[0])
+	}
+	if got, ok := useTpl.Attribute("name"); !ok || got != "Logo1" {
+		t.Fatalf("expected name=Logo1, got %q (present=%v)", got, ok)
+	}
+	if got, ok := useTpl.Attribute("x"); !ok || got != "75" {
+		t.Fatalf("expected x=75, got %q (present=%v)", got, ok)
+	}
+	if got, ok := useTpl.Attribute("y"); !ok || got != "67" {
+		t.Fatalf("expected y=67, got %q (present=%v)", got, ok)
+	}
+	if got, ok := useTpl.Attribute("width"); !ok || got != "56.1" {
+		t.Fatalf("expected width=56.1, got %q (present=%v)", got, ok)
+	}
+	if got, ok := useTpl.Attribute("height"); !ok || got != "56.1" {
+		t.Fatalf("expected height=56.1, got %q (present=%v)", got, ok)
+	}
+}
+
 func TestParseHTMLDocFlow_IncludesTopLevelHeading(t *testing.T) {
 	const h1CSS = "h1 { font-size: 20; font-weight: normal; }"
 	elements, err := ParseHTMLDocFlow("<h1>Leistungsnachweis</h1>", h1CSS)
