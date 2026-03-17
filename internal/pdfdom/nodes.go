@@ -1,4 +1,4 @@
-package pdfcore
+package pdfdom
 
 // Translator resolves i18n keys to their translated strings.
 // Implemented by *invoice.I18n; defined here to avoid an import cycle.

@@ -3,7 +3,7 @@ package template
 import (
 	"testing"
 
-	"github.com/otuschhoff/invoice-gen/internal/pdfcore"
+	"github.com/otuschhoff/invoice-gen/internal/pdfdom"
 )
 
 // numColCSS provides the CSS rules needed by tests that exercise class-based
@@ -33,7 +33,7 @@ func TestParseHTMLTableElem_AppliesNumColHeaderAlignment(t *testing.T) {
 		t.Fatalf("expected 1 table section, got %d", len(sections))
 	}
 
-	thead, ok := sections[0].(*pdfcore.ElemThead)
+	thead, ok := sections[0].(*pdfdom.ElemThead)
 	if !ok {
 		t.Fatalf("expected thead section, got %T", sections[0])
 	}
@@ -43,7 +43,7 @@ func TestParseHTMLTableElem_AppliesNumColHeaderAlignment(t *testing.T) {
 		t.Fatalf("expected 1 header row, got %d", len(rows))
 	}
 
-	row, ok := rows[0].(*pdfcore.ElemTr)
+	row, ok := rows[0].(*pdfdom.ElemTr)
 	if !ok {
 		t.Fatalf("expected header row, got %T", rows[0])
 	}
@@ -53,7 +53,7 @@ func TestParseHTMLTableElem_AppliesNumColHeaderAlignment(t *testing.T) {
 		t.Fatalf("expected 1 header cell, got %d", len(cells))
 	}
 
-	cell, ok := cells[0].(*pdfcore.ElemTh)
+	cell, ok := cells[0].(*pdfdom.ElemTh)
 	if !ok {
 		t.Fatalf("expected th cell, got %T", cells[0])
 	}
@@ -76,7 +76,7 @@ func TestParseHTMLDocFlow_IncludesTopLevelImage(t *testing.T) {
 		t.Fatalf("expected 2 top-level elements, got %d", len(elements))
 	}
 
-	img, ok := elements[1].(*pdfcore.ElemImg)
+	img, ok := elements[1].(*pdfdom.ElemImg)
 	if !ok {
 		t.Fatalf("expected second element to be *ElemImg, got %T", elements[1])
 	}
@@ -104,7 +104,7 @@ func TestParseHTMLDocFlow_IncludesNestedImageInDiv(t *testing.T) {
 		t.Fatalf("expected 1 top-level element, got %d", len(elements))
 	}
 
-	div, ok := elements[0].(*pdfcore.ElemDiv)
+	div, ok := elements[0].(*pdfdom.ElemDiv)
 	if !ok {
 		t.Fatalf("expected first element to be *ElemDiv, got %T", elements[0])
 	}
@@ -114,7 +114,7 @@ func TestParseHTMLDocFlow_IncludesNestedImageInDiv(t *testing.T) {
 		t.Fatalf("expected 2 nested children, got %d", len(children))
 	}
 
-	if _, ok := children[1].(*pdfcore.ElemImg); !ok {
+	if _, ok := children[1].(*pdfdom.ElemImg); !ok {
 		t.Fatalf("expected second child to be *ElemImg, got %T", children[1])
 	}
 }
@@ -132,7 +132,7 @@ func TestParseHTMLDocFlow_IncludesTopLevelHeading(t *testing.T) {
 		t.Fatalf("expected 1 top-level element, got %d", len(elements))
 	}
 
-	heading, ok := elements[0].(*pdfcore.ElemH1)
+	heading, ok := elements[0].(*pdfdom.ElemH1)
 	if !ok {
 		t.Fatalf("expected first element to be *ElemH1, got %T", elements[0])
 	}
@@ -142,7 +142,7 @@ func TestParseHTMLDocFlow_IncludesTopLevelHeading(t *testing.T) {
 		t.Fatalf("expected 1 heading child, got %d", len(children))
 	}
 
-	textNode, ok := children[0].(*pdfcore.PDFTextNode)
+	textNode, ok := children[0].(*pdfdom.PDFTextNode)
 	if !ok {
 		t.Fatalf("expected heading child to be *PDFTextNode, got %T", children[0])
 	}
@@ -170,13 +170,13 @@ func TestParseHTMLDocFlow_H1FontWeightNormalClearsDefaultBold(t *testing.T) {
 		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
 	}
 
-	heading := elements[0].(*pdfcore.ElemH1)
+	heading := elements[0].(*pdfdom.ElemH1)
 	children := heading.ElementChildren()
 	if len(children) != 1 {
 		t.Fatalf("expected 1 heading child, got %d", len(children))
 	}
 
-	textNode, ok := children[0].(*pdfcore.PDFTextNode)
+	textNode, ok := children[0].(*pdfdom.PDFTextNode)
 	if !ok {
 		t.Fatalf("expected heading child to be *PDFTextNode, got %T", children[0])
 	}

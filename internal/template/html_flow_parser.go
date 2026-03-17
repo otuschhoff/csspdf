@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/otuschhoff/invoice-gen/internal/pdfcore"
+	"github.com/otuschhoff/invoice-gen/internal/pdfdom"
 	"golang.org/x/net/html"
 )
 
@@ -39,7 +39,7 @@ import (
 // Inside <td>, the first non-empty child is added inline (Add); each
 // subsequent child is added with a preceding line break (AddLine), matching
 // the main-text / sub-text rendering idiom.
-func ParseHTMLTableElem(htmlStr, cssStyle string) (*pdfcore.ElemTable, error) {
+func ParseHTMLTableElem(htmlStr, cssStyle string) (*pdfdom.ElemTable, error) {
 	// Wrap in a minimal document to give the parser a well-defined context.
 	doc, err := ParseStyledFragment(htmlStr, cssStyle)
 	if err != nil {
@@ -57,7 +57,7 @@ func ParseHTMLTableElem(htmlStr, cssStyle string) (*pdfcore.ElemTable, error) {
 // ParseHTMLIntroElem parses an HTML fragment containing a
 // <div id="intro"> element with <span>, <div> and <br> children and maps it
 // to an ElemDiv. cssStyle is applied before parsing (may be empty).
-func ParseHTMLIntroElem(htmlStr, cssStyle string) (*pdfcore.ElemDiv, error) {
+func ParseHTMLIntroElem(htmlStr, cssStyle string) (*pdfdom.ElemDiv, error) {
 	doc, err := ParseStyledFragment(htmlStr, cssStyle)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func ParseHTMLIntroElem(htmlStr, cssStyle string) (*pdfcore.ElemDiv, error) {
 // ParseHTMLDocFlow parses an HTML fragment into top-level renderable elements
 // in source order. cssStyle is applied before parsing (may be empty).
 // Supported root-level tags are <div>, <table>, <img>, and headings <h1>..<h3>.
-func ParseHTMLDocFlow(htmlStr, cssStyle string) ([]pdfcore.PDFElementNode, error) {
+func ParseHTMLDocFlow(htmlStr, cssStyle string) ([]pdfdom.PDFElementNode, error) {
 	doc, err := ParseStyledFragment(htmlStr, cssStyle)
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func ParseHTMLDocFlow(htmlStr, cssStyle string) ([]pdfcore.PDFElementNode, error
 		return nil, fmt.Errorf("no <body> element found in HTML fragment")
 	}
 
-	out := make([]pdfcore.PDFElementNode, 0)
+	out := make([]pdfdom.PDFElementNode, 0)
 	for _, child := range ElemChildren(body) {
 		switch child.Data {
 		case "div":
@@ -118,7 +118,7 @@ func ParseHTMLDocFlow(htmlStr, cssStyle string) ([]pdfcore.PDFElementNode, error
 
 // htmlSetAttrs copies all attributes from an HTML node to a PDFElementNode,
 // normalising hyphenated names to camelCase where needed.
-func htmlSetAttrs(dst pdfcore.PDFElementNode, attrs []html.Attribute) {
+func htmlSetAttrs(dst pdfdom.PDFElementNode, attrs []html.Attribute) {
 	for _, a := range attrs {
 		dst.SetAttribute(htmlNormaliseAttrKey(a.Key), a.Val)
 	}
@@ -158,8 +158,8 @@ func htmlNormaliseAttrKey(key string) string {
 	return key
 }
 
-func htmlBuildIntroDiv(n *html.Node) *pdfcore.ElemDiv {
-	div := pdfcore.NewElemDiv()
+func htmlBuildIntroDiv(n *html.Node) *pdfdom.ElemDiv {
+	div := pdfdom.NewElemDiv()
 	htmlSetAttrs(div, n.Attr)
 	baseSpan := htmlBuildSpan(n)
 	baseStyle := baseSpan.Style
@@ -168,7 +168,7 @@ func htmlBuildIntroDiv(n *html.Node) *pdfcore.ElemDiv {
 		if child.Type == html.TextNode {
 			text := NormaliseInlineTextNode(child.Data)
 			if text != "" {
-				div.Add(&pdfcore.PDFTextNode{Text: text, Style: baseStyle})
+				div.Add(&pdfdom.PDFTextNode{Text: text, Style: baseStyle})
 			}
 			continue
 		}
@@ -182,7 +182,7 @@ func htmlBuildIntroDiv(n *html.Node) *pdfcore.ElemDiv {
 		case "img":
 			div.Add(htmlBuildImage(child))
 		case "div":
-			lineDiv := pdfcore.NewElemDiv()
+			lineDiv := pdfdom.NewElemDiv()
 			htmlSetAttrs(lineDiv, child.Attr)
 			lineBase := htmlBuildSpan(child)
 			lineStyle := lineBase.Style
@@ -194,7 +194,7 @@ func htmlBuildIntroDiv(n *html.Node) *pdfcore.ElemDiv {
 					if text == "" {
 						continue
 					}
-					lineDiv.Add(&pdfcore.PDFTextNode{Text: text, Style: lineStyle})
+					lineDiv.Add(&pdfdom.PDFTextNode{Text: text, Style: lineStyle})
 					hasInline = true
 				case html.ElementNode:
 					switch c.Data {
@@ -205,7 +205,7 @@ func htmlBuildIntroDiv(n *html.Node) *pdfcore.ElemDiv {
 						lineDiv.Add(htmlBuildImage(c))
 						hasInline = true
 					case "br":
-						lineDiv.Add(pdfcore.NewElemBr())
+						lineDiv.Add(pdfdom.NewElemBr())
 					}
 				}
 			}
@@ -214,28 +214,28 @@ func htmlBuildIntroDiv(n *html.Node) *pdfcore.ElemDiv {
 			}
 			div.AddLine(lineDiv)
 		case "br":
-			div.Add(pdfcore.NewElemBr())
+			div.Add(pdfdom.NewElemBr())
 		}
 	}
 
 	return div
 }
 
-func htmlBuildImage(n *html.Node) *pdfcore.ElemImg {
-	img := pdfcore.NewElemImg()
+func htmlBuildImage(n *html.Node) *pdfdom.ElemImg {
+	img := pdfdom.NewElemImg()
 	htmlSetAttrs(img, n.Attr)
 	return img
 }
 
-func htmlBuildHeading(n *html.Node) (pdfcore.PDFElementNode, error) {
-	var heading pdfcore.PDFElementNode
+func htmlBuildHeading(n *html.Node) (pdfdom.PDFElementNode, error) {
+	var heading pdfdom.PDFElementNode
 	switch n.Data {
 	case "h1":
-		heading = pdfcore.NewElemH1()
+		heading = pdfdom.NewElemH1()
 	case "h2":
-		heading = pdfcore.NewElemH2()
+		heading = pdfdom.NewElemH2()
 	case "h3":
-		heading = pdfcore.NewElemH3()
+		heading = pdfdom.NewElemH3()
 	default:
 		return nil, fmt.Errorf("unsupported heading element: <%s>", n.Data)
 	}
@@ -252,7 +252,7 @@ func htmlBuildHeading(n *html.Node) (pdfcore.PDFElementNode, error) {
 			if text == "" {
 				continue
 			}
-			heading.Add(&pdfcore.PDFTextNode{Text: text, Style: baseStyle})
+			heading.Add(&pdfdom.PDFTextNode{Text: text, Style: baseStyle})
 			hasInline = true
 		case html.ElementNode:
 			switch child.Data {
@@ -263,7 +263,7 @@ func htmlBuildHeading(n *html.Node) (pdfcore.PDFElementNode, error) {
 				heading.Add(htmlBuildImage(child))
 				hasInline = true
 			case "br":
-				heading.Add(pdfcore.NewElemBr())
+				heading.Add(pdfdom.NewElemBr())
 			}
 		}
 	}
@@ -277,8 +277,8 @@ func htmlBuildHeading(n *html.Node) (pdfcore.PDFElementNode, error) {
 
 // ─── table ───────────────────────────────────────────────────────────────────
 
-func htmlBuildTable(n *html.Node) (*pdfcore.ElemTable, error) {
-	table := pdfcore.NewElemTable()
+func htmlBuildTable(n *html.Node) (*pdfdom.ElemTable, error) {
+	table := pdfdom.NewElemTable()
 	htmlSetAttrs(table, n.Attr)
 
 	for _, child := range ElemChildren(n) {
@@ -302,13 +302,13 @@ func htmlBuildTable(n *html.Node) (*pdfcore.ElemTable, error) {
 
 // ─── colgroup / col ──────────────────────────────────────────────────────────
 
-func htmlBuildColgroup(n *html.Node) (*pdfcore.ElemColgroup, error) {
-	cg := pdfcore.NewElemColgroup()
+func htmlBuildColgroup(n *html.Node) (*pdfdom.ElemColgroup, error) {
+	cg := pdfdom.NewElemColgroup()
 	for _, child := range ElemChildren(n) {
 		if child.Data != "col" {
 			continue
 		}
-		col := pdfcore.NewElemCol()
+		col := pdfdom.NewElemCol()
 		htmlSetAttrs(col, child.Attr)
 		cg.Add(col)
 	}
@@ -317,13 +317,13 @@ func htmlBuildColgroup(n *html.Node) (*pdfcore.ElemColgroup, error) {
 
 // ─── thead / tbody ───────────────────────────────────────────────────────────
 
-func htmlBuildSection(n *html.Node) (pdfcore.PDFElementNode, error) {
-	var section pdfcore.PDFElementNode
+func htmlBuildSection(n *html.Node) (pdfdom.PDFElementNode, error) {
+	var section pdfdom.PDFElementNode
 	switch n.Data {
 	case "thead":
-		section = pdfcore.NewElemThead()
+		section = pdfdom.NewElemThead()
 	case "tbody":
-		section = pdfcore.NewElemTbody()
+		section = pdfdom.NewElemTbody()
 	default:
 		return nil, fmt.Errorf("unsupported table section: <%s>", n.Data)
 	}
@@ -343,8 +343,8 @@ func htmlBuildSection(n *html.Node) (pdfcore.PDFElementNode, error) {
 
 // ─── tr ──────────────────────────────────────────────────────────────────────
 
-func htmlBuildTr(n *html.Node) (*pdfcore.ElemTr, error) {
-	tr := pdfcore.NewElemTr()
+func htmlBuildTr(n *html.Node) (*pdfdom.ElemTr, error) {
+	tr := pdfdom.NewElemTr()
 	htmlSetAttrs(tr, n.Attr)
 
 	for _, child := range ElemChildren(n) {
@@ -365,13 +365,13 @@ func htmlBuildTr(n *html.Node) (*pdfcore.ElemTr, error) {
 // htmlBuildTableCell converts a <td> or <th> HTML element into an ElemTd/ElemTh.
 // Children are processed in source order: the first non-empty child uses Add
 // (inline), every subsequent child uses AddLine (line break before it).
-func htmlBuildTableCell(n *html.Node) (pdfcore.PDFElementNode, error) {
-	var cell pdfcore.PDFElementNode
+func htmlBuildTableCell(n *html.Node) (pdfdom.PDFElementNode, error) {
+	var cell pdfdom.PDFElementNode
 	switch n.Data {
 	case "td":
-		cell = pdfcore.NewElemTd()
+		cell = pdfdom.NewElemTd()
 	case "th":
-		cell = pdfcore.NewElemTh()
+		cell = pdfdom.NewElemTh()
 	default:
 		return nil, fmt.Errorf("unsupported table cell element: <%s>", n.Data)
 	}
@@ -398,19 +398,19 @@ func htmlBuildTableCell(n *html.Node) (pdfcore.PDFElementNode, error) {
 
 // htmlBuildTdChild maps a single child node of a <td> to a PDFNode.
 // Whitespace-only text nodes and unrecognised elements return nil.
-func htmlBuildTdChild(c *html.Node) (pdfcore.PDFNode, error) {
+func htmlBuildTdChild(c *html.Node) (pdfdom.PDFNode, error) {
 	switch c.Type {
 	case html.TextNode:
 		text := strings.TrimSpace(c.Data)
 		if text == "" {
 			return nil, nil
 		}
-		return &pdfcore.PDFTextNode{Text: text}, nil
+		return &pdfdom.PDFTextNode{Text: text}, nil
 
 	case html.ElementNode:
 		switch c.Data {
 		case "br":
-			return pdfcore.NewElemBr(), nil
+			return pdfdom.NewElemBr(), nil
 		case "span":
 			return htmlBuildSpan(c), nil
 		case "ul":
@@ -428,9 +428,9 @@ func htmlBuildTdChild(c *html.Node) (pdfcore.PDFNode, error) {
 	return nil, nil
 }
 
-func htmlBuildUnorderedList(n *html.Node) *pdfcore.PDFTextNode {
+func htmlBuildUnorderedList(n *html.Node) *pdfdom.PDFTextNode {
 	items := make([]string, 0)
-	var itemStyle *pdfcore.PDFTextStyle
+	var itemStyle *pdfdom.PDFTextStyle
 
 	for _, child := range ElemChildren(n) {
 		if child.Data != "li" {
@@ -468,7 +468,7 @@ func htmlBuildUnorderedList(n *html.Node) *pdfcore.PDFTextNode {
 		return nil
 	}
 
-	return &pdfcore.PDFTextNode{Text: strings.Join(items, "\n"), Style: itemStyle}
+	return &pdfdom.PDFTextNode{Text: strings.Join(items, "\n"), Style: itemStyle}
 }
 
 // ─── <span> → PDFTextNode ────────────────────────────────────────────────────
@@ -476,8 +476,8 @@ func htmlBuildUnorderedList(n *html.Node) *pdfcore.PDFTextNode {
 // htmlBuildSpan converts a <span> to a PDFTextNode, reading font-style,
 // font-face, font-size, font-color, and align attributes into PDFTextStyle.
 // If none of the style attributes are present the style is left nil.
-func htmlBuildSpan(n *html.Node) *pdfcore.PDFTextNode {
-	style := &pdfcore.PDFTextStyle{}
+func htmlBuildSpan(n *html.Node) *pdfdom.PDFTextNode {
+	style := &pdfdom.PDFTextStyle{}
 	for _, a := range n.Attr {
 		switch a.Key {
 		case "font-style":
@@ -521,19 +521,19 @@ func htmlBuildSpan(n *html.Node) *pdfcore.PDFTextNode {
 		style.BorderColor == "" && style.BorderStyle == "" && style.BorderWidth == 0 && !style.FontStyleSet {
 		style = nil
 	}
-	return &pdfcore.PDFTextNode{Text: CollectText(n), Style: style}
+	return &pdfdom.PDFTextNode{Text: CollectText(n), Style: style}
 }
 
-func htmlNormaliseTextAlign(value string) pdfcore.TextAlign {
+func htmlNormaliseTextAlign(value string) pdfdom.TextAlign {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "left", "l":
-		return pdfcore.TextAlignLeft
+		return pdfdom.TextAlignLeft
 	case "center", "c":
-		return pdfcore.TextAlignCenter
+		return pdfdom.TextAlignCenter
 	case "right", "r":
-		return pdfcore.TextAlignRight
+		return pdfdom.TextAlignRight
 	default:
-		return pdfcore.TextAlign(value)
+		return pdfdom.TextAlign(value)
 	}
 }
 
@@ -563,13 +563,13 @@ func htmlNormaliseFontStyle(value string) string {
 
 // ─── value elements ──────────────────────────────────────────────────────────
 
-func htmlBuildCurrencyValue(n *html.Node) (*pdfcore.ElemCurrencyValue, error) {
+func htmlBuildCurrencyValue(n *html.Node) (*pdfdom.ElemCurrencyValue, error) {
 	raw := AttrVal(n, "value")
 	f, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
 		return nil, fmt.Errorf("<currency-value> invalid value=%q: %w", raw, err)
 	}
-	elem := pdfcore.NewElemCurrencyValue(f)
+	elem := pdfdom.NewElemCurrencyValue(f)
 	for _, a := range n.Attr {
 		if a.Key != "value" {
 			elem.SetAttribute(htmlNormaliseAttrKey(a.Key), a.Val)
@@ -578,8 +578,8 @@ func htmlBuildCurrencyValue(n *html.Node) (*pdfcore.ElemCurrencyValue, error) {
 	return elem, nil
 }
 
-func htmlBuildDateValue(n *html.Node) (*pdfcore.ElemDateValue, error) {
-	elem := pdfcore.NewElemDateValue(AttrVal(n, "value"))
+func htmlBuildDateValue(n *html.Node) (*pdfdom.ElemDateValue, error) {
+	elem := pdfdom.NewElemDateValue(AttrVal(n, "value"))
 	for _, a := range n.Attr {
 		if a.Key != "value" {
 			elem.SetAttribute(htmlNormaliseAttrKey(a.Key), a.Val)
@@ -588,13 +588,13 @@ func htmlBuildDateValue(n *html.Node) (*pdfcore.ElemDateValue, error) {
 	return elem, nil
 }
 
-func htmlBuildDurationValue(n *html.Node) (*pdfcore.ElemDurationValue, error) {
+func htmlBuildDurationValue(n *html.Node) (*pdfdom.ElemDurationValue, error) {
 	raw := AttrVal(n, "value")
 	f, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
 		return nil, fmt.Errorf("<duration-value> invalid value=%q: %w", raw, err)
 	}
-	elem := pdfcore.NewElemDurationValue(f)
+	elem := pdfdom.NewElemDurationValue(f)
 	for _, a := range n.Attr {
 		if a.Key != "value" {
 			elem.SetAttribute(htmlNormaliseAttrKey(a.Key), a.Val)
@@ -603,13 +603,13 @@ func htmlBuildDurationValue(n *html.Node) (*pdfcore.ElemDurationValue, error) {
 	return elem, nil
 }
 
-func htmlBuildManDaysValue(n *html.Node) (*pdfcore.ElemManDaysValue, error) {
+func htmlBuildManDaysValue(n *html.Node) (*pdfdom.ElemManDaysValue, error) {
 	raw := AttrVal(n, "value")
 	f, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
 		return nil, fmt.Errorf("<man-days-value> invalid value=%q: %w", raw, err)
 	}
-	elem := pdfcore.NewElemManDaysValue(f)
+	elem := pdfdom.NewElemManDaysValue(f)
 	for _, a := range n.Attr {
 		if a.Key != "value" {
 			elem.SetAttribute(htmlNormaliseAttrKey(a.Key), a.Val)

@@ -1,4 +1,4 @@
-package pdfcore
+package pdfdom
 
 import "fmt"
 

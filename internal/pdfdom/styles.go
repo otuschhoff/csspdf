@@ -1,4 +1,4 @@
-package pdfcore
+package pdfdom
 
 // TextAlign controls horizontal text alignment inside a bounding box.
 type TextAlign string

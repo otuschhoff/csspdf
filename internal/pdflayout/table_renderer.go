@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/otuschhoff/gofpdf"
-	"github.com/otuschhoff/invoice-gen/internal/pdfcore"
+	"github.com/otuschhoff/invoice-gen/internal/pdfdom"
 )
 
 // CellFormatter formats typed cell values into locale-aware strings.
@@ -20,11 +20,11 @@ type CellFormatter interface {
 }
 
 // TableStyle holds the three style variants used by the table renderer.
-// Use pdfcore.StyleVariant values from the host application's style sheet.
+// Use pdfdom.StyleVariant values from the host application's style sheet.
 type TableStyle struct {
-	Title  pdfcore.StyleVariant
-	Normal pdfcore.StyleVariant
-	Small  pdfcore.StyleVariant
+	Title  pdfdom.StyleVariant
+	Normal pdfdom.StyleVariant
+	Small  pdfdom.StyleVariant
 }
 
 // TableRenderer handles rendering tables in PDF documents.
@@ -550,7 +550,7 @@ func (tr *TableRenderer) drawTableBackgroundAndBorder(x, y, width, height float6
 	tr.pdf.Rect(x, y, width, height, style)
 }
 
-func (tr *TableRenderer) setStyle(style pdfcore.StyleVariant) {
+func (tr *TableRenderer) setStyle(style pdfdom.StyleVariant) {
 	face := style.FontFace
 	if face == "Futura-Medium" || face == "Futura" {
 		face = "Helvetica"
