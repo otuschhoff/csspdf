@@ -19,8 +19,6 @@ func main() {
 	}
 
 	switch os.Args[1] {
-	case "full":
-		os.Exit(runFull(os.Args[2:]))
 	case "totals":
 		os.Exit(runTotals(os.Args[2:]))
 	case "dump-pdf":
@@ -44,7 +42,6 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  invoice-gen <subcommand> [options]")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Subcommands:")
-	fmt.Fprintln(w, "  full        Generate full invoice PDF output")
 	fmt.Fprintln(w, "  totals      Generate intro layout plus table with service line items")
 	fmt.Fprintln(w, "  dump-pdf    Display PDF structure with binary streams hidden")
 	fmt.Fprintln(w, "  version     Print version and exit")
@@ -122,150 +119,4 @@ func runDumpPDF(args []string) int {
 	}
 
 	return 0
-}
-
-func runFull(args []string) int {
-	fullCmd := flag.NewFlagSet("full", flag.ContinueOnError)
-	fullCmd.SetOutput(os.Stderr)
-
-	// Define full subcommand flags
-	var (
-		invoicePath = fullCmd.String("i", "", "Path to invoice JSON file (required)")
-		outputPath  = fullCmd.String("o", "", "Output PDF path (default: auto-generated)")
-		companyPath = fullCmd.String("company", "configs/myCompany.json", "Company JSON path")
-		stylePath   = fullCmd.String("style", "configs/myStyle.json", "Style JSON path")
-		locale      = fullCmd.String("locale", "", "Locale (de/en, default: from customer)")
-		showVersion = fullCmd.Bool("version", false, "Show version")
-		verbose     = fullCmd.Bool("v", false, "Verbose output")
-	)
-
-	fullCmd.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Usage:")
-		fmt.Fprintln(os.Stderr, "  invoice-gen full -i <invoice.json> [options]")
-		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintln(os.Stderr, "Options:")
-		fullCmd.PrintDefaults()
-	}
-
-	if err := fullCmd.Parse(args); err != nil {
-		return 2
-	}
-
-	// Show version
-	if *showVersion {
-		fmt.Printf("invoice-gen version %s\n", version)
-		return 0
-	}
-
-	// Validate required flags
-	if *invoicePath == "" {
-		fmt.Fprintf(os.Stderr, "Error: invoice path (-i) is required\n\n")
-		fullCmd.Usage()
-		return 2
-	}
-
-	// Log if verbose
-	log := func(format string, args ...interface{}) {
-		if *verbose {
-			fmt.Printf(format+"\n", args...)
-		}
-	}
-
-	// Load invoice
-	log("Loading invoice from %s", *invoicePath)
-	inv, err := invoice.LoadInvoice(*invoicePath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading invoice: %v\n", err)
-		return 1
-	}
-	log("Loaded invoice %s", inv.Invoice.ID)
-
-	// Load company
-	log("Loading company from %s", *companyPath)
-	company, err := invoice.LoadCompany(*companyPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading company: %v\n", err)
-		return 1
-	}
-	log("Loaded company %s", company.Name)
-
-	// Load style
-	log("Loading style from %s", *stylePath)
-	style := invoice.LoadStyleOrDefault(*stylePath)
-	log("Loaded style configuration")
-
-	// Determine locale
-	if *locale == "" {
-		*locale = inv.Customer.Defaults.Language
-		if *locale == "" {
-			*locale = "de"
-		}
-	}
-	log("Using locale: %s", *locale)
-
-	// Generate output path if not specified
-	if *outputPath == "" {
-		// Format: YYYY-MM-DD - Invoice ID (Description).pdf
-		outputDir := "output"
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
-			return 1
-		}
-
-		filename := fmt.Sprintf("%s - Invoice %s (%s).pdf",
-			inv.Invoice.Date,
-			inv.Invoice.ID,
-			sanitizeFilename(inv.Invoice.Description))
-		*outputPath = filepath.Join(outputDir, filename)
-	}
-
-	log("Output path: %s", *outputPath)
-
-	// Generate PDF
-	log("Generating PDF...")
-	generator, err := invoice.NewPDFGenerator(inv, company, style, *locale)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error initializing PDF generator: %v\n", err)
-		return 1
-	}
-	if err := generator.Generate(*outputPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Error generating PDF: %v\n", err)
-		return 1
-	}
-
-	fmt.Printf("✓ Invoice generated successfully: %s\n", *outputPath)
-	return 0
-}
-
-// sanitizeFilename removes characters that are problematic in filenames
-func sanitizeFilename(s string) string {
-	// Replace problematic characters
-	replacements := map[rune]rune{
-		'/':  '-',
-		'\\': '-',
-		':':  '-',
-		'*':  '-',
-		'?':  '-',
-		'"':  '-',
-		'<':  '-',
-		'>':  '-',
-		'|':  '-',
-	}
-
-	result := make([]rune, 0, len(s))
-	for _, r := range s {
-		if replacement, ok := replacements[r]; ok {
-			result = append(result, replacement)
-		} else {
-			result = append(result, r)
-		}
-	}
-
-	// Truncate if too long
-	str := string(result)
-	if len(str) > 100 {
-		str = str[:100]
-	}
-
-	return str
 }
