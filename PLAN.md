@@ -267,16 +267,17 @@ Proceed with **Phase 5 (Finalize Template Separation)**.
 - **Phase 1** completed (`76c8976`): PDF dump extraction into `internal/pdfdump`
 - **Phase 3** completed (`5da99ba`): PDF core extraction into `internal/pdfcore`
 - **Phase 4** completed (`faafb4f`): table renderer extraction into `internal/pdflayout`
-- **Phase 5a** completed (`744362b`): removed invoice-level template forwarding helpers from `html_flow_parser`
-- **Phase 5b** completed (`102b7c9`): removed `internal/invoice/page_settings.go` compatibility wrapper
-- **Phase 6** completed: domain/data layer extracted — `internal/domain/invoice` (pure models), `internal/i18n` (translation), `internal/format` (formatting); `internal/invoice` re-exports via type aliases for backward compatibility
+- **Phase 5a** completed (`744362b`): removed invoice-level template forwarding helpers
+- **Phase 5b** completed (`102b7c9`): removed `internal/invoice/page_settings.go` wrapper
+- **Phase 6** completed (`62d2a9a`): domain/data layer extracted with type aliases/shims for backward compat
+- **Phase 7** completed (`8634b39`): removed all Phase 6 compatibility shims and aliases; all callers now use canonical packages directly
 
 ### Follow-up Commits
 - `ccc2e1f`: added temporary invoice-level `pdf_dumper` compatibility shim
 - `fe40d57`: gofmt whitespace cleanup
 
 ### Next Step
-Phase 7: remove all temporary compatibility aliases and shims; verify no callers remain.
+Phase 8: Enforce maintainability constraints in CI (lint, architecture checks).
 3. Build first page layout:
    - Header with logo (renderLogo function)
    - Customer address block
