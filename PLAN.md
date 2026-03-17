@@ -1,262 +1,264 @@
-# Plan: Golang PDF Invoice Generator
+# Refactoring Plan (Phased, LLM-Executable)
 
-## Overview
-Create a Golang application that generates PDF invoices matching the output of `mkdocPdfKit.js`. The app will read invoice data from per-invoice JSON files (like `RA-2026-01.json`) instead of using the Q() function to query Excel/ODS files. It will continue to use shared configuration files like `myCompany.json`, `myStyle.json`, and resources like `Unterschrift.png`.
+## Objective
+Refactor `internal/` into clear concern-based packages with small, testable files and functions, while preserving behavior and removing legacy pathways at the end.
 
-## 1. Project Structure
+This plan is intentionally scoped into small phases that a coding LLM can execute safely in one pass.
 
-```
-golang-invoice/
-├── cmd/
-│   └── invoice-gen/
-│       └── main.go              # CLI entry point
-├── internal/
-│   └── invoice/
-│       ├── models.go            # Data structures
-│       ├── pdf_generator.go    # Core PDF generation
-│       ├── table_renderer.go   # Table rendering logic
-│       ├── formatter.go         # Number/date formatters
-│       ├── i18n.go              # Internationalization
-│       └── zugferd.go           # ZUGFeRD/Factur-X XML generation
-├── configs/
-│   ├── myCompany.json           # Company details
-│   ├── myStyle.json             # Styling configuration
-│   └── customers.json           # Customer database (optional)
-├── resources/
-│   ├── Unterschrift.png         # Signature image
-│   ├── Futura.ttc               # Custom fonts
-│   └── locales/
-│       ├── de.json
-│       └── en.json
-├── invoices/
-│   └── RA-2026-01.json          # Invoice data files
-├── output/
-│   └── generated PDFs here
-└── go.mod
-```
+## Design Principles
+- Single responsibility per package.
+- One canonical rendering pipeline (no parallel legacy path once migration is complete).
+- No package cycles; dependency direction is enforced.
+- Small files and functions to keep complexity manageable.
 
-## 2. Core Dependencies
+## Size and Scope Budgets
+- **Per LLM phase**: 4–8 files, ~200–600 changed LOC, max 1 behavior change.
+- **Function length target**: 15–40 LOC (hard cap ~60 except parser state machines).
+- **File length target**: 150–350 LOC (hard cap ~400; split above this).
 
-- **PDF Generation**: `github.com/otuschhoff/gofpdf` (local at ../gofpdf) or `github.com/signintech/gopdf`
-  - Alternative: `github.com/unidoc/unipdf` (commercial but more feature-rich)
-- **XML Generation** (for ZUGFeRD): `encoding/xml` (stdlib)
-- **JSON Parsing**: `encoding/json` (stdlib)
-- **Date/Time**: `time` package (stdlib)
-- **i18n**: `github.com/nicksnyder/go-i18n/v2` or custom implementation
-- **CLI**: `github.com/spf13/cobra` (optional, for better CLI)
+## Target Package Layout
 
-## 3. Data Models (`models.go`)
-
-```go
-type Invoice struct {
-    Invoice      InvoiceDetails      `json:"invoice"`
-    Customer     CustomerDetails     `json:"customer"`
-    Orders       map[string]Order    `json:"orders"`
-    Quotes       map[string]Quote    `json:"quotes"`
-    WorkEntries  []WorkEntry         `json:"workEntries"`
-    ExportedAt   time.Time           `json:"exportedAt"`
-}
-
-type InvoiceDetails struct {
-    ID           string              `json:"id"`
-    Date         string              `json:"date"`
-    Customer     string              `json:"customer"`
-    Description  string              `json:"description"`
-    Gross        float64             `json:"gross"`
-    Net          float64             `json:"net"`
-    VAT          float64             `json:"vat"`
-    DueDate      string              `json:"dueDate"`
-    Documents    []Document          `json:"documents"`
-    Notes        string              `json:"notes"`
-}
-
-type CustomerDetails struct {
-    Code         string              `json:"code"`
-    Name         string              `json:"name"`
-    Address      Address             `json:"address"`
-    Contact      Contact             `json:"contact"`
-    Invoicing    Invoicing           `json:"invoicing"`
-    Defaults     Defaults            `json:"defaults"`
-    VendorID     string              `json:"vendorId"`
-    Active       bool                `json:"active"`
-}
-
-type Address struct {
-    Street       string              `json:"street"`
-    City         string              `json:"city"`
-    PostalCode   string              `json:"postalCode"`
-    Country      string              `json:"country"`
-    State        string              `json:"state"`
-}
-
-type Order struct {
-    ID           string              `json:"id"`
-    Date         string              `json:"date"`
-    Customer     string              `json:"customer"`
-    Description  string              `json:"description"`
-    Gross        float64             `json:"gross"`
-    Net          float64             `json:"net"`
-    VAT          float64             `json:"vat"`
-    QuoteID      string              `json:"quoteId"`
-    Documents    []Document          `json:"documents"`
-}
-
-type Quote struct {
-    ID           string              `json:"id"`
-    Date         string              `json:"date"`
-    Customer     string              `json:"customer"`
-    Title        string              `json:"title"`
-    Description  string              `json:"description"`
-    Gross        float64             `json:"gross"`
-    Net          float64             `json:"net"`
-    VAT          float64             `json:"vat"`
-    ValidUntil   string              `json:"validUntil"`
-    Documents    []Document          `json:"documents"`
-}
-
-type WorkEntry struct {
-    Date         string              `json:"date"`
-    Tasks        []Task              `json:"tasks"`
-}
-
-type Task struct {
-    Customer     string              `json:"customer"`
-    OrderID      string              `json:"orderId"`
-    Duration     float64             `json:"duration"`
-    Topics       []string            `json:"topics"`
-    Billable     bool                `json:"billable"`
-}
-
-type Document struct {
-    Path         string              `json:"path"`
-    SHA256       string              `json:"sha256"`
-    Size         int                 `json:"size"`
-    MimeType     string              `json:"mimeType,omitempty"`
-}
-
-type Company struct {
-    Name         string              `json:"name"`
-    Suffix       string              `json:"suffix"`
-    FullName     string              `json:"fullName"`
-    Street       string              `json:"street"`
-    PLZ          string              `json:"plz"`
-    City         string              `json:"city"`
-    Country      string              `json:"country"`
-    Tel          string              `json:"tel"`
-    Mail         string              `json:"mail"`
-    VAT          string              `json:"vat"`
-    Bank         BankDetails         `json:"bank"`
-    FiscalID     string              `json:"fiscalId"`
-    FiscalNo     string              `json:"fiscalNo"`
-}
-
-type BankDetails struct {
-    Name         string              `json:"name"`
-    IBAN         string              `json:"iban"`
-    BIC          string              `json:"bic"`
-}
-
-type Style struct {
-    FontFace         string           `json:"fontFace"`
-    FontColor        string           `json:"fontColor"`
-    FontColorSub     string           `json:"fontColorSub"`
-    FontSize         int              `json:"fontSize"`
-    FontSizeSmall    int              `json:"fontSizeSmall"`
-    FontSizeTitle    int              `json:"fontSizeTitle"`
-    TableCellYOffset float64          `json:"tableCellYOffset"`
-    Normal           StyleVariant     `json:"normal"`
-    Small            StyleVariant     `json:"small"`
-    SmallGreyed      StyleVariant     `json:"smallGreyed"`
-    Sub              StyleVariant     `json:"sub"`
-    PageNum          StyleVariant     `json:"pageNum"`
-    PageTot          StyleVariant     `json:"pageTot"`
-    Footer           StyleVariant     `json:"footer"`
-    Title            StyleVariant     `json:"title"`
-    CompanyName      StyleVariant     `json:"companyName"`
-    CompanyNameSmall StyleVariant     `json:"companyNameSmall"`
-    CompanySuffix    StyleVariant     `json:"companySuffix"`
-    CompanySuffixSmall StyleVariant   `json:"companySuffixSmall"`
-    DocType          StyleVariant     `json:"docType"`
-}
-
-type StyleVariant struct {
-    FontFace         string           `json:"fontFace"`
-    FontColor        string           `json:"fontColor"`
-    FontSize         int              `json:"fontSize"`
-}
+```text
+internal/
+  app/
+    invoice/            # use-case orchestration only
+  domain/
+    invoice/            # pure business models/rules
+  i18n/                 # locale lookup + translation
+  format/               # currency/date/duration formatting
+  template/
+    load.go             # template execution
+    docflow_parser.go   # HTML/CSS parser primitives
+    css_selectors.go
+    page_css.go
+  pdfcore/              # PDF element tree + text engine + style merging
+  pdflayout/            # page flow, table rendering, layout composition
+  pdfdump/              # standalone PDF dump/inspection utility
+  invoice/              # temporary compatibility façade during migration
 ```
 
-## 4. Main Components
+## Dependency Direction (Must Hold)
+- `domain` -> no internal dependencies.
+- `i18n`, `format` -> may depend on `domain`, never on pdf/layout.
+- `template` -> parser/template logic only, no invoice business data.
+- `pdfcore` -> rendering primitives only, no app/domain orchestration.
+- `pdflayout` -> may depend on `pdfcore` and `template` adapter contracts.
+- `app/invoice` -> orchestrates all lower layers.
+- `cmd/*` -> depends on `app/invoice` and `pdfdump` only.
 
-### 4.1 PDF Generator (`pdf_generator.go`)
+## Baseline Hotspots to Split
+- `internal/invoice/pdf_text.go`
+- `internal/invoice/pdf_generator.go`
+- `internal/invoice/pdf_dumper.go`
+- `internal/invoice/html_flow_parser.go`
+- `internal/invoice/table_renderer.go`
 
-Core responsibilities:
-- Initialize PDF document (A4 portrait: 595.28 x 841.89 pt)
-- Set up fonts (Helvetica standard, Futura custom font)
-- Document margins (55pt)
-- Page management:
-  - First page: Invoice details, items table, summary
-  - Second page: Timesheet/work log
-  - Third page: PO history (optional)
-- Render components:
-  - Logo and company header
-  - Customer address block
-  - Invoice metadata (ID, date, due date)
-  - Invoice positions table
-  - Net/VAT/Gross summary
-  - Footer with bank details and page numbers
-  - Signature image
+---
 
-Key functions:
-```go
-func NewPDFGenerator(invoice *Invoice, company *Company, style *Style) *PDFGenerator
-func (g *PDFGenerator) Generate(outputPath string) error
-func (g *PDFGenerator) renderFirstPage()
-func (g *PDFGenerator) renderTimesheetPage()
-func (g *PDFGenerator) renderFooter(pageNum, pageTotal int)
-func (g *PDFGenerator) renderLogo(x, y, radius float64)
-```
+## Phase 0: Baseline and Safety Rails
 
-### 4.2 Table Renderer (`table_renderer.go`)
+### Goal
+Lock behavior before structural refactors.
 
-Generic table rendering engine matching the JS `renderTable()` function.
+### Tasks
+1. Add/refresh golden validation for `totals` output path (PDF dump/text snapshot).
+2. Add a repeatable smoke command/script for:
+   - `go build ./internal/... ./cmd/...`
+   - `bin/invoice-gen totals`
+3. Document dependency direction and phase budgets in this plan.
 
-Features:
-- Dynamic column widths (fixed or proportional)
-- Row/column metadata (height, background color, borders)
-- Cell content with styling
-- Cell padding and alignment
-- Multi-element cells (text with different styles)
-- Header rows with different styling
-- Right-aligned numbers and currency
-- Currency and date formatting
+### Acceptance Criteria
+- Build passes.
+- Smoke generation passes.
+- Golden artifacts unchanged from baseline.
 
-```go
-type Table struct {
-    Width        float64
-    Padding      float64
-    RowHeightMin float64
-    Title        string
-    ColMeta      []ColumnMeta
-    RowMeta      []RowMeta
-    Content      [][]Cell
-}
+---
 
-type ColumnMeta struct {
-    Width        float64
-}
+## Phase 1: Extract PDF Dump (Low Risk)
 
-type RowMeta struct {
-    Fill         string
-    Height       float64
-    Stroke       string
-}
+### Goal
+Move dumper logic first to establish migration pattern.
 
-type Cell struct {
-    Type         string  // text, currency, date, time, float, workWeek
-    Value        interface{}
-    Elements     []CellElement
-}
+### Tasks
+1. Move `internal/invoice/pdf_dumper.go` -> `internal/pdfdump/*`.
+2. Keep temporary `invoice.DumpPDF` wrapper delegating to new package.
+3. Update command wiring incrementally.
+
+### Acceptance Criteria
+- `invoice-gen dump-pdf` unchanged.
+- Focused dumper tests pass (or add basic regression tests if missing).
+- Full build passes.
+
+### Legacy Note
+Delete wrapper in next phase once callers are switched.
+
+---
+
+## Phase 2: Introduce Application Service Boundary
+
+### Goal
+Create one orchestrator entrypoint used by CLI.
+
+### Tasks
+1. Add `internal/app/invoice` service (e.g. `RenderTotals(...)`).
+2. Move orchestration from `internal/invoice/pdf_generator.go` into service.
+3. `cmd/invoice-gen/main.go` calls service only.
+
+### Acceptance Criteria
+- CLI behavior unchanged.
+- No direct deep rendering orchestration in `cmd/`.
+- Build and smoke pass.
+
+### Legacy Note
+Mark old top-level orchestration funcs as temporary compatibility layer.
+
+---
+
+## Phase 3: Extract PDF Core Primitives
+
+### Goal
+Split `pdf_text.go` into cohesive modules under `internal/pdfcore`.
+
+### Tasks
+1. Move node/type model (`PDFNode`, `PDFElementNode`, element structs).
+2. Move style and merge logic (`PDFTextStyle`, defaults/merge).
+3. Move text engine and box measurement.
+4. Keep temporary aliases/adapters in `internal/invoice` for one phase.
+
+### Suggested file split
+- `internal/pdfcore/nodes.go`
+- `internal/pdfcore/elements.go`
+- `internal/pdfcore/styles.go`
+- `internal/pdfcore/text_engine.go`
+- `internal/pdfcore/measure.go`
+
+### Acceptance Criteria
+- Existing rendering outputs match baseline.
+- Build and focused tests pass.
+
+### Legacy Note
+Remove aliases in Phase 4.
+
+---
+
+## Phase 4: Extract Layout Engine
+
+### Goal
+Move page flow and table layout out of invoice package.
+
+### Tasks
+1. Move table renderer from `internal/invoice/table_renderer.go` to `internal/pdflayout/table/*`.
+2. Move page lifecycle/flow logic from `pdf_generator.go` into `internal/pdflayout/flow/*`.
+3. Keep data-building and business composition out of layout package.
+
+### Acceptance Criteria
+- One layout engine path used by totals rendering.
+- No duplicated flow logic across packages.
+- Build + smoke + golden checks pass.
+
+### Legacy Note
+Delete old layout helpers left in `internal/invoice` once switched.
+
+---
+
+## Phase 5: Finalize Template Separation
+
+### Goal
+Strictly separate template generation, parsing, and mapping.
+
+### Tasks
+1. Keep template execution and CSS parsing in `internal/template`.
+2. Move HTML->PDF element mapping adapter logic out of mixed invoice parser file where practical.
+3. Remove invoice-level wrappers that only forward to `internal/template`.
+
+### Acceptance Criteria
+- `internal/template` remains pure parser/template layer.
+- No business/i18n logic leaks into parser package.
+
+### Legacy Note
+Delete parser forwarders and dead compatibility helpers.
+
+---
+
+## Phase 6: Domain/Data Layer Cleanup
+
+### Goal
+Make business/data preparation pure and independently testable.
+
+### Tasks
+1. Move invoice domain models to `internal/domain/invoice`.
+2. Move/clean data builders so they depend only on domain + i18n/format interfaces.
+3. Isolate i18n and formatter concerns into dedicated packages.
+
+### Acceptance Criteria
+- Data builders run in unit tests without PDF/layout dependencies.
+- Clear interface boundaries for translators/formatters.
+
+---
+
+## Phase 7: Legacy Pathway Removal (Mandatory)
+
+### Goal
+Remove all temporary compatibility pathways.
+
+### Tasks
+1. Delete deprecated wrappers, aliases, and legacy entrypoints.
+2. Remove old tests tied solely to deleted pathways.
+3. Search for dead symbols and remove unreachable code.
+
+### Acceptance Criteria
+- Exactly one canonical totals pipeline remains.
+- No `TODO remove after migration` markers remain.
+- Build/test/smoke/golden checks pass.
+
+---
+
+## Phase 8: Prevent Regression
+
+### Goal
+Enforce maintainability constraints in CI.
+
+### Tasks
+1. Add lint/config checks for function length, cyclomatic complexity, and max file length warnings.
+2. Add architecture rule checks (dependency direction).
+3. Add contributor notes for package responsibilities.
+
+### Acceptance Criteria
+- CI fails when boundaries are violated.
+- Architecture and size budgets are documented and enforced.
+
+---
+
+## Legacy Removal Strategy (Cross-Phase)
+
+For every extracted module:
+1. Introduce wrapper/alias for one phase only.
+2. Switch all call sites in the next phase.
+3. Delete wrapper/alias in the immediately following phase.
+
+No compatibility shim should survive longer than two phases.
+
+---
+
+## Standard LLM Task Packet Template
+
+Each phase execution prompt should include:
+1. Objective and non-goals.
+2. Exact files allowed to modify.
+3. Max LOC/file-count budget.
+4. Required validations.
+5. Expected commit message format:
+   - Why
+   - What changed
+   - Validation
+   - Next legacy cleanup step
+
+If a task exceeds budget, split it into two sub-phases before coding.
+
+---
+
+## Recommended Immediate Next Step
+Start with **Phase 1 (pdfdump extraction)** because it has the least coupling and gives a clean template for subsequent package moves.
 
 type CellElement struct {
     Text         string
