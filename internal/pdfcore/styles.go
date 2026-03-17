@@ -105,3 +105,12 @@ func (b PDFTextBox) withDefaults() PDFTextBox {
 	}
 	return b
 }
+
+// StyleVariant holds the font rendering attributes for a single named style
+// variant (Normal, Small, Title, etc.).  It is defined here so that pdflayout
+// can use it without importing the invoice package.
+type StyleVariant struct {
+	FontFace  string
+	FontColor string
+	FontSize  int
+}
