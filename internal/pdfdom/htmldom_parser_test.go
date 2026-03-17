@@ -1,13 +1,9 @@
-package template
+package pdfdom
 
 import (
 	"testing"
-
-	"github.com/otuschhoff/invoice-gen/internal/pdfdom"
 )
 
-// numColCSS provides the CSS rules needed by tests that exercise class-based
-// column alignment, mirroring the relevant subset of the invoice docStyle.
 const numColCSS = `
 table thead th.num-col,
 table tbody td.num-col {
@@ -16,71 +12,55 @@ table tbody td.num-col {
 `
 
 func TestParseHTMLTableElem_AppliesNumColHeaderAlignment(t *testing.T) {
-	table, err := ParseHTMLTableElem(`
-<table>
-	<thead>
-		<tr>
-			<th class="num-col"><span class="heading">Amount</span></th>
-		</tr>
-	</thead>
-</table>`, numColCSS)
+	table, err := ParseHTMLTableElem(
+		"<table><thead><tr><th class=\"num-col\"><span>Amount</span></th></tr></thead></table>",
+		numColCSS)
 	if err != nil {
 		t.Fatalf("ParseHTMLTableElem returned error: %v", err)
 	}
-
 	sections := table.ElementChildren()
 	if len(sections) != 1 {
 		t.Fatalf("expected 1 table section, got %d", len(sections))
 	}
-
-	thead, ok := sections[0].(*pdfdom.ElemThead)
+	thead, ok := sections[0].(*ElemThead)
 	if !ok {
 		t.Fatalf("expected thead section, got %T", sections[0])
 	}
-
 	rows := thead.ElementChildren()
 	if len(rows) != 1 {
 		t.Fatalf("expected 1 header row, got %d", len(rows))
 	}
-
-	row, ok := rows[0].(*pdfdom.ElemTr)
+	row, ok := rows[0].(*ElemTr)
 	if !ok {
 		t.Fatalf("expected header row, got %T", rows[0])
 	}
-
 	cells := row.ElementChildren()
 	if len(cells) != 1 {
 		t.Fatalf("expected 1 header cell, got %d", len(cells))
 	}
-
-	cell, ok := cells[0].(*pdfdom.ElemTh)
+	cell, ok := cells[0].(*ElemTh)
 	if !ok {
 		t.Fatalf("expected th cell, got %T", cells[0])
 	}
-
 	if got, ok := cell.Attribute("align"); !ok || got != "right" {
 		t.Fatalf("expected th align=right, got %q (present=%v)", got, ok)
 	}
 }
 
 func TestParseHTMLDocFlow_IncludesTopLevelImage(t *testing.T) {
-	elements, err := ParseHTMLDocFlow(`
-<div id="closing">Regards</div>
-<img id="signature" src="Unterschrift.png" width="100" height="53">
-`, "")
+	h := "<div id=\"closing\">Regards</div>" +
+		"<img id=\"signature\" src=\"Unterschrift.png\" width=\"100\" height=\"53\">"
+	elements, err := ParseHTMLDocFlow(h, "")
 	if err != nil {
 		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
 	}
-
 	if len(elements) != 2 {
 		t.Fatalf("expected 2 top-level elements, got %d", len(elements))
 	}
-
-	img, ok := elements[1].(*pdfdom.ElemImg)
+	img, ok := elements[1].(*ElemImg)
 	if !ok {
 		t.Fatalf("expected second element to be *ElemImg, got %T", elements[1])
 	}
-
 	if got, ok := img.Attribute("src"); !ok || got != "Unterschrift.png" {
 		t.Fatalf("expected src=Unterschrift.png, got %q (present=%v)", got, ok)
 	}
@@ -93,63 +73,51 @@ func TestParseHTMLDocFlow_IncludesTopLevelImage(t *testing.T) {
 }
 
 func TestParseHTMLDocFlow_IncludesNestedImageInDiv(t *testing.T) {
-	elements, err := ParseHTMLDocFlow(`
-<div id="closing">Regards<img id="signature" src="Unterschrift.png" width="100" height="53"></div>
-`, "")
+	h := "<div>Regards<img src=\"Unterschrift.png\" width=\"100\" height=\"53\"></div>"
+	elements, err := ParseHTMLDocFlow(h, "")
 	if err != nil {
 		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
 	}
-
 	if len(elements) != 1 {
 		t.Fatalf("expected 1 top-level element, got %d", len(elements))
 	}
-
-	div, ok := elements[0].(*pdfdom.ElemDiv)
+	div, ok := elements[0].(*ElemDiv)
 	if !ok {
 		t.Fatalf("expected first element to be *ElemDiv, got %T", elements[0])
 	}
-
 	children := div.ElementChildren()
 	if len(children) != 2 {
 		t.Fatalf("expected 2 nested children, got %d", len(children))
 	}
-
-	if _, ok := children[1].(*pdfdom.ElemImg); !ok {
+	if _, ok := children[1].(*ElemImg); !ok {
 		t.Fatalf("expected second child to be *ElemImg, got %T", children[1])
 	}
 }
 
 func TestParseHTMLDocFlow_IncludesTopLevelHeading(t *testing.T) {
-	// h1 CSS: font-size:20, font-weight:normal (overrides default bold)
-	const h1CSS = `h1 { font-size: 20; font-weight: normal; }`
-
-	elements, err := ParseHTMLDocFlow(`<h1>Leistungsnachweis</h1>`, h1CSS)
+	const h1CSS = "h1 { font-size: 20; font-weight: normal; }"
+	elements, err := ParseHTMLDocFlow("<h1>Leistungsnachweis</h1>", h1CSS)
 	if err != nil {
 		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
 	}
-
 	if len(elements) != 1 {
 		t.Fatalf("expected 1 top-level element, got %d", len(elements))
 	}
-
-	heading, ok := elements[0].(*pdfdom.ElemH1)
+	heading, ok := elements[0].(*ElemH1)
 	if !ok {
 		t.Fatalf("expected first element to be *ElemH1, got %T", elements[0])
 	}
-
 	children := heading.ElementChildren()
 	if len(children) != 1 {
 		t.Fatalf("expected 1 heading child, got %d", len(children))
 	}
-
-	textNode, ok := children[0].(*pdfdom.PDFTextNode)
+	textNode, ok := children[0].(*PDFTextNode)
 	if !ok {
 		t.Fatalf("expected heading child to be *PDFTextNode, got %T", children[0])
 	}
 	if textNode.Text != "Leistungsnachweis" {
 		t.Fatalf("expected heading text Leistungsnachweis, got %q", textNode.Text)
 	}
-
 	style := heading.ElementStyle()
 	if style == nil {
 		t.Fatalf("expected h1 element to carry a default heading style")
@@ -163,20 +131,17 @@ func TestParseHTMLDocFlow_IncludesTopLevelHeading(t *testing.T) {
 }
 
 func TestParseHTMLDocFlow_H1FontWeightNormalClearsDefaultBold(t *testing.T) {
-	const h1CSS = `h1 { font-size: 20; font-weight: normal; }`
-
-	elements, err := ParseHTMLDocFlow(`<h1>Leistungsnachweis</h1>`, h1CSS)
+	const h1CSS = "h1 { font-size: 20; font-weight: normal; }"
+	elements, err := ParseHTMLDocFlow("<h1>Leistungsnachweis</h1>", h1CSS)
 	if err != nil {
 		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
 	}
-
-	heading := elements[0].(*pdfdom.ElemH1)
+	heading := elements[0].(*ElemH1)
 	children := heading.ElementChildren()
 	if len(children) != 1 {
 		t.Fatalf("expected 1 heading child, got %d", len(children))
 	}
-
-	textNode, ok := children[0].(*pdfdom.PDFTextNode)
+	textNode, ok := children[0].(*PDFTextNode)
 	if !ok {
 		t.Fatalf("expected heading child to be *PDFTextNode, got %T", children[0])
 	}
