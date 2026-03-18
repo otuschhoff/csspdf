@@ -188,6 +188,8 @@ func htmlBuildIntroDiv(n *html.Node) *ElemDiv {
 			div.Add(htmlBuildSpan(child))
 		case "img":
 			div.Add(htmlBuildImage(child))
+		case "use-template":
+			div.Add(htmlBuildUseTemplate(child))
 		case "div":
 			lineDiv := NewElemDiv()
 			htmlSetAttrs(lineDiv, child.Attr)

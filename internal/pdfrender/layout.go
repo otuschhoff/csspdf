@@ -62,13 +62,7 @@ type Style struct {
 }
 
 const (
-	footerLogoRadius = 4.8
-	footerLine1Y     = 20.0
-	footerLine2Y     = 36.0
-	footerLine3Y     = 45.0
-	footerHeight     = 52.0
-	footerLogoGap    = 6.0
-	footerBulletSep  = " \x95 "
+	footerBulletSep = " \x95 "
 )
 
 // LayoutPDF holds the shared PDF document and pre-built templates used by all
@@ -90,9 +84,6 @@ type LayoutPDF struct {
 	firstPage         templateload.PageSettings
 	defaultAssets     layoutPageAssets
 	firstAssets       layoutPageAssets
-	footerTpl         gofpdf.Template
-	footerSize        gofpdf.SizeType
-	footerPos         gofpdf.PointType
 	ringTpl           gofpdf.Template
 	runningFooterTpl  gofpdf.Template
 	runningFooterSize gofpdf.SizeType
@@ -102,9 +93,6 @@ type LayoutPDF struct {
 type layoutPageAssets struct {
 	pageWidth  float64
 	pageHeight float64
-	footerTpl  gofpdf.Template
-	footerSize gofpdf.SizeType
-	footerPos  gofpdf.PointType
 }
 
 // NewLayoutPDF creates a LayoutPDF from pre-loaded company and style data.
@@ -119,8 +107,8 @@ func NewLayoutPDF(company *Company, style *Style, defaultPage, firstPage templat
 		return nil, err
 	}
 
-	defaultAssets := buildLayoutPageAssets(pdf, ringTpl, company, defaultPage.Width, defaultPage.Height)
-	firstAssets := buildLayoutPageAssets(pdf, ringTpl, company, firstPage.Width, firstPage.Height)
+	defaultAssets := buildLayoutPageAssets(defaultPage.Width, defaultPage.Height)
+	firstAssets := buildLayoutPageAssets(firstPage.Width, firstPage.Height)
 
 	tableRdr := NewTableRenderer(pdf, &TableStyle{
 		Title:  style.Title,
@@ -141,73 +129,19 @@ func NewLayoutPDF(company *Company, style *Style, defaultPage, firstPage templat
 		firstPage:      firstPage,
 		defaultAssets:  defaultAssets,
 		firstAssets:    firstAssets,
-		footerTpl:      firstAssets.footerTpl,
-		footerSize:     firstAssets.footerSize,
-		footerPos:      firstAssets.footerPos,
 		ringTpl:        ringTpl,
 	}, nil
 }
 
-func buildLayoutPageAssets(pdf *gofpdf.Fpdf, ringTpl gofpdf.Template, company *Company, pageWidth, pageHeight float64) layoutPageAssets {
-	line1Right := company.Name
-	line1Left := company.Suffix
-	line2 := fmt.Sprintf("%s, %s %s, %s%s%s%s%s",
-		company.Street, company.PLZ, company.City, company.Country,
-		footerBulletSep, company.Tel, footerBulletSep, company.Mail,
-	)
-	line3 := fmt.Sprintf("Bankkonto: %s%s%s%sBIC: %s",
-		company.Bank.IBAN, footerBulletSep, company.Bank.Name, footerBulletSep, company.Bank.BIC,
-	)
-
-	footerTpl := pdf.CreateTemplateCustomNamed(
-		gofpdf.PointType{X: 0, Y: 0},
-		gofpdf.SizeType{Wd: pageWidth, Ht: footerHeight},
-		"INV-FOOTER",
-		func(t *gofpdf.Tpl) {
-			t.SetTextColor(0x22, 0x22, 0x22)
-			logoCx := pageWidth / 2.0
-			centerLineY := footerLine1Y
-
-			rightFontSize := 10.0
-			t.SetFont("Helvetica", "", rightFontSize)
-			rightTextW := t.GetStringWidth(line1Right)
-			rightEdge := logoCx - footerLogoRadius - footerLogoGap
-			t.Text(rightEdge-rightTextW, centerLineY+rightFontSize*0.33, line1Right)
-
-			logoScale := footerLogoRadius / LogoBaseRadius
-			t.UseTemplateScaled(ringTpl,
-				gofpdf.PointType{X: logoCx - LogoTplCenter*logoScale, Y: centerLineY - LogoTplCenter*logoScale},
-				gofpdf.SizeType{Wd: LogoTplExtent * logoScale, Ht: LogoTplExtent * logoScale},
-			)
-
-			leftFontSize := 7.0
-			t.SetFont("Helvetica", "", leftFontSize)
-			t.SetTextColor(0x44, 0x44, 0x44)
-			t.Text(logoCx+footerLogoRadius+footerLogoGap, centerLineY+leftFontSize*0.33, line1Left)
-			t.SetTextColor(0x22, 0x22, 0x22)
-
-			t.SetFont("Helvetica", "", 7)
-			line2W := t.GetStringWidth(line2)
-			t.Text((pageWidth-line2W)/2.0, footerLine2Y, line2)
-
-			line3W := t.GetStringWidth(line3)
-			t.Text((pageWidth-line3W)/2.0, footerLine3Y, line3)
-		},
-	)
-
-	_, footerSize := footerTpl.Size()
-
+func buildLayoutPageAssets(pageWidth, pageHeight float64) layoutPageAssets {
 	return layoutPageAssets{
 		pageWidth:  pageWidth,
 		pageHeight: pageHeight,
-		footerTpl:  footerTpl,
-		footerSize: footerSize,
-		footerPos:  gofpdf.PointType{X: 0, Y: pageHeight - footerHeight - 20},
 	}
 }
 
-// BeginPage handles pagination (AddPage on page > 1) and applies footer
-// templates on every page.
+// BeginPage handles pagination (AddPage on page > 1) and stamps the running
+// footer template on every page.
 func (l *LayoutPDF) BeginPage(page int) {
 	settings, assets := l.pageConfigFor(page)
 	if page > 1 {
@@ -216,42 +150,32 @@ func (l *LayoutPDF) BeginPage(page int) {
 	l.pageWidth = assets.pageWidth
 	l.pageHeight = assets.pageHeight
 	l.currentMargins = settings.Margins
-	l.footerTpl = assets.footerTpl
-	l.footerSize = assets.footerSize
-	l.footerPos = assets.footerPos
-	l.PDF.UseTemplateScaled(l.footerTpl, l.footerPos, l.footerSize)
 	l.renderRunningFooterTemplate()
 }
 
 // SetRunningFooterTemplateFromElement creates and stores a reusable footer
 // template from a running footer element and applies it to the current page.
+// The footer element's children are rendered into a gofpdf template via the
+// full element rendering pipeline: ElemUseTemplate children stamp named
+// templates; all other children are rendered by PDFTextEngine.
 func (l *LayoutPDF) SetRunningFooterTemplateFromElement(name string, footerElem pdfdom.PDFElementNode) error {
 	if footerElem == nil {
 		return fmt.Errorf("running footer element is nil")
 	}
 
-	flowX, _, flowW := l.CurrentFlowBox()
-	lines := runningFooterTextLines(footerElem)
-	if len(lines) == 0 {
-		return fmt.Errorf("running footer %q has no renderable content", name)
-	}
-
-	fontFace := "Helvetica"
-	fontSize := 9.0
-	if l.Style != nil {
-		if strings.TrimSpace(l.Style.Normal.FontFace) != "" {
-			fontFace = l.Style.Normal.FontFace
-		}
-		if l.Style.Normal.FontSize > 0 {
-			fontSize = float64(l.Style.Normal.FontSize)
+	// Read template dimensions from CSS-baked attributes.
+	tplWidth := l.pageWidth
+	if raw, ok := footerElem.Attribute("width"); ok {
+		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil && v > 0 {
+			tplWidth = v
 		}
 	}
-
-	lineHeight := fontSize * 1.2
-	padding := 4.0
-	height := padding*2 + lineHeight*float64(len(lines))
-	if height > l.pageHeight {
-		height = l.pageHeight
+	const defaultFooterHeight = 52.0
+	tplHeight := defaultFooterHeight
+	if raw, ok := footerElem.Attribute("height"); ok {
+		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil && v > 0 {
+			tplHeight = v
+		}
 	}
 
 	safeName := strings.ToUpper(strings.TrimSpace(name))
@@ -261,38 +185,75 @@ func (l *LayoutPDF) SetRunningFooterTemplateFromElement(name string, footerElem 
 		safeName = "RUNNING-" + safeName
 	}
 
+	children := footerElem.ElementChildren()
+	i18nInst := l.I18n
+
 	tpl := l.PDF.CreateTemplateCustomNamed(
 		gofpdf.PointType{X: 0, Y: 0},
-		gofpdf.SizeType{Wd: flowW, Ht: height},
+		gofpdf.SizeType{Wd: tplWidth, Ht: tplHeight},
 		safeName,
 		func(t *gofpdf.Tpl) {
-			t.SetTextColor(0x22, 0x22, 0x22)
-			t.SetFont(fontFace, "", fontSize)
-			y := padding + fontSize
-			for _, line := range lines {
-				text := strings.TrimSpace(line)
-				if text == "" {
-					y += lineHeight
+			engine := NewPDFTextEngine(&t.Fpdf, i18nInst)
+			currentY := 0.0
+			for _, child := range children {
+				childElem, ok := child.(pdfdom.PDFElementNode)
+				if !ok {
 					continue
 				}
-				lineW := t.GetStringWidth(text)
-				x := (flowW - lineW) / 2
-				if x < 0 {
-					x = 0
+				x, y, w, isAbsolute := resolveFlowPlacementWith(childElem, 0, currentY, tplWidth, tplWidth)
+				switch cn := childElem.(type) {
+				case *pdfdom.ElemUseTemplate:
+					tplName, hasName := cn.Attribute("name")
+					if !hasName || strings.TrimSpace(tplName) == "" {
+						continue
+					}
+					childTpl, err := l.TemplateByName(tplName)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: running footer %q: %v\n", name, err)
+						continue
+					}
+					_, nativeSize := childTpl.Size()
+					cw, ch := nativeSize.Wd, nativeSize.Ht
+					if raw, ok := cn.Attribute("width"); ok {
+						if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
+							cw = v
+						}
+					}
+					if raw, ok := cn.Attribute("height"); ok {
+						if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
+							ch = v
+						}
+					}
+					if !isAbsolute && cw == nativeSize.Wd && ch == nativeSize.Ht {
+						t.UseTemplate(childTpl)
+					} else {
+						t.UseTemplateScaled(childTpl,
+							gofpdf.PointType{X: x, Y: y},
+							gofpdf.SizeType{Wd: cw, Ht: ch},
+						)
+					}
+					if !isAbsolute {
+						currentY += ch
+					}
+				default:
+					metrics, err := engine.RenderInBox(childElem, &pdfdom.PDFTextBox{
+						X: x, Y: y, Width: w, Fit: pdfdom.TextFitWrap,
+					})
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: running footer %q: failed to render child: %v\n", name, err)
+						continue
+					}
+					if !isAbsolute {
+						currentY += metrics.Height
+					}
 				}
-				t.Text(x, y, text)
-				y += lineHeight
 			}
 		},
 	)
 
 	l.runningFooterTpl = tpl
-	l.runningFooterSize = gofpdf.SizeType{Wd: flowW, Ht: height}
-
-	if flowX >= 0 {
-		l.renderRunningFooterTemplate()
-	}
-
+	l.runningFooterSize = gofpdf.SizeType{Wd: tplWidth, Ht: tplHeight}
+	l.renderRunningFooterTemplate()
 	return nil
 }
 
@@ -312,51 +273,6 @@ func (l *LayoutPDF) renderRunningFooterTemplate() {
 		y = 0
 	}
 	l.PDF.UseTemplateScaled(l.runningFooterTpl, gofpdf.PointType{X: x, Y: y}, l.runningFooterSize)
-}
-
-func runningFooterTextLines(node pdfdom.PDFNode) []string {
-	lines := []string{""}
-	appendToken := func(token string) {
-		t := strings.TrimSpace(token)
-		if t == "" {
-			return
-		}
-		last := len(lines) - 1
-		if strings.TrimSpace(lines[last]) == "" {
-			lines[last] = t
-			return
-		}
-		lines[last] += " " + t
-	}
-
-	var walk func(pdfdom.PDFNode)
-	walk = func(n pdfdom.PDFNode) {
-		switch v := n.(type) {
-		case *pdfdom.PDFTextNode:
-			appendToken(v.Text)
-		case *pdfdom.ElemBr:
-			lines = append(lines, "")
-		case pdfdom.PDFElementNode:
-			children := v.ElementChildren()
-			lineBreaks := v.ElementChildLineBreaks()
-			for idx, child := range children {
-				if idx < len(lineBreaks) && lineBreaks[idx] {
-					lines = append(lines, "")
-				}
-				walk(child)
-			}
-		}
-	}
-
-	walk(node)
-	trimmed := make([]string, 0, len(lines))
-	for _, line := range lines {
-		t := strings.TrimSpace(line)
-		if t != "" {
-			trimmed = append(trimmed, t)
-		}
-	}
-	return trimmed
 }
 
 func (l *LayoutPDF) pageConfigFor(page int) (templateload.PageSettings, layoutPageAssets) {
@@ -466,9 +382,9 @@ func (l *LayoutPDF) RenderPageNum(page, pageCount int) {
 	l.PDF.Text(l.pageWidth-89, 43, fmt.Sprintf("/ %d", pageCount))
 }
 
-// ResolveFlowPlacement determines the final position and width of a flow element,
-// applying absolute positioning when declared.
-func (l *LayoutPDF) ResolveFlowPlacement(node pdfdom.PDFElementNode, flowX, flowY, flowW float64) (x, y, width float64, absolute bool) {
+// resolveFlowPlacementWith is the pure-function core of placement resolution.
+// pageW is the reference page/container width used for right-edge calculations.
+func resolveFlowPlacementWith(node pdfdom.PDFElementNode, flowX, flowY, flowW, pageW float64) (x, y, width float64, absolute bool) {
 	x = flowX
 	y = flowY
 	width = flowW
@@ -492,16 +408,22 @@ func (l *LayoutPDF) ResolveFlowPlacement(node pdfdom.PDFElementNode, flowX, flow
 	if declaredWidth > 0 {
 		width = declaredWidth
 	} else if left > 0 && right > 0 {
-		width = max(1, l.pageWidth-left-right)
+		width = max(1, pageW-left-right)
 	}
 
 	if left > 0 {
 		x = left
 	} else if right > 0 {
-		x = l.pageWidth - right - width
+		x = pageW - right - width
 	}
 
 	return x, y, width, absolute
+}
+
+// ResolveFlowPlacement determines the final position and width of a flow element,
+// applying absolute positioning when declared.
+func (l *LayoutPDF) ResolveFlowPlacement(node pdfdom.PDFElementNode, flowX, flowY, flowW float64) (x, y, width float64, absolute bool) {
+	return resolveFlowPlacementWith(node, flowX, flowY, flowW, l.pageWidth)
 }
 
 // TableDefFromElement builds a TableDef from an HTML table element.
@@ -843,8 +765,6 @@ func (l *LayoutPDF) TemplateByName(name string) (gofpdf.Template, error) {
 			return nil, fmt.Errorf("ring logo template not initialised")
 		}
 		return l.ringTpl, nil
-	case "inv-footer", "inv_footer", "footer":
-		return l.footerTpl, nil
 	default:
 		return nil, fmt.Errorf("unknown template name %q", name)
 	}
