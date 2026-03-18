@@ -269,6 +269,7 @@ var (
 // ParseRunningFooterName returns the running footer name when both rules exist:
 //   - footer { position: running(name); }
 //   - @page { @bottom-center { content: element(name); } }
+//
 // and both names match.
 func ParseRunningFooterName(cssText string) (string, bool) {
 	if strings.TrimSpace(cssText) == "" {

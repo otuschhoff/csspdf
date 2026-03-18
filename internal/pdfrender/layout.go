@@ -871,36 +871,46 @@ func (l *LayoutPDF) TemplateByName(name string) (gofpdf.Template, error) {
 }
 
 // RenderUseTemplateElement renders a <use-template> element using the named template.
-func (l *LayoutPDF) RenderUseTemplateElement(elem *pdfdom.ElemUseTemplate) error {
+// fallbackX and fallbackY are the current document-flow coordinates; they are
+// used when the element does not carry explicit x or y attributes.
+// Returns the rendered height, whether an explicit position was given (absolute=true
+// means the caller should NOT advance the flow cursor), and any error.
+func (l *LayoutPDF) RenderUseTemplateElement(elem *pdfdom.ElemUseTemplate, fallbackX, fallbackY float64) (renderedHeight float64, absolute bool, err error) {
 	if elem == nil {
-		return fmt.Errorf("use-template element is nil")
+		return 0, false, fmt.Errorf("use-template element is nil")
 	}
 
 	name, ok := elem.Attribute("name")
 	if !ok || strings.TrimSpace(name) == "" {
-		return fmt.Errorf("use-template missing name attribute")
+		return 0, false, fmt.Errorf("use-template missing name attribute")
 	}
 
-	x, err := parseUseTemplateFloatAttr(elem, "x")
-	if err != nil {
-		return err
+	x, y := fallbackX, fallbackY
+	if raw, hasX := elem.Attribute("x"); hasX {
+		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
+			x = v
+			absolute = true
+		}
 	}
-	y, err := parseUseTemplateFloatAttr(elem, "y")
-	if err != nil {
-		return err
+	if raw, hasY := elem.Attribute("y"); hasY {
+		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
+			y = v
+			absolute = true
+		}
 	}
+
 	width, err := parseUseTemplateFloatAttr(elem, "width")
 	if err != nil {
-		return err
+		return 0, false, err
 	}
 	height, err := parseUseTemplateFloatAttr(elem, "height")
 	if err != nil {
-		return err
+		return 0, false, err
 	}
 
 	tpl, err := l.TemplateByName(name)
 	if err != nil {
-		return err
+		return 0, false, err
 	}
 
 	l.PDF.UseTemplateScaled(
@@ -909,7 +919,7 @@ func (l *LayoutPDF) RenderUseTemplateElement(elem *pdfdom.ElemUseTemplate) error
 		gofpdf.SizeType{Wd: width, Ht: height},
 	)
 
-	return nil
+	return height, absolute, nil
 }
 
 func parseUseTemplateFloatAttr(node pdfdom.PDFElementNode, attr string) (float64, error) {

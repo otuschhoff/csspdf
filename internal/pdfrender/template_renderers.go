@@ -144,8 +144,11 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 				currentY = yPos + metrics.Height
 			}
 		case *pdfdom.ElemUseTemplate:
-			if err := l.RenderUseTemplateElement(n); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to render use-template element: %v\n", err)
+			h, abs, uerr := l.RenderUseTemplateElement(n, x, currentY)
+			if uerr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to render use-template element: %v\n", uerr)
+			} else if !abs {
+				currentY += h
 			}
 		}
 
@@ -185,8 +188,11 @@ func RenderTimesheetTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode)
 			}
 			currentY = l.PDF.GetY()
 		case *pdfdom.ElemUseTemplate:
-			if err := l.RenderUseTemplateElement(n); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to render use-template element: %v\n", err)
+			h, abs, uerr := l.RenderUseTemplateElement(n, x, currentY)
+			if uerr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to render use-template element: %v\n", uerr)
+			} else if !abs {
+				currentY += h
 			}
 		}
 	}
