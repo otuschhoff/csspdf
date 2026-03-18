@@ -3,12 +3,15 @@
 // packages are internal implementation details.
 package invoice
 
-import "github.com/otuschhoff/invoice-gen/internal/invoice"
+import (
+	"github.com/otuschhoff/invoice-gen/internal/invoice"
+	templateload "github.com/otuschhoff/invoice-gen/internal/template"
+)
 
 // Page dimension defaults matching the underlying layout engine.
 const (
-	DocWidth  = invoice.DocWidth
-	DocHeight = invoice.DocHeight
+	DocWidth  = templateload.A4Width
+	DocHeight = templateload.A4Height
 )
 
 // RenderTotalsOptions holds all parameters for the totals PDF rendering use case.

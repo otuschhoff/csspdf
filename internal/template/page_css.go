@@ -36,6 +36,33 @@ type pageSettingsOverride struct {
 	left      float64
 }
 
+const (
+	A4Width  = 595.28
+	A4Height = 841.89
+)
+
+var namedPageSizes = map[string][2]float64{
+	"a0":        {2383.94, 3370.39},
+	"a1":        {1683.78, 2383.94},
+	"a2":        {1190.55, 1683.78},
+	"a3":        {841.89, 1190.55},
+	"a4":        {A4Width, A4Height},
+	"a5":        {419.53, 595.28},
+	"a6":        {297.64, 419.53},
+	"b4":        {729.13, 1031.81},
+	"b5":        {515.91, 729.13},
+	"jis-b4":    {728.50, 1031.81},
+	"jis-b5":    {515.91, 728.50},
+	"letter":    {612.00, 792.00},
+	"legal":     {612.00, 1008.00},
+	"tabloid":   {792.00, 1224.00},
+	"ledger":    {1224.00, 792.00},
+	"executive": {521.86, 756.00},
+	"statement": {396.00, 612.00},
+	"folio":     {612.00, 936.00},
+	"quarto":    {610.00, 780.00},
+}
+
 func ParseCSSPageSettings(cssText string, defaults PageSettings, parseLength func(string) (float64, bool)) (PageSettings, PageSettings, error) {
 	if strings.TrimSpace(cssText) == "" {
 		return defaults, defaults, nil
@@ -195,10 +222,15 @@ func parseCSSPageSize(raw string, defaults PageSettings, parseLength func(string
 		switch part {
 		case "portrait", "landscape":
 			orientation = part
-		case "a4":
+		case "auto":
 			width = defaults.Width
 			height = defaults.Height
 		default:
+			if named, ok := namedPageSizes[part]; ok {
+				width = named[0]
+				height = named[1]
+				continue
+			}
 			value, ok := parseLength(part)
 			if !ok {
 				return 0, 0, fmt.Errorf("unsupported @page size value %q", raw)

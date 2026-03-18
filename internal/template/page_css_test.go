@@ -83,6 +83,39 @@ func TestParseCSSPageSettings_PageAndFirstOverride(t *testing.T) {
 	}
 }
 
+func TestParseCSSPageSettings_NamedSizeLetter(t *testing.T) {
+	defaultPage, firstPage, err := ParseCSSPageSettings(`
+@page {
+	size: letter;
+}
+`, testDefaultPageSettings(), ParseLengthValue)
+	if err != nil {
+		t.Fatalf("ParseCSSPageSettings returned error: %v", err)
+	}
+
+	if defaultPage.Width != 612 || defaultPage.Height != 792 {
+		t.Fatalf("expected letter portrait size, got %fx%f", defaultPage.Width, defaultPage.Height)
+	}
+	if firstPage.Width != defaultPage.Width || firstPage.Height != defaultPage.Height {
+		t.Fatalf("expected first page size to inherit default size, got %fx%f", firstPage.Width, firstPage.Height)
+	}
+}
+
+func TestParseCSSPageSettings_NamedSizeLandscapeOrder(t *testing.T) {
+	defaultPage, _, err := ParseCSSPageSettings(`
+@page {
+	size: landscape legal;
+}
+`, testDefaultPageSettings(), ParseLengthValue)
+	if err != nil {
+		t.Fatalf("ParseCSSPageSettings returned error: %v", err)
+	}
+
+	if defaultPage.Width != 1008 || defaultPage.Height != 612 {
+		t.Fatalf("expected legal landscape size, got %fx%f", defaultPage.Width, defaultPage.Height)
+	}
+}
+
 func TestParseRunningFooterName_MatchingRules(t *testing.T) {
 	cssText := `
 footer {
