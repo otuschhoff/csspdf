@@ -75,9 +75,20 @@ func CreateRingLogoTemplate(pdf *gofpdf.Fpdf, r, cx, cy float64) gofpdf.Template
 }
 
 func CreateRingLogoTemplateWithLayers(pdf *gofpdf.Fpdf, r, cx, cy float64, renderBg, renderFg bool) gofpdf.Template {
-	return pdf.CreateTemplateCustom(
+	name := "RingLogo"
+	switch {
+	case renderBg && !renderFg:
+		name = "RingLogo-BG"
+	case !renderBg && renderFg:
+		name = "RingLogo-FG"
+	case !renderBg && !renderFg:
+		name = "RingLogo-Empty"
+	}
+
+	return pdf.CreateTemplateCustomNamed(
 		gofpdf.PointType{X: 0, Y: 0},
 		gofpdf.SizeType{Wd: 3.4 * r, Ht: 3.4 * r},
+		name,
 		func(t *gofpdf.Tpl) {
 			drawRingLogoCore(t, r, cx, cy, renderBg, renderFg)
 		},
