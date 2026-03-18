@@ -282,6 +282,17 @@ func (tr *TableRenderer) resolveTableLayout(table *TableDef) resolvedTableLayout
 	if actual <= 0 {
 		actual = tableWidth
 	}
+
+	// If columns don't fill the table width, scale them all up proportionally
+	// so the table is always greedy and uses the full available width.
+	if actual < tableWidth && actual > 0 {
+		scale := tableWidth / actual
+		for i := range widths {
+			widths[i] *= scale
+		}
+		actual = tableWidth
+	}
+
 	return resolvedTableLayout{tableWidth: actual, padding: padding, rowHeightMin: rowHeightMin, colWidths: widths}
 }
 
