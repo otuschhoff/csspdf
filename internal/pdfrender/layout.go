@@ -93,8 +93,7 @@ type LayoutPDF struct {
 	footerTpl         gofpdf.Template
 	footerSize        gofpdf.SizeType
 	footerPos         gofpdf.PointType
-	logoHeaderTpl     gofpdf.Template
-	logoHeaderSize    gofpdf.SizeType
+	ringTpl           gofpdf.Template
 	runningFooterTpl  gofpdf.Template
 	runningFooterSize gofpdf.SizeType
 }
@@ -105,8 +104,6 @@ type layoutPageAssets struct {
 	footerTpl      gofpdf.Template
 	footerSize     gofpdf.SizeType
 	footerPos      gofpdf.PointType
-	logoHeaderTpl  gofpdf.Template
-	logoHeaderSize gofpdf.SizeType
 }
 
 // NewLayoutPDF creates a LayoutPDF from pre-loaded company and style data.
@@ -146,8 +143,7 @@ func NewLayoutPDF(company *Company, style *Style, defaultPage, firstPage templat
 		footerTpl:      firstAssets.footerTpl,
 		footerSize:     firstAssets.footerSize,
 		footerPos:      firstAssets.footerPos,
-		logoHeaderTpl:  firstAssets.logoHeaderTpl,
-		logoHeaderSize: firstAssets.logoHeaderSize,
+		ringTpl:        ringTpl,
 	}, nil
 }
 
@@ -198,27 +194,7 @@ func buildLayoutPageAssets(pdf *gofpdf.Fpdf, ringTpl gofpdf.Template, company *C
 		},
 	)
 
-	logoHeaderTpl := pdf.CreateTemplateCustomNamed(
-		gofpdf.PointType{X: 0, Y: 0},
-		gofpdf.SizeType{Wd: pageWidth, Ht: 120},
-		"Logo1",
-		func(t *gofpdf.Tpl) {
-			scale := 16.5 / LogoBaseRadius
-			t.UseTemplateScaled(ringTpl,
-				gofpdf.PointType{X: 75 - LogoTplCenter*scale, Y: 67 - LogoTplCenter*scale},
-				gofpdf.SizeType{Wd: LogoTplExtent * scale, Ht: LogoTplExtent * scale},
-			)
-			t.SetTextColor(0x22, 0x22, 0x22)
-			t.SetFont("Futura-Medium", "", 20)
-			t.Text(106, 43+20, "Oliver Tuschhoff")
-			t.SetTextColor(0x44, 0x44, 0x44)
-			t.SetFont("Helvetica", "", 15)
-			t.Text(106, 73+12, "Beratung und Training")
-		},
-	)
-
 	_, footerSize := footerTpl.Size()
-	_, logoHeaderSize := logoHeaderTpl.Size()
 
 	return layoutPageAssets{
 		pageWidth:      pageWidth,
@@ -226,13 +202,11 @@ func buildLayoutPageAssets(pdf *gofpdf.Fpdf, ringTpl gofpdf.Template, company *C
 		footerTpl:      footerTpl,
 		footerSize:     footerSize,
 		footerPos:      gofpdf.PointType{X: 0, Y: pageHeight - footerHeight - 20},
-		logoHeaderTpl:  logoHeaderTpl,
-		logoHeaderSize: logoHeaderSize,
 	}
 }
 
-// BeginPage handles pagination (AddPage on page > 1), renders the Logo1 header
-// on page 1, and applies the footer on every page.
+// BeginPage handles pagination (AddPage on page > 1) and applies footer
+// templates on every page.
 func (l *LayoutPDF) BeginPage(page int) {
 	settings, assets := l.pageConfigFor(page)
 	if page > 1 {
@@ -244,11 +218,6 @@ func (l *LayoutPDF) BeginPage(page int) {
 	l.footerTpl = assets.footerTpl
 	l.footerSize = assets.footerSize
 	l.footerPos = assets.footerPos
-	l.logoHeaderTpl = assets.logoHeaderTpl
-	l.logoHeaderSize = assets.logoHeaderSize
-	if page == 1 {
-		l.PDF.UseTemplateScaled(l.logoHeaderTpl, gofpdf.PointType{X: 0, Y: 0}, l.logoHeaderSize)
-	}
 	l.PDF.UseTemplateScaled(l.footerTpl, l.footerPos, l.footerSize)
 	l.renderRunningFooterTemplate()
 }
@@ -861,8 +830,11 @@ func tableAlignFromAttr(value string) string {
 // TemplateByName returns the pre-built gofpdf.Template for a named slot.
 func (l *LayoutPDF) TemplateByName(name string) (gofpdf.Template, error) {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "logo1", "logo-header", "logo_header":
-		return l.logoHeaderTpl, nil
+	case "ringlogo", "ring-logo", "ring_logo":
+		if l.ringTpl == nil {
+			return nil, fmt.Errorf("ring logo template not initialised")
+		}
+		return l.ringTpl, nil
 	case "inv-footer", "inv_footer", "footer":
 		return l.footerTpl, nil
 	default:
