@@ -70,7 +70,6 @@ const (
 // exported methods to compose pages.
 type LayoutPDF struct {
 	PDF               *gofpdf.Fpdf
-	Style             *Style
 	Formatter         *format.Formatter
 	I18n              *i18n.I18n
 	TableRdr          *TableRenderer
@@ -95,8 +94,8 @@ type layoutPageAssets struct {
 	pageHeight float64
 }
 
-// NewLayoutPDF creates a LayoutPDF from pre-loaded company and style data.
-func NewLayoutPDF(company *Company, style *Style, defaultPage, firstPage templateload.PageSettings, i18nInst *i18n.I18n, formatter *format.Formatter) (*LayoutPDF, error) {
+// NewLayoutPDF creates a LayoutPDF from page settings and locale/format helpers.
+func NewLayoutPDF(defaultPage, firstPage templateload.PageSettings, i18nInst *i18n.I18n, formatter *format.Formatter) (*LayoutPDF, error) {
 	pdf := gofpdf.New("P", "pt", "A4", "")
 	pdf.SetMargins(0, 0, 0)
 	pdf.SetAutoPageBreak(false, 0)
@@ -114,7 +113,6 @@ func NewLayoutPDF(company *Company, style *Style, defaultPage, firstPage templat
 
 	return &LayoutPDF{
 		PDF:            pdf,
-		Style:          style,
 		Formatter:      formatter,
 		I18n:           i18nInst,
 		TableRdr:       tableRdr,
