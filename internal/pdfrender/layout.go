@@ -659,6 +659,11 @@ func (l *LayoutPDF) CellDefFromTableCell(cellElem pdfdom.PDFElementNode, isHeade
 	} else if isHeader {
 		cell.Align = "C"
 	}
+	if whiteSpace, ok := cellElem.Attribute("whiteSpace"); ok {
+		cell.NoWrap = strings.EqualFold(strings.TrimSpace(whiteSpace), "nowrap")
+	} else if whiteSpace, ok := cellElem.Attribute("white-space"); ok {
+		cell.NoWrap = strings.EqualFold(strings.TrimSpace(whiteSpace), "nowrap")
+	}
 	if colspan, ok := cellElem.Attribute("colspan"); ok {
 		fmt.Sscanf(colspan, "%d", &cell.Colspan)
 	}

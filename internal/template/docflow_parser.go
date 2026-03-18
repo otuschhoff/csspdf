@@ -159,6 +159,8 @@ func CSSDeclarationToAttr(decl *css.Declaration) (string, string, bool) {
 		return "break-before", strings.ToLower(value), true
 	case "break-after":
 		return "break-after", strings.ToLower(value), true
+	case "white-space":
+		return "white-space", strings.ToLower(value), true
 	}
 
 	return "", "", false

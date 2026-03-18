@@ -21,6 +21,11 @@ func TestCSSDeclarationToAttr_MapsBreakProperties(t *testing.T) {
 	if !ok || attr != "fill" || value != "#DDDDDD" {
 		t.Fatalf("expected fill mapping, got attr=%q value=%q ok=%v", attr, value, ok)
 	}
+
+	attr, value, ok = CSSDeclarationToAttr(&css.Declaration{Property: "white-space", Value: "nowrap"})
+	if !ok || attr != "white-space" || value != "nowrap" {
+		t.Fatalf("expected white-space=nowrap mapping, got attr=%q value=%q ok=%v", attr, value, ok)
+	}
 }
 
 func TestParseLengthValue(t *testing.T) {

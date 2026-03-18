@@ -83,6 +83,7 @@ type CellDef struct {
 	SubFontFace   string
 	SubFontColor  string
 	SubFontSize   float64
+	NoWrap        bool
 	Colspan       int
 }
 
@@ -272,6 +273,8 @@ func (tr *TableRenderer) resolveTableLayout(table *TableDef) resolvedTableLayout
 		}
 	}
 
+	tr.enforceNoWrapColumnWidths(table, widths, padding)
+
 	actual := 0.0
 	for _, w := range widths {
 		actual += w
@@ -280,6 +283,80 @@ func (tr *TableRenderer) resolveTableLayout(table *TableDef) resolvedTableLayout
 		actual = tableWidth
 	}
 	return resolvedTableLayout{tableWidth: actual, padding: padding, rowHeightMin: rowHeightMin, colWidths: widths}
+}
+
+func (tr *TableRenderer) enforceNoWrapColumnWidths(table *TableDef, widths []float64, defaultPadding float64) {
+	if table == nil || len(widths) == 0 {
+		return
+	}
+	for _, row := range table.Rows {
+		colIdx := 0
+		for _, cell := range row.Cells {
+			if colIdx >= len(widths) {
+				break
+			}
+			span := cell.Colspan
+			if span < 1 {
+				span = 1
+			}
+			if cell.NoWrap && span == 1 {
+				required := tr.measureNoWrapCellRequiredWidth(&cell, defaultPadding)
+				if required > widths[colIdx] {
+					widths[colIdx] = required
+				}
+			}
+			colIdx += span
+		}
+	}
+}
+
+func (tr *TableRenderer) measureNoWrapCellRequiredWidth(cell *CellDef, defaultPadding float64) float64 {
+	if cell == nil {
+		return 0
+	}
+	topP, rightP, _, leftP := tr.resolvedCellPadding(cell, defaultPadding)
+	_ = topP
+	_, _ = tr.applyCellStyle(cell)
+
+	text := cell.Text
+	if cell.Value != nil {
+		text = tr.formatCellValue(cell)
+	}
+	maxContent := tr.maxLineWidthNoWrap(text)
+
+	if cell.SubText != "" {
+		subFace := cell.SubFontFace
+		if subFace == "" {
+			subFace = cell.FontFace
+		}
+		if subFace == "" {
+			subFace = defaultTableFontFace
+		}
+		subSize := cell.SubFontSize
+		if subSize <= 0 {
+			subSize = 7
+		}
+		tr.pdf.SetFont(normalizeTableFontFace(subFace), "", subSize)
+		if w := tr.maxLineWidthNoWrap(cell.SubText); w > maxContent {
+			maxContent = w
+		}
+	}
+
+	return maxContent + leftP + rightP
+}
+
+func (tr *TableRenderer) maxLineWidthNoWrap(text string) float64 {
+	encoded := tableEncodePDFTextLatin1(text)
+	if encoded == "" {
+		return 0
+	}
+	maxWidth := 0.0
+	for _, line := range strings.Split(encoded, "\n") {
+		if w := tr.pdf.GetStringWidth(line); w > maxWidth {
+			maxWidth = w
+		}
+	}
+	return maxWidth
 }
 
 func (tr *TableRenderer) calculateRowHeight(row *RowDef, minH, padding float64, colWidths []float64) float64 {
@@ -324,7 +401,7 @@ func (tr *TableRenderer) measureCellHeight(cell *CellDef, width, padding float64
 	if cell.Value != nil {
 		text = tr.formatCellValue(cell)
 	}
-	lines := tr.wrapTextLines(text, contentWidth)
+	lines := tr.wrapTextLines(text, contentWidth, cell.NoWrap)
 	lineH := fontSize * lineHeightMul
 
 	height := topP
@@ -342,7 +419,7 @@ func (tr *TableRenderer) measureCellHeight(cell *CellDef, width, padding float64
 			subSize = 7
 		}
 		tr.pdf.SetFont(subFace, "", subSize)
-		subLines := tr.wrapTextLines(cell.SubText, contentWidth)
+		subLines := tr.wrapTextLines(cell.SubText, contentWidth, cell.NoWrap)
 		subLineH := subSize * 1.2
 		if len(subLines) > 0 {
 			if len(lines) > 0 {
@@ -355,7 +432,7 @@ func (tr *TableRenderer) measureCellHeight(cell *CellDef, width, padding float64
 	return height + bottomP
 }
 
-func (tr *TableRenderer) wrapTextLines(text string, width float64) []string {
+func (tr *TableRenderer) wrapTextLines(text string, width float64, noWrap bool) []string {
 	encoded := tableEncodePDFTextLatin1(text)
 	if encoded == "" {
 		return nil
@@ -368,6 +445,10 @@ func (tr *TableRenderer) wrapTextLines(text string, width float64) []string {
 	for _, seg := range segments {
 		if seg == "" {
 			out = append(out, "")
+			continue
+		}
+		if noWrap {
+			out = append(out, seg)
 			continue
 		}
 		wrapped := tr.pdf.SplitLines([]byte(seg), width)
@@ -396,7 +477,7 @@ func (tr *TableRenderer) renderCell(cell *CellDef, x, y, width, height, padding 
 	}
 	topP, rightP, _, leftP := tr.resolvedCellPadding(cell, padding)
 	contentWidth := math.Max(width-leftP-rightP, 1)
-	lines := tr.wrapTextLines(text, contentWidth)
+	lines := tr.wrapTextLines(text, contentWidth, cell.NoWrap)
 	lineH := fontSize * lineHeightMul
 	baseline := y + topP + fontSize
 
@@ -435,7 +516,7 @@ func (tr *TableRenderer) renderCell(cell *CellDef, x, y, width, height, padding 
 			r, g, b := tableHexToRGB(subColor)
 			tr.pdf.SetTextColor(r, g, b)
 		}
-		subLines := tr.wrapTextLines(cell.SubText, contentWidth)
+		subLines := tr.wrapTextLines(cell.SubText, contentWidth, cell.NoWrap)
 		subLineH := subSize * 1.2
 		for _, sl := range subLines {
 			sx := x + leftP

@@ -47,6 +47,23 @@ func TestParseHTMLTableElem_AppliesNumColHeaderAlignment(t *testing.T) {
 	}
 }
 
+func TestParseHTMLTableElem_AppliesWhiteSpaceNoWrapToHeaderCell(t *testing.T) {
+	css := `table th.nowrap-col { white-space: nowrap; }`
+	table, err := ParseHTMLTableElem(
+		"<table><thead><tr><th class="nowrap-col"><span>Date</span></th></tr></thead></table>",
+		css,
+	)
+	if err != nil {
+		t.Fatalf("ParseHTMLTableElem returned error: %v", err)
+	}
+	thead := table.ElementChildren()[0].(*ElemThead)
+	row := thead.ElementChildren()[0].(*ElemTr)
+	cell := row.ElementChildren()[0].(*ElemTh)
+	if got, ok := cell.Attribute("whiteSpace"); !ok || got != "nowrap" {
+		t.Fatalf("expected th whiteSpace=nowrap, got %q (present=%v)", got, ok)
+	}
+}
+
 func TestParseHTMLDocFlow_IncludesTopLevelImage(t *testing.T) {
 	h := "<div id=\"closing\">Regards</div>" +
 		"<img id=\"signature\" src=\"Unterschrift.png\" width=\"100\" height=\"53\">"
