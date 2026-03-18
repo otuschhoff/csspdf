@@ -871,18 +871,25 @@ func (l *LayoutPDF) RenderUseTemplateElement(elem *pdfdom.ElemUseTemplate, fallb
 		}
 	}
 
-	width, err := parseUseTemplateFloatAttr(elem, "width")
-	if err != nil {
-		return 0, false, err
-	}
-	height, err := parseUseTemplateFloatAttr(elem, "height")
+	tpl, err := l.TemplateByName(name)
 	if err != nil {
 		return 0, false, err
 	}
 
-	tpl, err := l.TemplateByName(name)
-	if err != nil {
-		return 0, false, err
+	// width and height may come from HTML attributes or from CSS (which
+	// CSSDeclarationToAttr has already baked into the element's attributes).
+	// If neither source provides a value, fall back to the template's native size.
+	_, nativeSize := tpl.Size()
+	width, height := nativeSize.Wd, nativeSize.Ht
+	if raw, ok := elem.Attribute("width"); ok {
+		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
+			width = v
+		}
+	}
+	if raw, ok := elem.Attribute("height"); ok {
+		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
+			height = v
+		}
 	}
 
 	l.PDF.UseTemplateScaled(
@@ -892,18 +899,6 @@ func (l *LayoutPDF) RenderUseTemplateElement(elem *pdfdom.ElemUseTemplate, fallb
 	)
 
 	return height, absolute, nil
-}
-
-func parseUseTemplateFloatAttr(node pdfdom.PDFElementNode, attr string) (float64, error) {
-	raw, ok := node.Attribute(attr)
-	if !ok {
-		return 0, fmt.Errorf("use-template missing %s attribute", attr)
-	}
-	v, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-	if err != nil {
-		return 0, fmt.Errorf("use-template invalid %s value %q: %w", attr, raw, err)
-	}
-	return v, nil
 }
 
 func addFuturaMediumFont(pdf *gofpdf.Fpdf) error {
