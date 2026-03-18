@@ -144,57 +144,57 @@ type ElemTh struct{ baseElementNode }
 
 // --- isPDFNode implementations ---
 
-func (*ElemDiv) isPDFNode()           {}
-func (*ElemSpan) isPDFNode()          {}
-func (*ElemBr) isPDFNode()            {}
-func (*ElemH1) isPDFNode()            {}
-func (*ElemH2) isPDFNode()            {}
-func (*ElemH3) isPDFNode()            {}
-func (*ElemUl) isPDFNode()            {}
-func (*ElemOl) isPDFNode()            {}
-func (*ElemLi) isPDFNode()            {}
-func (*ElemImg) isPDFNode()           {}
+func (*ElemDiv) isPDFNode()            {}
+func (*ElemSpan) isPDFNode()           {}
+func (*ElemBr) isPDFNode()             {}
+func (*ElemH1) isPDFNode()             {}
+func (*ElemH2) isPDFNode()             {}
+func (*ElemH3) isPDFNode()             {}
+func (*ElemUl) isPDFNode()             {}
+func (*ElemOl) isPDFNode()             {}
+func (*ElemLi) isPDFNode()             {}
+func (*ElemImg) isPDFNode()            {}
 func (*ElemUseTemplate) isPDFNode()    {}
-func (*ElemCreateTemplate) isPDFNode()  {}
-func (*ElemCurrencyValue) isPDFNode() {}
-func (*ElemDateValue) isPDFNode()     {}
-func (*ElemDurationValue) isPDFNode() {}
-func (*ElemManDaysValue) isPDFNode()  {}
-func (*ElemTable) isPDFNode()         {}
-func (*ElemColgroup) isPDFNode()      {}
-func (*ElemCol) isPDFNode()           {}
-func (*ElemThead) isPDFNode()         {}
-func (*ElemTbody) isPDFNode()         {}
-func (*ElemTr) isPDFNode()            {}
-func (*ElemTd) isPDFNode()            {}
-func (*ElemTh) isPDFNode()            {}
+func (*ElemCreateTemplate) isPDFNode() {}
+func (*ElemCurrencyValue) isPDFNode()  {}
+func (*ElemDateValue) isPDFNode()      {}
+func (*ElemDurationValue) isPDFNode()  {}
+func (*ElemManDaysValue) isPDFNode()   {}
+func (*ElemTable) isPDFNode()          {}
+func (*ElemColgroup) isPDFNode()       {}
+func (*ElemCol) isPDFNode()            {}
+func (*ElemThead) isPDFNode()          {}
+func (*ElemTbody) isPDFNode()          {}
+func (*ElemTr) isPDFNode()             {}
+func (*ElemTd) isPDFNode()             {}
+func (*ElemTh) isPDFNode()             {}
 
 // --- ElementType implementations ---
 
-func (e *ElemDiv) ElementType() string           { return "div" }
-func (e *ElemSpan) ElementType() string          { return "span" }
-func (e *ElemBr) ElementType() string            { return "br" }
-func (e *ElemH1) ElementType() string            { return "h1" }
-func (e *ElemH2) ElementType() string            { return "h2" }
-func (e *ElemH3) ElementType() string            { return "h3" }
-func (e *ElemUl) ElementType() string            { return "ul" }
-func (e *ElemOl) ElementType() string            { return "ol" }
-func (e *ElemLi) ElementType() string            { return "li" }
-func (e *ElemImg) ElementType() string           { return "img" }
-func (e *ElemUseTemplate) ElementType() string   { return "use-template" }
+func (e *ElemDiv) ElementType() string            { return "div" }
+func (e *ElemSpan) ElementType() string           { return "span" }
+func (e *ElemBr) ElementType() string             { return "br" }
+func (e *ElemH1) ElementType() string             { return "h1" }
+func (e *ElemH2) ElementType() string             { return "h2" }
+func (e *ElemH3) ElementType() string             { return "h3" }
+func (e *ElemUl) ElementType() string             { return "ul" }
+func (e *ElemOl) ElementType() string             { return "ol" }
+func (e *ElemLi) ElementType() string             { return "li" }
+func (e *ElemImg) ElementType() string            { return "img" }
+func (e *ElemUseTemplate) ElementType() string    { return "use-template" }
 func (e *ElemCreateTemplate) ElementType() string { return "create-template" }
-func (e *ElemCurrencyValue) ElementType() string { return "currency-value" }
-func (e *ElemDateValue) ElementType() string     { return "date-value" }
-func (e *ElemDurationValue) ElementType() string { return "duration-value" }
-func (e *ElemManDaysValue) ElementType() string  { return "man-days-value" }
-func (e *ElemTable) ElementType() string         { return "table" }
-func (e *ElemColgroup) ElementType() string      { return "colgroup" }
-func (e *ElemCol) ElementType() string           { return "col" }
-func (e *ElemThead) ElementType() string         { return "thead" }
-func (e *ElemTbody) ElementType() string         { return "tbody" }
-func (e *ElemTr) ElementType() string            { return "tr" }
-func (e *ElemTd) ElementType() string            { return "td" }
-func (e *ElemTh) ElementType() string            { return "th" }
+func (e *ElemCurrencyValue) ElementType() string  { return "currency-value" }
+func (e *ElemDateValue) ElementType() string      { return "date-value" }
+func (e *ElemDurationValue) ElementType() string  { return "duration-value" }
+func (e *ElemManDaysValue) ElementType() string   { return "man-days-value" }
+func (e *ElemTable) ElementType() string          { return "table" }
+func (e *ElemColgroup) ElementType() string       { return "colgroup" }
+func (e *ElemCol) ElementType() string            { return "col" }
+func (e *ElemThead) ElementType() string          { return "thead" }
+func (e *ElemTbody) ElementType() string          { return "tbody" }
+func (e *ElemTr) ElementType() string             { return "tr" }
+func (e *ElemTd) ElementType() string             { return "td" }
+func (e *ElemTh) ElementType() string             { return "th" }
 
 // --- Constructors ---
 
