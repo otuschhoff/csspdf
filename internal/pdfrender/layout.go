@@ -62,7 +62,7 @@ type Style struct {
 }
 
 const (
-	footerBulletSep = " \x95 "
+	footerBulletSep = " • "
 )
 
 // LayoutPDF holds the shared PDF document and pre-built templates used by all
