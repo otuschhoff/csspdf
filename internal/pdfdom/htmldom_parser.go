@@ -25,11 +25,11 @@ import (
 //	<th>                  → ElemTh          (align, colspan forwarded)
 //	<span>                → PDFTextNode     (font-style/face/size/color/align
 //	                                         become PDFTextStyle fields)
-//	<currency-value>      → ElemCurrencyValue  ("value" attr → Value float64)
+//	<currency-value>      → ElemCurrencyValue  ("v" attr → Value float64)
 //	<date-value>          → ElemDateValue      ("value" attr → Value string;
 //	                                             "long" attr forwarded)
-//	<duration-value>      → ElemDurationValue  ("value" attr → Value float64)
-//	<man-days-value>      → ElemManDaysValue   ("value" attr → Value float64;
+//	<duration-value>      → ElemDurationValue  ("v" attr → Value float64)
+//	<man-days-value>      → ElemManDaysValue   ("v" attr → Value float64;
 //	                                             "unit" attr forwarded)
 //
 // Attribute name normalisation (HTML kebab-case → Elem* camelCase):
@@ -594,14 +594,14 @@ func htmlNormaliseFontStyle(value string) string {
 // ─── value elements ──────────────────────────────────────────────────────────
 
 func htmlBuildCurrencyValue(n *html.Node) (*ElemCurrencyValue, error) {
-	raw := tmpl.AttrVal(n, "value")
+	raw := htmlAttrValWithFallback(n, "v", "value")
 	f, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
-		return nil, fmt.Errorf("<currency-value> invalid value=%q: %w", raw, err)
+		return nil, fmt.Errorf("<currency-value> invalid v=%q: %w", raw, err)
 	}
 	elem := NewElemCurrencyValue(f)
 	for _, a := range n.Attr {
-		if a.Key != "value" {
+		if a.Key != "value" && a.Key != "v" {
 			elem.SetAttribute(htmlNormaliseAttrKey(a.Key), a.Val)
 		}
 	}
@@ -619,14 +619,14 @@ func htmlBuildDateValue(n *html.Node) (*ElemDateValue, error) {
 }
 
 func htmlBuildDurationValue(n *html.Node) (*ElemDurationValue, error) {
-	raw := tmpl.AttrVal(n, "value")
+	raw := htmlAttrValWithFallback(n, "v", "value")
 	f, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
-		return nil, fmt.Errorf("<duration-value> invalid value=%q: %w", raw, err)
+		return nil, fmt.Errorf("<duration-value> invalid v=%q: %w", raw, err)
 	}
 	elem := NewElemDurationValue(f)
 	for _, a := range n.Attr {
-		if a.Key != "value" {
+		if a.Key != "value" && a.Key != "v" {
 			elem.SetAttribute(htmlNormaliseAttrKey(a.Key), a.Val)
 		}
 	}
@@ -634,16 +634,23 @@ func htmlBuildDurationValue(n *html.Node) (*ElemDurationValue, error) {
 }
 
 func htmlBuildManDaysValue(n *html.Node) (*ElemManDaysValue, error) {
-	raw := tmpl.AttrVal(n, "value")
+	raw := htmlAttrValWithFallback(n, "v", "value")
 	f, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
-		return nil, fmt.Errorf("<man-days-value> invalid value=%q: %w", raw, err)
+		return nil, fmt.Errorf("<man-days-value> invalid v=%q: %w", raw, err)
 	}
 	elem := NewElemManDaysValue(f)
 	for _, a := range n.Attr {
-		if a.Key != "value" {
+		if a.Key != "value" && a.Key != "v" {
 			elem.SetAttribute(htmlNormaliseAttrKey(a.Key), a.Val)
 		}
 	}
 	return elem, nil
+}
+
+func htmlAttrValWithFallback(n *html.Node, primary, fallback string) string {
+	if v := tmpl.AttrVal(n, primary); v != "" {
+		return v
+	}
+	return tmpl.AttrVal(n, fallback)
 }
