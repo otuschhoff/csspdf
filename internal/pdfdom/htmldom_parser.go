@@ -109,6 +109,8 @@ func ParseHTMLDocFlow(htmlStr, cssStyle string) ([]PDFElementNode, error) {
 			out = append(out, htmlBuildImage(child))
 		case "use-template":
 			out = append(out, htmlBuildUseTemplate(child))
+		case "create-template":
+			out = append(out, htmlBuildCreateTemplate(child))
 		}
 	}
 
@@ -235,6 +237,34 @@ func htmlBuildImage(n *html.Node) *ElemImg {
 func htmlBuildUseTemplate(n *html.Node) *ElemUseTemplate {
 	elem := NewElemUseTemplate()
 	htmlSetAttrs(elem, n.Attr)
+	return elem
+}
+
+// htmlBuildCreateTemplate parses a <create-template> node into an
+// ElemCreateTemplate whose children are the renderable content of the template.
+func htmlBuildCreateTemplate(n *html.Node) *ElemCreateTemplate {
+	elem := NewElemCreateTemplate()
+	htmlSetAttrs(elem, n.Attr)
+	for _, child := range tmpl.ElemChildren(n) {
+		switch child.Data {
+		case "div":
+			elem.Add(htmlBuildIntroDiv(child))
+		case "footer":
+			elem.Add(htmlBuildIntroDiv(child))
+		case "h1", "h2", "h3":
+			if heading, err := htmlBuildHeading(child); err == nil {
+				elem.Add(heading)
+			}
+		case "table":
+			if table, err := htmlBuildTable(child); err == nil {
+				elem.Add(table)
+			}
+		case "img":
+			elem.Add(htmlBuildImage(child))
+		case "use-template":
+			elem.Add(htmlBuildUseTemplate(child))
+		}
+	}
 	return elem
 }
 

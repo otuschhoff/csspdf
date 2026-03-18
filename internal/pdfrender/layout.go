@@ -96,6 +96,7 @@ type LayoutPDF struct {
 	ringTpl           gofpdf.Template
 	runningFooterTpl  gofpdf.Template
 	runningFooterSize gofpdf.SizeType
+	userTemplates     map[string]gofpdf.Template
 }
 
 type layoutPageAssets struct {
@@ -829,6 +830,13 @@ func tableAlignFromAttr(value string) string {
 
 // TemplateByName returns the pre-built gofpdf.Template for a named slot.
 func (l *LayoutPDF) TemplateByName(name string) (gofpdf.Template, error) {
+	// User-defined templates (created by <create-template> elements) take
+	// precedence over the built-in named slots.
+	if l.userTemplates != nil {
+		if tpl, ok := l.userTemplates[name]; ok {
+			return tpl, nil
+		}
+	}
 	switch strings.ToLower(strings.TrimSpace(name)) {
 	case "ringlogo", "ring-logo", "ring_logo":
 		if l.ringTpl == nil {
@@ -840,6 +848,76 @@ func (l *LayoutPDF) TemplateByName(name string) (gofpdf.Template, error) {
 	default:
 		return nil, fmt.Errorf("unknown template name %q", name)
 	}
+}
+
+// RenderCreateTemplateElement captures the child elements of an
+// ElemCreateTemplate into a named gofpdf template via CreateTemplateCustomNamed.
+// The template is stored in l.userTemplates and can be referenced by name from
+// any subsequent <use-template name="..."> element.
+func (l *LayoutPDF) RenderCreateTemplateElement(elem *pdfdom.ElemCreateTemplate) error {
+	if elem == nil {
+		return fmt.Errorf("create-template element is nil")
+	}
+	name, ok := elem.Attribute("name")
+	if !ok || strings.TrimSpace(name) == "" {
+		return fmt.Errorf("create-template missing name attribute")
+	}
+
+	x, y := 0.0, 0.0
+	if raw, ok := elem.Attribute("x"); ok {
+		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
+			x = v
+		}
+	}
+	if raw, ok := elem.Attribute("y"); ok {
+		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
+			y = v
+		}
+	}
+	var width, height float64
+	if raw, ok := elem.Attribute("width"); ok {
+		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
+			width = v
+		}
+	}
+	if raw, ok := elem.Attribute("height"); ok {
+		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
+			height = v
+		}
+	}
+
+	children := elem.ElementChildren()
+	i18nInst := l.I18n
+
+	tpl := l.PDF.CreateTemplateCustomNamed(
+		gofpdf.PointType{X: x, Y: y},
+		gofpdf.SizeType{Wd: width, Ht: height},
+		name,
+		func(t *gofpdf.Tpl) {
+			engine := NewPDFTextEngine(&t.Fpdf, i18nInst)
+			currentY := y
+			for _, child := range children {
+				childElem, ok := child.(pdfdom.PDFElementNode)
+				if !ok {
+					continue
+				}
+				metrics, err := engine.RenderInBox(childElem, &pdfdom.PDFTextBox{
+					X: x, Y: currentY, Width: width, Fit: pdfdom.TextFitWrap,
+				})
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: create-template %q: failed to render child: %v\n", name, err)
+					continue
+				}
+				currentY += metrics.Height
+			}
+		},
+	)
+
+	if l.userTemplates == nil {
+		l.userTemplates = make(map[string]gofpdf.Template)
+	}
+	l.userTemplates[name] = tpl
+	return nil
 }
 
 // RenderUseTemplateElement renders a <use-template> element using the named template.

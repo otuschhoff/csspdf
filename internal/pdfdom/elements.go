@@ -104,6 +104,7 @@ type ElemOl struct{ baseElementNode }
 type ElemLi struct{ baseElementNode }
 type ElemImg struct{ baseElementNode }
 type ElemUseTemplate struct{ baseElementNode }
+type ElemCreateTemplate struct{ baseElementNode }
 
 // ElemCurrencyValue formats a float64 as a locale-aware currency string.
 type ElemCurrencyValue struct {
@@ -153,7 +154,8 @@ func (*ElemUl) isPDFNode()            {}
 func (*ElemOl) isPDFNode()            {}
 func (*ElemLi) isPDFNode()            {}
 func (*ElemImg) isPDFNode()           {}
-func (*ElemUseTemplate) isPDFNode()   {}
+func (*ElemUseTemplate) isPDFNode()    {}
+func (*ElemCreateTemplate) isPDFNode()  {}
 func (*ElemCurrencyValue) isPDFNode() {}
 func (*ElemDateValue) isPDFNode()     {}
 func (*ElemDurationValue) isPDFNode() {}
@@ -180,6 +182,7 @@ func (e *ElemOl) ElementType() string            { return "ol" }
 func (e *ElemLi) ElementType() string            { return "li" }
 func (e *ElemImg) ElementType() string           { return "img" }
 func (e *ElemUseTemplate) ElementType() string   { return "use-template" }
+func (e *ElemCreateTemplate) ElementType() string { return "create-template" }
 func (e *ElemCurrencyValue) ElementType() string { return "currency-value" }
 func (e *ElemDateValue) ElementType() string     { return "date-value" }
 func (e *ElemDurationValue) ElementType() string { return "duration-value" }
@@ -308,6 +311,12 @@ func NewElemImg() *ElemImg {
 
 func NewElemUseTemplate() *ElemUseTemplate {
 	n := &ElemUseTemplate{}
+	n.owner = n
+	return n
+}
+
+func NewElemCreateTemplate() *ElemCreateTemplate {
+	n := &ElemCreateTemplate{}
 	n.owner = n
 	return n
 }
@@ -462,6 +471,13 @@ func (e *ElemImg) validateChild(_ PDFNode) error {
 
 func (e *ElemUseTemplate) validateChild(_ PDFNode) error {
 	return fmt.Errorf("use-template may not have children")
+}
+
+func (e *ElemCreateTemplate) validateChild(child PDFNode) error {
+	if _, ok := child.(PDFElementNode); !ok {
+		return fmt.Errorf("create-template children must be element nodes")
+	}
+	return nil
 }
 
 func (e *ElemCurrencyValue) validateChild(_ PDFNode) error {

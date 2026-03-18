@@ -151,6 +151,10 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 			} else if !absolute {
 				currentY += h
 			}
+		case *pdfdom.ElemCreateTemplate:
+			if cerr := l.RenderCreateTemplateElement(n); cerr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to create template: %v\n", cerr)
+			}
 		}
 
 		if ShouldBreakPageAfter(elem) {
@@ -195,6 +199,10 @@ func RenderTimesheetTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode)
 				fmt.Fprintf(os.Stderr, "Warning: failed to render use-template element: %v\n", uerr)
 			} else if !absolute {
 				currentY += h
+			}
+		case *pdfdom.ElemCreateTemplate:
+			if cerr := l.RenderCreateTemplateElement(n); cerr != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to create template: %v\n", cerr)
 			}
 		}
 	}
