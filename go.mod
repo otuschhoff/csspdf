@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/phpdave11/gofpdf v1.4.3 // indirect
 )
