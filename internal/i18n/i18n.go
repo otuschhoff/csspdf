@@ -119,6 +119,11 @@ func flattenTranslationNode(node any, prefix, locale string, out map[string]stri
 // T translates a key to the current locale.
 // If the key is not found, returns the key itself.
 func (i *I18n) T(key string) string {
+	return i.rawT(key)
+}
+
+// rawT returns the raw translated string without any variable substitution.
+func (i *I18n) rawT(key string) string {
 	if val, ok := i.translations[key]; ok {
 		return val
 	}
@@ -127,14 +132,39 @@ func (i *I18n) T(key string) string {
 
 // TWithVars translates a key and replaces {{varName}} placeholders.
 func (i *I18n) TWithVars(key string, vars map[string]string) string {
-	text := i.T(key)
+	return applyVars(i.rawT(key), vars)
+}
 
+func applyVars(text string, vars map[string]string) string {
 	for k, v := range vars {
-		placeholder := "{{" + k + "}}"
-		text = strings.ReplaceAll(text, placeholder, v)
+		text = strings.ReplaceAll(text, "{{"+k+"}}", v)
+	}
+	return text
+}
+
+// TemplateData returns all translations as a nested template object, applying
+// placeholder vars to every value.
+func (i *I18n) TemplateData(vars map[string]string) map[string]any {
+	out := make(map[string]any)
+	for key := range i.translations {
+		setNestedValue(out, strings.Split(key, "."), i.TWithVars(key, vars))
+	}
+	return out
+}
+
+func setNestedValue(target map[string]any, path []string, value string) {
+	if len(path) == 1 {
+		target[path[0]] = value
+		return
 	}
 
-	return text
+	next, ok := target[path[0]].(map[string]any)
+	if !ok {
+		next = make(map[string]any)
+		target[path[0]] = next
+	}
+
+	setNestedValue(next, path[1:], value)
 }
 
 // FloatSeparator returns the decimal separator for the current locale.
