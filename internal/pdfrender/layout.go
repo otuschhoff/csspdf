@@ -936,16 +936,19 @@ func (l *LayoutPDF) RenderUseTemplateElement(elem *pdfdom.ElemUseTemplate, fallb
 	}
 
 	x, y := fallbackX, fallbackY
+	hasExplicitPos := false
 	if raw, hasX := elem.Attribute("x"); hasX {
 		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
 			x = v
 			absolute = true
+			hasExplicitPos = true
 		}
 	}
 	if raw, hasY := elem.Attribute("y"); hasY {
 		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
 			y = v
 			absolute = true
+			hasExplicitPos = true
 		}
 	}
 
@@ -956,25 +959,34 @@ func (l *LayoutPDF) RenderUseTemplateElement(elem *pdfdom.ElemUseTemplate, fallb
 
 	// width and height may come from HTML attributes or from CSS (which
 	// CSSDeclarationToAttr has already baked into the element's attributes).
-	// If neither source provides a value, fall back to the template's native size.
 	_, nativeSize := tpl.Size()
 	width, height := nativeSize.Wd, nativeSize.Ht
+	hasExplicitSize := false
 	if raw, ok := elem.Attribute("width"); ok {
 		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
 			width = v
+			hasExplicitSize = true
 		}
 	}
 	if raw, ok := elem.Attribute("height"); ok {
 		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
 			height = v
+			hasExplicitSize = true
 		}
 	}
 
-	l.PDF.UseTemplateScaled(
-		tpl,
-		gofpdf.PointType{X: x, Y: y},
-		gofpdf.SizeType{Wd: width, Ht: height},
-	)
+	// When no explicit position or size was given, let gofpdf place the
+	// template at its own registered corner/size (UseTemplate).  Otherwise
+	// use UseTemplateScaled so the caller's coordinates are respected.
+	if !hasExplicitPos && !hasExplicitSize {
+		l.PDF.UseTemplate(tpl)
+	} else {
+		l.PDF.UseTemplateScaled(
+			tpl,
+			gofpdf.PointType{X: x, Y: y},
+			gofpdf.SizeType{Wd: width, Ht: height},
+		)
+	}
 
 	return height, absolute, nil
 }
