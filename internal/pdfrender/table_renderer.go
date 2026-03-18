@@ -289,6 +289,11 @@ func (tr *TableRenderer) enforceNoWrapColumnWidths(table *TableDef, widths []flo
 	if table == nil || len(widths) == 0 {
 		return
 	}
+
+	// First pass: calculate required widths for each column and identify nowrap columns
+	requiredWidths := make([]float64, len(widths))
+	hasNoWrap := make([]bool, len(widths))
+
 	for _, row := range table.Rows {
 		colIdx := 0
 		for _, cell := range row.Cells {
@@ -299,13 +304,66 @@ func (tr *TableRenderer) enforceNoWrapColumnWidths(table *TableDef, widths []flo
 			if span < 1 {
 				span = 1
 			}
-			if cell.NoWrap && span == 1 {
+			if span == 1 {
 				required := tr.measureNoWrapCellRequiredWidth(&cell, defaultPadding)
-				if required > widths[colIdx] {
-					widths[colIdx] = required
+				if required > requiredWidths[colIdx] {
+					requiredWidths[colIdx] = required
+				}
+				if cell.NoWrap {
+					hasNoWrap[colIdx] = true
 				}
 			}
 			colIdx += span
+		}
+	}
+
+	// Second pass: separate nowrap and wrapping columns
+	nowrapRequired := 0.0
+	nowrapIndices := []int{}
+	wrappingIndices := []int{}
+
+	for i := range widths {
+		if hasNoWrap[i] {
+			nowrapRequired += requiredWidths[i]
+			nowrapIndices = append(nowrapIndices, i)
+		} else {
+			wrappingIndices = append(wrappingIndices, i)
+		}
+	}
+
+	totalOriginal := 0.0
+	for _, w := range widths {
+		totalOriginal += w
+	}
+
+	// If nowrap cols fit within original total width, just expand them as needed
+	// and leave wrapping cols unchanged
+	if nowrapRequired <= totalOriginal {
+		for i := range widths {
+			if hasNoWrap[i] {
+				widths[i] = requiredWidths[i]
+			}
+		}
+		return
+	}
+
+	// Nowrap cols need more space than originally available.
+	// Shrink wrapping columns to accommodate nowrap requirements.
+	remainingForWrapping := totalOriginal - nowrapRequired
+	if remainingForWrapping < 0 {
+		remainingForWrapping = 0
+	}
+
+	// Set nowrap columns to their required widths
+	for _, i := range nowrapIndices {
+		widths[i] = requiredWidths[i]
+	}
+
+	// Distribute remaining space proportionally among wrapping columns
+	if len(wrappingIndices) > 0 {
+		avgWrappingWidth := remainingForWrapping / float64(len(wrappingIndices))
+		for _, i := range wrappingIndices {
+			widths[i] = avgWrappingWidth
 		}
 	}
 }
