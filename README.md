@@ -34,10 +34,9 @@ biz-invoice/
 ├── configs/                # Configuration files
 │   ├── myCompany.json      # Company details
 │   └── myStyle.json        # PDF styling
+├── data/
+│   └── i18n.json           # Unified translations (en/de)
 ├── resources/              # Static resources
-│   ├── locales/
-│   │   ├── de.json         # German translations
-│   │   └── en.json         # English translations
 │   └── Unterschrift.png    # Signature image
 ├── invoices/               # Input invoice JSON files
 │   └── RA-2026-01.json     # Example invoice
@@ -348,10 +347,10 @@ Expected output size: ~57KB (with embedded ICC profile and XML)
 
 ### Adding Translation Keys
 
-1. Add key-value pair to `resources/locales/de.json` and `en.json`:
+1. Add translation entry to `data/i18n.json`:
    ```json
    {
-     "myNewKey": "German Text",
+        "myNewKey": { "en": "English text", "de": "German text" },
      ...
    }
    ```
@@ -405,7 +404,7 @@ If missing, signature section is skipped silently.
 
 ### Translation Not Found
 
-Check `resources/locales/<locale>.json` contains the key. The generator prints warnings for missing translations.
+Check `data/i18n.json` contains the key with both `en` and `de` values.
 
 ### Incorrect Currency Formatting
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -32,9 +33,9 @@ func New(locale string) (*I18n, error) {
 
 func (i *I18n) loadTranslations(locale string) error {
 	paths := []string{
-		filepath.Join("resources", "locales", locale+".json"),
-		filepath.Join("locales", locale+".json"),
-		filepath.Join("..", "..", "resources", "locales", locale+".json"),
+		filepath.Join("data", "i18n.json"),
+		filepath.Join("i18n.json"),
+		filepath.Join("..", "..", "data", "i18n.json"),
 	}
 
 	var lastErr error
@@ -45,14 +46,74 @@ func (i *I18n) loadTranslations(locale string) error {
 			continue
 		}
 
-		if err := json.Unmarshal(data, &i.translations); err != nil {
+		var source map[string]any
+		if err := json.Unmarshal(data, &source); err != nil {
 			return fmt.Errorf("failed to parse translations from %s: %w", path, err)
 		}
+
+		translations, err := flattenTranslationsForLocale(source, locale)
+		if err != nil {
+			return fmt.Errorf("failed to load %s translations from %s: %w", locale, path, err)
+		}
+		i.translations = translations
 
 		return nil
 	}
 
 	return fmt.Errorf("failed to load translations for locale %s: %w", locale, lastErr)
+}
+
+func flattenTranslationsForLocale(source map[string]any, locale string) (map[string]string, error) {
+	out := make(map[string]string)
+	if err := flattenTranslationNode(source, "", locale, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func flattenTranslationNode(node any, prefix, locale string, out map[string]string) error {
+	switch typed := node.(type) {
+	case map[string]any:
+		if localizedValue, ok := typed[locale]; ok {
+			if prefix == "" {
+				return fmt.Errorf("locale leaf %q found at root", locale)
+			}
+			text, ok := localizedValue.(string)
+			if !ok {
+				return fmt.Errorf("key %q locale %q is not a string", prefix, locale)
+			}
+			out[prefix] = text
+			return nil
+		}
+
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
+		for _, key := range keys {
+			nextPrefix := key
+			if prefix != "" {
+				nextPrefix = prefix + "." + key
+			}
+			if err := flattenTranslationNode(typed[key], nextPrefix, locale, out); err != nil {
+				return err
+			}
+		}
+		return nil
+	case string:
+		if prefix == "" {
+			return fmt.Errorf("string value found at root")
+		}
+		out[prefix] = typed
+		return nil
+	default:
+		if prefix == "" {
+			return fmt.Errorf("unsupported translation node type at root: %T", node)
+		}
+		return fmt.Errorf("unsupported translation node type at key %q: %T", prefix, node)
+	}
 }
 
 // T translates a key to the current locale.

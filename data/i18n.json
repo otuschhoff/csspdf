@@ -110,8 +110,8 @@
     "de": "Sehr geehrte Damen und Herren"
   },
   "invoiceIntro": {
-    "en": "According to the services rendered in {{dateShort}} I'd like to invoice the following positions",
-    "de": "Entsprechend der erbrachten Leistungen stelle ich für den Monat {{dateShort}} folgende Positionen in Rechnung"
+    "en": "According to the services rendered in {{month}} I'd like to invoice the following positions",
+    "de": "Entsprechend der erbrachten Leistungen stelle ich für den Monat {{month}} folgende Positionen in Rechnung"
   },
   "invoiceOutro": {
     "en": "I kindly ask to settle this invoice in 30 days time after first notification by wiring the total amount due to the bank account named above. I look forward to supporting you & your team and thank for the trust & succesful collaboration.",

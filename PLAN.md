@@ -421,7 +421,7 @@ INVOICE_LOCALE=de
 ./configs/myCompany.json
 ./configs/myStyle.json
 ./resources/Unterschrift.png
-./resources/locales/{locale}.json
+./data/i18n.json
 ```
 
 ## 9. Testing Strategy
