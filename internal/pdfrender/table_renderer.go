@@ -3,10 +3,10 @@ package pdfrender
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/otuschhoff/gofpdf"
-	"github.com/otuschhoff/invoice-gen/internal/pdfdom"
 )
 
 // CellFormatter formats typed cell values into locale-aware strings.
@@ -19,24 +19,15 @@ type CellFormatter interface {
 	FormatDuration(hours float64) string
 }
 
-// TableStyle holds the three style variants used by the table renderer.
-// Use pdfdom.StyleVariant values from the host application's style sheet.
-type TableStyle struct {
-	Title  pdfdom.StyleVariant
-	Normal pdfdom.StyleVariant
-	Small  pdfdom.StyleVariant
-}
-
 // TableRenderer handles rendering tables in PDF documents.
 type TableRenderer struct {
 	pdf       *gofpdf.Fpdf
-	style     *TableStyle
 	formatter CellFormatter
 }
 
 // NewTableRenderer creates a new table renderer.
-func NewTableRenderer(pdf *gofpdf.Fpdf, style *TableStyle, formatter CellFormatter) *TableRenderer {
-	return &TableRenderer{pdf: pdf, style: style, formatter: formatter}
+func NewTableRenderer(pdf *gofpdf.Fpdf, formatter CellFormatter) *TableRenderer {
+	return &TableRenderer{pdf: pdf, formatter: formatter}
 }
 
 // TableDef defines a table structure.
@@ -75,6 +66,11 @@ type RowDef struct {
 type CellDef struct {
 	Text          string
 	SubText       string
+	FontFace      string
+	FontStyle     string
+	FontSize      float64
+	FontColor     string
+	LineHeight    float64
 	Value         interface{}
 	Type          string
 	Align         string
@@ -90,6 +86,12 @@ type CellDef struct {
 	Colspan       int
 }
 
+const (
+	defaultTableFontFace      = "Helvetica"
+	defaultTableFontSize      = 10.0
+	defaultTableLineHeightMul = 1.2
+)
+
 // RenderTable renders a table at the current PDF cursor position.
 func (tr *TableRenderer) RenderTable(table *TableDef) error {
 	if table == nil {
@@ -104,9 +106,10 @@ func (tr *TableRenderer) RenderTable(table *TableDef) error {
 	layout := tr.resolveTableLayout(table)
 
 	if table.Title != "" {
-		tr.setStyle(tr.style.Title)
-		tr.pdf.Text(startX, startY+float64(tr.style.Title.FontSize), table.Title)
-		startY += float64(tr.style.Title.FontSize) + 10
+		tr.pdf.SetFont(defaultTableFontFace, "", defaultTableFontSize)
+		tr.pdf.SetTextColor(0, 0, 0)
+		tr.pdf.Text(startX, startY+defaultTableFontSize, table.Title)
+		startY += defaultTableFontSize + 10
 		tr.pdf.SetY(startY)
 	}
 
@@ -172,7 +175,7 @@ func (tr *TableRenderer) MeasureTableHeight(table *TableDef) (float64, error) {
 	layout := tr.resolveTableLayout(table)
 	height := 0.0
 	if table.Title != "" {
-		height += float64(tr.style.Title.FontSize) + 10
+		height += defaultTableFontSize + 10
 	}
 	for _, row := range table.Rows {
 		rh := row.Height
@@ -315,23 +318,14 @@ func (tr *TableRenderer) resolvedCellPadding(cell *CellDef, def float64) (top, r
 func (tr *TableRenderer) measureCellHeight(cell *CellDef, width, padding float64) float64 {
 	topP, rightP, bottomP, leftP := tr.resolvedCellPadding(cell, padding)
 	contentWidth := math.Max(width-leftP-rightP, 1)
-
-	if cell.Bold {
-		tr.pdf.SetFont(tr.style.Normal.FontFace, "B", float64(tr.style.Normal.FontSize))
-		tr.pdf.SetTextColor(0, 0, 0)
-	} else if cell.Small {
-		tr.setStyle(tr.style.Small)
-	} else {
-		tr.setStyle(tr.style.Normal)
-	}
+	fontSize, lineHeightMul := tr.applyCellStyle(cell)
 
 	text := cell.Text
 	if cell.Value != nil {
 		text = tr.formatCellValue(cell)
 	}
 	lines := tr.wrapTextLines(text, contentWidth)
-	_, fontSize := tr.pdf.GetFontSize()
-	lineH := fontSize * 1.2
+	lineH := fontSize * lineHeightMul
 
 	height := topP
 	if len(lines) > 0 {
@@ -389,14 +383,7 @@ func (tr *TableRenderer) wrapTextLines(text string, width float64) []string {
 }
 
 func (tr *TableRenderer) renderCell(cell *CellDef, x, y, width, height, padding float64) {
-	if cell.Bold {
-		tr.pdf.SetFont(tr.style.Normal.FontFace, "B", float64(tr.style.Normal.FontSize))
-		tr.pdf.SetTextColor(0, 0, 0)
-	} else if cell.Small {
-		tr.setStyle(tr.style.Small)
-	} else {
-		tr.setStyle(tr.style.Normal)
-	}
+	fontSize, lineHeightMul := tr.applyCellStyle(cell)
 
 	align := cell.Align
 	if align == "" && len(cell.Text) > 0 {
@@ -410,9 +397,7 @@ func (tr *TableRenderer) renderCell(cell *CellDef, x, y, width, height, padding 
 	topP, rightP, _, leftP := tr.resolvedCellPadding(cell, padding)
 	contentWidth := math.Max(width-leftP-rightP, 1)
 	lines := tr.wrapTextLines(text, contentWidth)
-
-	_, fontSize := tr.pdf.GetFontSize()
-	lineH := fontSize * 1.2
+	lineH := fontSize * lineHeightMul
 	baseline := y + topP + fontSize
 
 	for _, line := range lines {
@@ -429,17 +414,23 @@ func (tr *TableRenderer) renderCell(cell *CellDef, x, y, width, height, padding 
 	if cell.SubText != "" {
 		subFace := cell.SubFontFace
 		if subFace == "" {
-			subFace = "Helvetica"
+			subFace = cell.FontFace
+		}
+		if subFace == "" {
+			subFace = defaultTableFontFace
 		}
 		subColor := cell.SubFontColor
+		if subColor == "" {
+			subColor = cell.FontColor
+		}
 		if subColor == "" {
 			subColor = "#666"
 		}
 		subSize := cell.SubFontSize
 		if subSize <= 0 {
-			subSize = 7
+			subSize = math.Max(7, fontSize-3)
 		}
-		tr.pdf.SetFont(subFace, "", subSize)
+		tr.pdf.SetFont(normalizeTableFontFace(subFace), "", subSize)
 		if len(subColor) >= 4 && subColor[0] == '#' {
 			r, g, b := tableHexToRGB(subColor)
 			tr.pdf.SetTextColor(r, g, b)
@@ -457,6 +448,117 @@ func (tr *TableRenderer) renderCell(cell *CellDef, x, y, width, height, padding 
 			baseline += subLineH
 		}
 	}
+}
+
+func (tr *TableRenderer) applyCellStyle(cell *CellDef) (fontSize float64, lineHeightMul float64) {
+	fontFace := defaultTableFontFace
+	fontStyle := ""
+	fontSize = defaultTableFontSize
+	fontColor := "#000"
+	lineHeightMul = defaultTableLineHeightMul
+
+	if cell != nil {
+		if strings.TrimSpace(cell.FontFace) != "" {
+			fontFace = cell.FontFace
+		}
+		if strings.TrimSpace(cell.FontStyle) != "" {
+			fontStyle = cell.FontStyle
+		}
+		if cell.FontSize > 0 {
+			fontSize = cell.FontSize
+		}
+		if strings.TrimSpace(cell.FontColor) != "" {
+			fontColor = cell.FontColor
+		}
+		if cell.LineHeight > 0 {
+			lineHeightMul = cell.LineHeight
+		}
+		if cell.Small && cell.FontSize <= 0 {
+			fontSize = 7
+		}
+		if cell.Bold {
+			fontStyle = mergeTableBoldFontStyle(fontStyle)
+		}
+	}
+
+	tr.pdf.SetFont(normalizeTableFontFace(fontFace), normalizeTableFontStyle(fontStyle), fontSize)
+	if len(fontColor) >= 4 && fontColor[0] == '#' {
+		r, g, b := tableHexToRGB(fontColor)
+		tr.pdf.SetTextColor(r, g, b)
+	} else {
+		tr.pdf.SetTextColor(0, 0, 0)
+	}
+	return fontSize, lineHeightMul
+}
+
+func mergeTableBoldFontStyle(style string) string {
+	n := normalizeTableFontStyle(style)
+	if strings.Contains(n, "B") {
+		return n
+	}
+	return n + "B"
+}
+
+func normalizeTableFontFace(face string) string {
+	f := strings.TrimSpace(face)
+	if f == "" {
+		return defaultTableFontFace
+	}
+	if f == "Futura-Medium" || f == "Futura" {
+		return "Helvetica"
+	}
+	return f
+}
+
+func normalizeTableFontStyle(style string) string {
+	s := strings.TrimSpace(style)
+	if s == "" {
+		return ""
+	}
+	up := strings.ToUpper(s)
+	if up == "NORMAL" {
+		return ""
+	}
+	fields := strings.FieldsFunc(up, func(r rune) bool {
+		return r == ' ' || r == ',' || r == ';' || r == '|'
+	})
+	if len(fields) == 0 {
+		fields = []string{up}
+	}
+	hasB := strings.Contains(up, "B")
+	hasI := strings.Contains(up, "I")
+	hasU := strings.Contains(up, "U")
+	for _, f := range fields {
+		switch f {
+		case "B", "BOLD", "700", "800", "900":
+			hasB = true
+		case "I", "ITALIC", "OBLIQUE":
+			hasI = true
+		case "U", "UNDERLINE":
+			hasU = true
+		case "NORMAL", "400":
+			// no-op
+		}
+	}
+	var b strings.Builder
+	if hasB {
+		b.WriteByte('B')
+	}
+	if hasI {
+		b.WriteByte('I')
+	}
+	if hasU {
+		b.WriteByte('U')
+	}
+	return b.String()
+}
+
+func parseTableFloat(raw string) float64 {
+	v, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
 func (tr *TableRenderer) formatCellValue(cell *CellDef) string {
@@ -548,18 +650,6 @@ func (tr *TableRenderer) drawTableBackgroundAndBorder(x, y, width, height float6
 		}
 	}
 	tr.pdf.Rect(x, y, width, height, style)
-}
-
-func (tr *TableRenderer) setStyle(style pdfdom.StyleVariant) {
-	face := style.FontFace
-	if face == "Futura-Medium" || face == "Futura" {
-		face = "Helvetica"
-	}
-	tr.pdf.SetFont(face, "", float64(style.FontSize))
-	if len(style.FontColor) >= 4 && style.FontColor[0] == '#' {
-		r, g, b := tableHexToRGB(style.FontColor)
-		tr.pdf.SetTextColor(r, g, b)
-	}
 }
 
 // tableHexToRGB parses a CSS hex color string and returns r, g, b in [0,255].

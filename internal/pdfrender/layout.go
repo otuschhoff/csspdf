@@ -110,11 +110,7 @@ func NewLayoutPDF(company *Company, style *Style, defaultPage, firstPage templat
 	defaultAssets := buildLayoutPageAssets(defaultPage.Width, defaultPage.Height)
 	firstAssets := buildLayoutPageAssets(firstPage.Width, firstPage.Height)
 
-	tableRdr := NewTableRenderer(pdf, &TableStyle{
-		Title:  style.Title,
-		Normal: style.Normal,
-		Small:  style.Small,
-	}, formatter)
+	tableRdr := NewTableRenderer(pdf, formatter)
 
 	return &LayoutPDF{
 		PDF:            pdf,
@@ -615,6 +611,31 @@ func columnDefFromCell(cell pdfdom.PDFElementNode) ColumnDef {
 // CellDefFromTableCell builds a CellDef from an HTML table cell element.
 func (l *LayoutPDF) CellDefFromTableCell(cellElem pdfdom.PDFElementNode, isHeader bool) CellDef {
 	cell := CellDef{}
+	if face, ok := cellElem.Attribute("fontFace"); ok {
+		cell.FontFace = strings.TrimSpace(face)
+	} else if face, ok := cellElem.Attribute("font-face"); ok {
+		cell.FontFace = strings.TrimSpace(face)
+	}
+	if fontStyle, ok := cellElem.Attribute("fontStyle"); ok {
+		cell.FontStyle = strings.TrimSpace(fontStyle)
+	} else if fontStyle, ok := cellElem.Attribute("font-style"); ok {
+		cell.FontStyle = strings.TrimSpace(fontStyle)
+	}
+	if fontColor, ok := cellElem.Attribute("fontColor"); ok {
+		cell.FontColor = strings.TrimSpace(fontColor)
+	} else if fontColor, ok := cellElem.Attribute("font-color"); ok {
+		cell.FontColor = strings.TrimSpace(fontColor)
+	}
+	if fontSize, ok := cellElem.Attribute("fontSize"); ok {
+		cell.FontSize = parseTableFloat(fontSize)
+	} else if fontSize, ok := cellElem.Attribute("font-size"); ok {
+		cell.FontSize = parseTableFloat(fontSize)
+	}
+	if lineHeight, ok := cellElem.Attribute("lineHeight"); ok {
+		cell.LineHeight = parseTableFloat(lineHeight)
+	} else if lineHeight, ok := cellElem.Attribute("line-height"); ok {
+		cell.LineHeight = parseTableFloat(lineHeight)
+	}
 	cellHasExplicitAlign := false
 	if pad := htmlLengthToFloat(cellElem, "padding"); pad > 0 {
 		cell.PaddingTop = pad
@@ -690,6 +711,21 @@ func (l *LayoutPDF) CellDefFromTableCell(cellElem pdfdom.PDFElementNode, isHeade
 	main := textChildren[0]
 	cell.Text = l.ResolvePDFTextNode(main)
 	if main.Style != nil {
+		if main.Style.FontFace != "" {
+			cell.FontFace = main.Style.FontFace
+		}
+		if main.Style.FontStyle != "" {
+			cell.FontStyle = main.Style.FontStyle
+		}
+		if main.Style.FontColor != "" {
+			cell.FontColor = main.Style.FontColor
+		}
+		if main.Style.FontSize > 0 {
+			cell.FontSize = main.Style.FontSize
+		}
+		if main.Style.LineHeight > 0 {
+			cell.LineHeight = main.Style.LineHeight
+		}
 		if main.Style.Align != "" && !cellHasExplicitAlign {
 			cell.Align = textAlignToTableAlign(main.Style.Align)
 		}
