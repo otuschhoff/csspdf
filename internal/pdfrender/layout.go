@@ -99,11 +99,11 @@ type LayoutPDF struct {
 }
 
 type layoutPageAssets struct {
-	pageWidth      float64
-	pageHeight     float64
-	footerTpl      gofpdf.Template
-	footerSize     gofpdf.SizeType
-	footerPos      gofpdf.PointType
+	pageWidth  float64
+	pageHeight float64
+	footerTpl  gofpdf.Template
+	footerSize gofpdf.SizeType
+	footerPos  gofpdf.PointType
 }
 
 // NewLayoutPDF creates a LayoutPDF from pre-loaded company and style data.
@@ -197,11 +197,11 @@ func buildLayoutPageAssets(pdf *gofpdf.Fpdf, ringTpl gofpdf.Template, company *C
 	_, footerSize := footerTpl.Size()
 
 	return layoutPageAssets{
-		pageWidth:      pageWidth,
-		pageHeight:     pageHeight,
-		footerTpl:      footerTpl,
-		footerSize:     footerSize,
-		footerPos:      gofpdf.PointType{X: 0, Y: pageHeight - footerHeight - 20},
+		pageWidth:  pageWidth,
+		pageHeight: pageHeight,
+		footerTpl:  footerTpl,
+		footerSize: footerSize,
+		footerPos:  gofpdf.PointType{X: 0, Y: pageHeight - footerHeight - 20},
 	}
 }
 
