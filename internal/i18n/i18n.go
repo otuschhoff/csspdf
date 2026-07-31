@@ -19,21 +19,37 @@ type I18n struct {
 
 // New creates a new I18n instance and loads translations for the given locale.
 func New(locale string) (*I18n, error) {
-	i := &I18n{
-		locale:       locale,
-		translations: make(map[string]string),
-	}
-
+	i := newI18n(locale)
 	if err := i.loadTranslations(locale); err != nil {
 		return nil, err
 	}
-
 	return i, nil
 }
+
+// NewFromSource creates a new I18n instance from a parsed JSON source object.
+// The source should match the same i18n JSON structure used by i18n.json.
+func NewFromSource(locale string, source map[string]any) (*I18n, error) {
+	i := newI18n(locale)
+	translations, err := flattenTranslationsForLocale(source, locale)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load %s translations from provided source: %w", locale, err)
+	}
+	i.translations = translations
+	return i, nil
+}
+
+func newI18n(locale string) *I18n {
+	return &I18n{
+		locale:       locale,
+		translations: make(map[string]string),
+	}
+}
+
 
 func (i *I18n) loadTranslations(locale string) error {
 	paths := []string{
 		filepath.Join("data", "i18n.json"),
+		filepath.Join("..", "data", "i18n.json"),
 		filepath.Join("i18n.json"),
 		filepath.Join("..", "..", "data", "i18n.json"),
 	}

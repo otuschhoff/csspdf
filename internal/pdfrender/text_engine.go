@@ -846,7 +846,7 @@ func encodePDFTextLatin1(text string) string {
 	return b.String()
 }
 
-// --- Private helper copies (avoid import cycles with examples/invoice) ---
+// --- Private helper copies (avoid import cycles with profile adapter packages) ---
 
 func hexToRGB(hex string) (int, int, int) {
 	hex = strings.ToLower(strings.TrimSpace(hex))

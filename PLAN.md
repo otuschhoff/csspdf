@@ -100,9 +100,9 @@ Delete wrapper in next phase once callers are switched.
 Create one orchestrator entrypoint used by CLI.
 
 ### Tasks
-1. Add `internal/app/invoice` service (e.g. `RenderTotals(...)`).
+1. Move `RenderTotals(...)` orchestration into `cmd/invoice-gen/main.go`.
 2. Move orchestration from `internal/invoice/pdf_generator.go` into service.
-3. `cmd/invoice-gen/main.go` calls service only.
+3. `cmd/invoice-gen/main.go` calls local orchestration only.
 
 ### Acceptance Criteria
 - CLI behavior unchanged.

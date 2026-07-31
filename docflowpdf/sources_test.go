@@ -60,3 +60,24 @@ func TestAssetInputResolveAssets_FromFS(t *testing.T) {
 		t.Fatalf("expected source data to include Invoice")
 	}
 }
+
+func TestAssetInputResolveAssets_AllowsMissingSourceData(t *testing.T) {
+	flow := Flow{
+		MainFlow:   []Section{{Template: "doc", Transformer: "generic"}},
+		PageNumber: Section{Template: "page-number", Transformer: "generic"},
+	}
+
+	input := AssetInput{
+		HTML: TextSource{Text: `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`},
+		CSS:  TextSource{Text: "@page { size: A4; }"},
+		Flow: JSONSource{Object: flow},
+	}
+
+	assets, err := input.ResolveAssets()
+	if err != nil {
+		t.Fatalf("ResolveAssets returned error: %v", err)
+	}
+	if assets.SourceData != nil {
+		t.Fatalf("expected nil source data when no source data input is provided")
+	}
+}

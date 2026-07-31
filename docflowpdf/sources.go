@@ -52,6 +52,10 @@ type JSONSource struct {
 	FSPath   string
 }
 
+func (s JSONSource) IsSet() bool {
+	return s.Object != nil || s.Raw != nil || s.Text != "" || s.FilePath != "" || (s.FS != nil && s.FSPath != "")
+}
+
 func (s JSONSource) DecodeInto(target any, label string) error {
 	if s.Object != nil {
 		buf, err := json.Marshal(s.Object)
@@ -115,9 +119,12 @@ func (in AssetInput) ResolveAssets() (Assets, error) {
 		return Assets{}, err
 	}
 
-	sourceData := make(map[string]any)
-	if err := in.SourceData.DecodeInto(&sourceData, "source data"); err != nil {
-		return Assets{}, err
+	var sourceData map[string]any
+	if in.SourceData.IsSet() {
+		sourceData = make(map[string]any)
+		if err := in.SourceData.DecodeInto(&sourceData, "source data"); err != nil {
+			return Assets{}, err
+		}
 	}
 
 	assets := Assets{

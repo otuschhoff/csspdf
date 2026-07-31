@@ -7,11 +7,36 @@ import (
 	"os"
 	"path/filepath"
 
-	appinvoice "github.com/otuschhoff/invoice-gen/internal/app/invoice"
+	invoiceexample "github.com/otuschhoff/invoice-gen/examples/invoice"
 	"github.com/otuschhoff/invoice-gen/internal/pdfdump"
+	templateload "github.com/otuschhoff/invoice-gen/internal/template"
 )
 
 const version = "0.1.0"
+
+// Page dimension defaults matching the underlying layout engine.
+const (
+	DocWidth  = templateload.A4Width
+	DocHeight = templateload.A4Height
+)
+
+// RenderTotalsOptions holds all parameters for the totals PDF rendering use case.
+type RenderTotalsOptions struct {
+	OutputPath string
+	PageWidth  float64
+	PageHeight float64
+	PageCount  int
+}
+
+// RenderTotals generates the totals PDF and writes it to opts.OutputPath.
+func RenderTotals(opts RenderTotalsOptions) error {
+	return invoiceexample.RenderTotalsPDF(
+		opts.OutputPath,
+		opts.PageWidth,
+		opts.PageHeight,
+		opts.PageCount,
+	)
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -56,8 +81,8 @@ func runTotals(args []string) int {
 
 	var (
 		outputPath = cmd.String("o", "output/totals.pdf", "Output PDF path")
-		pageWidth  = cmd.Float64("page-width", appinvoice.DocWidth, "Page width in points")
-		pageHeight = cmd.Float64("page-height", appinvoice.DocHeight, "Page height in points")
+		pageWidth  = cmd.Float64("page-width", DocWidth, "Page width in points")
+		pageHeight = cmd.Float64("page-height", DocHeight, "Page height in points")
 		pageCount  = cmd.Int("pages", 2, "Number of pages to generate")
 	)
 
@@ -83,7 +108,7 @@ func runTotals(args []string) int {
 		return 1
 	}
 
-	if err := appinvoice.RenderTotals(appinvoice.RenderTotalsOptions{
+	if err := RenderTotals(RenderTotalsOptions{
 		OutputPath: *outputPath,
 		PageWidth:  *pageWidth,
 		PageHeight: *pageHeight,
