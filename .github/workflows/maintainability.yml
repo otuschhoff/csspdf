@@ -1,0 +1,32 @@
+name: maintainability
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  maintainability:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Install gocyclo
+        run: go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+
+      - name: Enforce maintainability budgets
+        env:
+          CHECK_SCOPE: changed
+          BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          chmod +x scripts/check-maintainability.sh
+          scripts/check-maintainability.sh

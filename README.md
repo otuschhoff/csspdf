@@ -290,6 +290,24 @@ go build -o bin/invoice-gen ./cmd/invoice-gen
 bin/invoice-gen totals
 ```
 
+### maintainability
+
+Enforce maintainability budgets and architecture boundaries locally (same checks as CI):
+
+```sh
+go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+chmod +x scripts/check-maintainability.sh
+scripts/check-maintainability.sh
+```
+
+Default budgets:
+
+- Cyclomatic complexity: `15`
+- Function length (non-test Go files): `80` lines
+- Go file length: `600` lines
+
+See detailed dependency-direction rules in [docs/architecture-boundaries.md](docs/architecture-boundaries.md).
+
 ### render-sample
 
 Build and render the sample invoice in verbose mode.
