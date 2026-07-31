@@ -3,7 +3,6 @@ package pdfrender
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -49,15 +48,34 @@ type layoutPageAssets struct {
 	pageHeight float64
 }
 
+// FontRegistration declares one font family/style with ordered candidate file
+// paths. The first existing file path will be loaded.
+type FontRegistration struct {
+	Family  string
+	Style   string
+	Sources []string
+}
+
+// LayoutOptions controls optional renderer initialization behavior.
+type LayoutOptions struct {
+	FontRegistrations []FontRegistration
+}
+
 // NewLayoutPDF creates a LayoutPDF from page settings and locale/format helpers.
 func NewLayoutPDF(defaultPage, firstPage templateload.PageSettings, i18nInst *i18n.I18n, formatter *format.Formatter) (*LayoutPDF, error) {
+	return NewLayoutPDFWithOptions(defaultPage, firstPage, i18nInst, formatter, LayoutOptions{})
+}
+
+// NewLayoutPDFWithOptions creates a LayoutPDF and applies optional profile
+// configuration such as custom font registrations.
+func NewLayoutPDFWithOptions(defaultPage, firstPage templateload.PageSettings, i18nInst *i18n.I18n, formatter *format.Formatter, options LayoutOptions) (*LayoutPDF, error) {
 	pdf := gofpdf.New("P", "pt", "A4", "")
 	pdf.SetMargins(0, 0, 0)
 	pdf.SetAutoPageBreak(false, 0)
 	pdf.AddPageFormat("P", gofpdf.SizeType{Wd: firstPage.Width, Ht: firstPage.Height})
 
 	ringTpl := CreateRingLogoTemplate(pdf, LogoBaseRadius, LogoTplCenter, LogoTplCenter)
-	if err := addFuturaMediumFont(pdf); err != nil {
+	if err := loadDefaultFontSet(pdf, options.FontRegistrations); err != nil {
 		return nil, err
 	}
 
@@ -968,23 +986,37 @@ func (l *LayoutPDF) RenderUseTemplateElement(elem *pdfdom.ElemUseTemplate, fallb
 	return height, absolute, nil
 }
 
-func addFuturaMediumFont(pdf *gofpdf.Fpdf) error {
-	for _, fontPath := range []string{
-		filepath.Join("examples", "invoice", "templates", "Futura-Medium.ttf"),
-		filepath.Join("..", "examples", "invoice", "templates", "Futura-Medium.ttf"),
-		filepath.Join("..", "..", "examples", "invoice", "templates", "Futura-Medium.ttf"),
-		"Futura-Medium.ttf",
-		"resources/Futura-Medium.ttf",
-		"../Futura-Medium.ttf",
-		"../resources/Futura-Medium.ttf",
-	} {
-		if _, statErr := os.Stat(fontPath); statErr == nil {
-			pdf.AddUTF8Font("Futura-Medium", "", fontPath)
-			if pdf.Err() {
-				return fmt.Errorf("failed to load Futura-Medium from %s: %w", fontPath, pdf.Error())
+func loadDefaultFontSet(pdf *gofpdf.Fpdf, fonts []FontRegistration) error {
+	for _, font := range fonts {
+		family := strings.TrimSpace(font.Family)
+		if family == "" {
+			return fmt.Errorf("font registration has empty family")
+		}
+		style := strings.TrimSpace(font.Style)
+		if len(font.Sources) == 0 {
+			return fmt.Errorf("font registration %q has no sources", family)
+		}
+
+		loaded := false
+		for _, source := range font.Sources {
+			fontPath := strings.TrimSpace(source)
+			if fontPath == "" {
+				continue
 			}
-			return nil
+			if _, statErr := os.Stat(fontPath); statErr != nil {
+				continue
+			}
+			pdf.AddUTF8Font(family, style, fontPath)
+			if pdf.Err() {
+				return fmt.Errorf("failed to load %s (style=%q) from %s: %w", family, style, fontPath, pdf.Error())
+			}
+			loaded = true
+			break
+		}
+
+		if !loaded {
+			return fmt.Errorf("font %s (style=%q) not found in configured sources", family, style)
 		}
 	}
-	return fmt.Errorf("Futura-Medium.ttf not found in known paths")
+	return nil
 }

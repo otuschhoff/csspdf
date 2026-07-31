@@ -31,6 +31,7 @@ type RenderInput struct {
 	AssetInput          *AssetInput
 	SourceData          any
 	I18nSource          JSONSource
+	FontRegistrations   []FontRegistration
 	PageWidth           float64
 	PageHeight          float64
 	PageCount           int
@@ -43,6 +44,14 @@ type RenderInput struct {
 	Logger              Logger
 	// Deprecated: use Logger.
 	WarningWriter io.Writer
+}
+
+// FontRegistration declares one font family/style with ordered candidate file
+// paths. The first existing path will be registered.
+type FontRegistration struct {
+	Family  string
+	Style   string
+	Sources []string
 }
 
 // Render renders HTML template + CSS + source data + flow JSON to a PDF file.
@@ -146,7 +155,9 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 		return nil, fmt.Errorf("failed to initialize i18n: %w", err)
 	}
 	formatter := format.New(i18nInst, currencyCode)
-	l, err := pdfrender.NewLayoutPDF(defaultPage, firstPage, i18nInst, formatter)
+	l, err := pdfrender.NewLayoutPDFWithOptions(defaultPage, firstPage, i18nInst, formatter, pdfrender.LayoutOptions{
+		FontRegistrations: toLayoutFontRegistrations(input.FontRegistrations),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -228,6 +239,23 @@ func resolveI18nInput(locale string, input RenderInput) (*i18n.I18n, error) {
 		return nil, err
 	}
 	return i18n.NewFromSource(locale, source)
+}
+
+func toLayoutFontRegistrations(registrations []FontRegistration) []pdfrender.FontRegistration {
+	if len(registrations) == 0 {
+		return nil
+	}
+	out := make([]pdfrender.FontRegistration, 0, len(registrations))
+	for _, registration := range registrations {
+		sources := make([]string, 0, len(registration.Sources))
+		sources = append(sources, registration.Sources...)
+		out = append(out, pdfrender.FontRegistration{
+			Family:  registration.Family,
+			Style:   registration.Style,
+			Sources: sources,
+		})
+	}
+	return out
 }
 
 func renderMainFlow(layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, input RenderInput) error {
