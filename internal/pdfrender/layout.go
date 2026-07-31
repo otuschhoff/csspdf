@@ -73,6 +73,7 @@ type LayoutPDF struct {
 	Formatter         *format.Formatter
 	I18n              *i18n.I18n
 	TableRdr          *TableRenderer
+	PageNumRenderer   func(l *LayoutPDF, page, pageCount int)
 	DeferFlowPageNum  bool
 	CurrentPage       int
 	TotalPages        int
@@ -316,7 +317,7 @@ func (l *LayoutPDF) NextFlowPage() {
 	}
 	l.BeginPage(l.CurrentPage)
 	if !l.DeferFlowPageNum {
-		l.RenderPageNum(l.CurrentPage, l.TotalPages)
+		l.renderPageNum(l.CurrentPage, l.TotalPages)
 	}
 }
 
@@ -330,8 +331,16 @@ func (l *LayoutPDF) RenderFinalFlowPageNums() {
 		l.pageHeight = assets.pageHeight
 		l.currentMargins = settings.Margins
 		l.PDF.SetPage(page)
-		l.RenderPageNum(page, finalTotal)
+		l.renderPageNum(page, finalTotal)
 	}
+}
+
+func (l *LayoutPDF) renderPageNum(page, pageCount int) {
+	if l.PageNumRenderer != nil {
+		l.PageNumRenderer(l, page, pageCount)
+		return
+	}
+	l.RenderPageNum(page, pageCount)
 }
 
 // ShouldBreakPageBefore reports whether node carries a break-before:page attribute.
