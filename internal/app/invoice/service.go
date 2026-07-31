@@ -16,18 +16,16 @@ const (
 
 // RenderTotalsOptions holds all parameters for the totals PDF rendering use case.
 type RenderTotalsOptions struct {
-	OutputPath  string
-	CompanyPath string
-	PageWidth   float64
-	PageHeight  float64
-	PageCount   int
+	OutputPath string
+	PageWidth  float64
+	PageHeight float64
+	PageCount  int
 }
 
 // RenderTotals generates the totals PDF and writes it to opts.OutputPath.
 func RenderTotals(opts RenderTotalsOptions) error {
 	return invoice.RenderTotalsPDF(
 		opts.OutputPath,
-		opts.CompanyPath,
 		opts.PageWidth,
 		opts.PageHeight,
 		opts.PageCount,

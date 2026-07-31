@@ -55,11 +55,10 @@ func runTotals(args []string) int {
 	cmd.SetOutput(os.Stderr)
 
 	var (
-		outputPath  = cmd.String("o", "output/totals.pdf", "Output PDF path")
-		companyPath = cmd.String("company", "configs/myCompany.json", "Company JSON path")
-		pageWidth   = cmd.Float64("page-width", appinvoice.DocWidth, "Page width in points")
-		pageHeight  = cmd.Float64("page-height", appinvoice.DocHeight, "Page height in points")
-		pageCount   = cmd.Int("pages", 2, "Number of pages to generate")
+		outputPath = cmd.String("o", "output/totals.pdf", "Output PDF path")
+		pageWidth  = cmd.Float64("page-width", appinvoice.DocWidth, "Page width in points")
+		pageHeight = cmd.Float64("page-height", appinvoice.DocHeight, "Page height in points")
+		pageCount  = cmd.Int("pages", 2, "Number of pages to generate")
 	)
 
 	cmd.Usage = func() {
@@ -85,11 +84,10 @@ func runTotals(args []string) int {
 	}
 
 	if err := appinvoice.RenderTotals(appinvoice.RenderTotalsOptions{
-		OutputPath:  *outputPath,
-		CompanyPath: *companyPath,
-		PageWidth:   *pageWidth,
-		PageHeight:  *pageHeight,
-		PageCount:   *pageCount,
+		OutputPath: *outputPath,
+		PageWidth:  *pageWidth,
+		PageHeight: *pageHeight,
+		PageCount:  *pageCount,
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error rendering totals PDF: %v\n", err)
 		return 1
