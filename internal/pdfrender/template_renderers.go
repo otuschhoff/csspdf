@@ -164,4 +164,3 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 		}
 	}
 }
-
