@@ -4,7 +4,7 @@
 package invoice
 
 import (
-	"github.com/otuschhoff/invoice-gen/internal/invoice"
+	invoiceexample "github.com/otuschhoff/invoice-gen/examples/invoice"
 	templateload "github.com/otuschhoff/invoice-gen/internal/template"
 )
 
@@ -24,7 +24,7 @@ type RenderTotalsOptions struct {
 
 // RenderTotals generates the totals PDF and writes it to opts.OutputPath.
 func RenderTotals(opts RenderTotalsOptions) error {
-	return invoice.RenderTotalsPDF(
+	return invoiceexample.RenderTotalsPDF(
 		opts.OutputPath,
 		opts.PageWidth,
 		opts.PageHeight,

@@ -7,15 +7,15 @@ import (
 
 func TestAssetInputResolveAssets_FromInMemorySources(t *testing.T) {
 	flow := Flow{
-		MainFlow: []Section{{Template: "doc", Transformer: "generic"}},
+		MainFlow:   []Section{{Template: "doc", Transformer: "generic"}},
 		PageNumber: Section{Template: "page-number", Transformer: "generic"},
 	}
 	source := map[string]any{"Company": map[string]any{"Name": "ACME"}}
 
 	input := AssetInput{
-		HTML: TextSource{Text: `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`},
-		CSS:  TextSource{Text: "@page { size: A4; }"},
-		Flow: JSONSource{Object: flow},
+		HTML:       TextSource{Text: `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`},
+		CSS:        TextSource{Text: "@page { size: A4; }"},
+		Flow:       JSONSource{Object: flow},
 		SourceData: JSONSource{Object: source},
 	}
 
