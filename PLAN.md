@@ -372,7 +372,7 @@ invoice-gen \
   -company configs/myCompany.json \
   -style configs/myStyle.json \
   -locale de \
-  -signature resources/Unterschrift.png
+   -signature examples/invoice/templates/Unterschrift.png
 
 # Short flags
 invoice-gen -i RA-2026-01.json -l en -o custom-output.pdf
@@ -395,7 +395,7 @@ go build -o invoice-gen cmd/invoice-gen/main.go
 -c, --company string      Company JSON path (default: configs/myCompany.json)
 -s, --style string        Style JSON path (default: configs/myStyle.json)
 -l, --locale string       Locale (de/en) (default: from customer or "de")
-    --signature string    Signature image path (default: resources/Unterschrift.png)
+   --signature string    Signature image path (default: examples/invoice/templates/Unterschrift.png)
     --no-zugferd          Skip ZUGFeRD XML generation
 -v, --verbose             Verbose output
 -h, --help                Help
@@ -420,8 +420,8 @@ INVOICE_LOCALE=de
 // Default paths (relative to working directory)
 ./configs/myCompany.json
 ./configs/myStyle.json
-./resources/Unterschrift.png
-./data/i18n.json
+./examples/invoice/templates/Unterschrift.png
+./examples/invoice/templates/i18n.json
 ```
 
 ## 9. Testing Strategy

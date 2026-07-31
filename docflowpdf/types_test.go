@@ -4,7 +4,7 @@ import "testing"
 
 func TestFlowValidate_RejectsUnsupportedTransformer(t *testing.T) {
 	flow := Flow{
-		MainFlow: []Section{{Template: "doc", Transformer: "invoice-doc"}},
+		MainFlow:   []Section{{Template: "doc", Transformer: "invoice-doc"}},
 		PageNumber: Section{Template: "page-number", Transformer: "generic"},
 	}
 	if err := flow.Validate(); err == nil {

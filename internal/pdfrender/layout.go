@@ -3,6 +3,7 @@ package pdfrender
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -912,7 +913,15 @@ func (l *LayoutPDF) RenderUseTemplateElement(elem *pdfdom.ElemUseTemplate, fallb
 }
 
 func addFuturaMediumFont(pdf *gofpdf.Fpdf) error {
-	for _, fontPath := range []string{"Futura-Medium.ttf", "resources/Futura-Medium.ttf", "../Futura-Medium.ttf", "../resources/Futura-Medium.ttf"} {
+	for _, fontPath := range []string{
+		filepath.Join("examples", "invoice", "templates", "Futura-Medium.ttf"),
+		filepath.Join("..", "examples", "invoice", "templates", "Futura-Medium.ttf"),
+		filepath.Join("..", "..", "examples", "invoice", "templates", "Futura-Medium.ttf"),
+		"Futura-Medium.ttf",
+		"resources/Futura-Medium.ttf",
+		"../Futura-Medium.ttf",
+		"../resources/Futura-Medium.ttf",
+	} {
 		if _, statErr := os.Stat(fontPath); statErr == nil {
 			pdf.AddUTF8Font("Futura-Medium", "", fontPath)
 			if pdf.Err() {

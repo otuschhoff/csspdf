@@ -45,13 +45,15 @@ func newI18n(locale string) *I18n {
 	}
 }
 
-
 func (i *I18n) loadTranslations(locale string) error {
 	paths := []string{
+		filepath.Join("examples", "invoice", "templates", "i18n.json"),
+		filepath.Join("..", "examples", "invoice", "templates", "i18n.json"),
 		filepath.Join("data", "i18n.json"),
 		filepath.Join("..", "data", "i18n.json"),
 		filepath.Join("i18n.json"),
 		filepath.Join("..", "..", "data", "i18n.json"),
+		filepath.Join("..", "..", "examples", "invoice", "templates", "i18n.json"),
 	}
 
 	var lastErr error

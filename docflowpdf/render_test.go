@@ -27,8 +27,7 @@ func minimalAssets() Assets {
 			PageNumber: Section{
 				Template:    "page-number",
 				Transformer: "generic",
-				Payload: PayloadConfig{Runtime: map[string]string{"Page": "page.number", "Total": "page.total"},
-				},
+				Payload:     PayloadConfig{Runtime: map[string]string{"Page": "page.number", "Total": "page.total"}},
 			},
 		},
 		SourceData: map[string]any{"Name": "Docflow", "locale": "en"},
@@ -162,7 +161,7 @@ func TestRender_I18nSource_Text(t *testing.T) {
 		PageCount:           1,
 		DefaultLocale:       "yy",
 		DefaultCurrencyCode: "EUR",
-		I18nSource: JSONSource{Text: `{"_floatSeparator":{"yy":"."},"_kiloSeparator":{"yy":","},"invoice":{"title":{"yy":"Invoice"}}}`},
+		I18nSource:          JSONSource{Text: `{"_floatSeparator":{"yy":"."},"_kiloSeparator":{"yy":","},"invoice":{"title":{"yy":"Invoice"}}}`},
 	})
 	if err != nil {
 		t.Fatalf("expected render to succeed with text i18n source: %v", err)

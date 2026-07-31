@@ -752,12 +752,18 @@ func resolveImagePath(src string) (string, bool) {
 	if !filepath.IsAbs(trimmed) {
 		base := filepath.Base(trimmed)
 		candidates = append(candidates,
+			filepath.Join("examples", "invoice", "templates", trimmed),
+			filepath.Join("examples", "invoice", "templates", base),
 			filepath.Join("resources", trimmed),
 			filepath.Join("resources", base),
 			filepath.Join("..", trimmed),
+			filepath.Join("..", "examples", "invoice", "templates", trimmed),
+			filepath.Join("..", "examples", "invoice", "templates", base),
 			filepath.Join("..", "resources", trimmed),
 			filepath.Join("..", "resources", base),
 			filepath.Join("..", "..", trimmed),
+			filepath.Join("..", "..", "examples", "invoice", "templates", trimmed),
+			filepath.Join("..", "..", "examples", "invoice", "templates", base),
 			filepath.Join("..", "..", "resources", trimmed),
 			filepath.Join("..", "..", "resources", base),
 		)

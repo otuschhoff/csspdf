@@ -42,7 +42,7 @@ type RenderInput struct {
 	FuncMapFactory      FuncMapFactory
 	Logger              Logger
 	// Deprecated: use Logger.
-	WarningWriter       io.Writer
+	WarningWriter io.Writer
 }
 
 // Render renders HTML template + CSS + source data + flow JSON to a PDF file.
