@@ -17,6 +17,19 @@ type Formatter struct {
 	currency string
 }
 
+var currencySymbolByCode = map[string]string{
+	"AUD": "$",
+	"CAD": "$",
+	"CHF": "CHF",
+	"CNY": "\u00a5",
+	"EUR": "\u20ac",
+	"GBP": "\u00a3",
+	"JPY": "\u00a5",
+	"NOK": "kr",
+	"SEK": "kr",
+	"USD": "$",
+}
+
 // New creates a new Formatter with the given i18n instance and currency code.
 func New(i *i18n.I18n, currency string) *Formatter {
 	return &Formatter{
@@ -44,15 +57,25 @@ func (f *Formatter) FormatCurrency(value float64) string {
 		fracPart,
 	)
 
-	currency := strings.TrimSpace(f.currency)
+	currency := displayCurrency(strings.TrimSpace(f.currency))
 	if currency == "" {
-		currency = "EUR"
+		currency = displayCurrency("EUR")
 	}
 
 	if f.i18n.Locale() == "de" {
 		return result + " " + currency
 	}
 	return currency + " " + result
+}
+
+func displayCurrency(currency string) string {
+	if currency == "" {
+		return ""
+	}
+	if symbol, ok := currencySymbolByCode[strings.ToUpper(currency)]; ok {
+		return symbol
+	}
+	return currency
 }
 
 // FormatFloat formats a float with the specified number of decimal places.
