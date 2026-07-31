@@ -143,6 +143,36 @@ Focused package tests:
 go test ./docflowpdf ./examples/invoice ./cmd/invoice-gen ./internal/pdfrender
 ```
 
+## Tasks
+
+Run tasks with `xc <task>`. The task definitions below are xc-compatible.
+
+### build
+
+Build CLI binaries into `bin/`.
+
+```sh
+go build -o bin/invoice-gen ./cmd/invoice-gen
+go build -o bin/dom-parse ./cmd/dom-parse
+```
+
+### render-sample
+
+Build and render the sample totals document.
+
+```sh
+go build -o bin/invoice-gen ./cmd/invoice-gen
+./bin/invoice-gen totals -o output/totals.pdf
+```
+
+### test
+
+Run focused tests used during the library refactor.
+
+```sh
+go test ./docflowpdf ./examples/invoice ./cmd/invoice-gen ./internal/pdfrender ./internal/i18n
+```
+
 ## Notes
 
 - Some legacy repository commands/packages are still present for historical tooling.
