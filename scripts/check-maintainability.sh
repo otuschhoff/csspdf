@@ -134,8 +134,8 @@ check_forbidden_imports() {
 }
 
 check_forbidden_imports "internal/domain" 'github.com/otuschhoff/invoice-gen/internal/(invoice|pdfrender|templateflow|app|template)' "internal/domain must not import rendering/orchestration/template layers"
-check_forbidden_imports "internal/template" 'github.com/otuschhoff/invoice-gen/internal/(invoice|pdfrender|app)' "internal/template must stay parser/template only"
-check_forbidden_imports "internal/templateflow" 'github.com/otuschhoff/invoice-gen/internal/(invoice|app)' "internal/templateflow must stay adapter-only (no business layer imports)"
+check_forbidden_imports "internal/templating" 'github.com/otuschhoff/invoice-gen/internal/(invoice|pdfrender|app)' "internal/templating must stay parser/template only"
+check_forbidden_imports "internal/flowrender" 'github.com/otuschhoff/invoice-gen/internal/(invoice|app)' "internal/flowrender must stay adapter-only (no business layer imports)"
 
 if (( status != 0 )); then
   echo "[maintainability] FAILED"

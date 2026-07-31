@@ -1,11 +1,11 @@
-package templateflow
+package flowrender
 
 import (
 	"fmt"
 	htmltmpl "html/template"
 
 	"github.com/otuschhoff/invoice-gen/internal/pdfdom"
-	templateload "github.com/otuschhoff/invoice-gen/internal/template"
+	templateload "github.com/otuschhoff/invoice-gen/internal/templating"
 )
 
 // BuildFlowElements executes a named HTML template, applies CSS styling, and

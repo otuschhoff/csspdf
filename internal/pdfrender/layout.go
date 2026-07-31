@@ -11,7 +11,7 @@ import (
 	"github.com/otuschhoff/invoice-gen/internal/format"
 	"github.com/otuschhoff/invoice-gen/internal/i18n"
 	"github.com/otuschhoff/invoice-gen/internal/pdfdom"
-	templateload "github.com/otuschhoff/invoice-gen/internal/template"
+	templateload "github.com/otuschhoff/invoice-gen/internal/templating"
 )
 
 const (

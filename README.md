@@ -14,7 +14,7 @@ The reusable public package is:
 
 This repository now separates:
 - Generic rendering engine: docflowpdf
-- Rendering internals: internal/pdfrender, internal/pdfdom, internal/template, internal/templateflow
+- Rendering internals: internal/pdfrender, internal/pdfdom, internal/templating, internal/flowrender
 - Invoice profile/example: examples/invoice
 
 ## Quick Start

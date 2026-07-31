@@ -9,7 +9,7 @@ import (
 
 	invoiceexample "github.com/otuschhoff/invoice-gen/examples/invoice"
 	"github.com/otuschhoff/invoice-gen/internal/pdfdump"
-	templateload "github.com/otuschhoff/invoice-gen/internal/template"
+	templateload "github.com/otuschhoff/invoice-gen/internal/templating"
 )
 
 const version = "0.1.0"

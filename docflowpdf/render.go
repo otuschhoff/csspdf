@@ -15,8 +15,8 @@ import (
 	"github.com/otuschhoff/invoice-gen/internal/i18n"
 	"github.com/otuschhoff/invoice-gen/internal/pdfdom"
 	"github.com/otuschhoff/invoice-gen/internal/pdfrender"
-	templateload "github.com/otuschhoff/invoice-gen/internal/template"
-	"github.com/otuschhoff/invoice-gen/internal/templateflow"
+	templateload "github.com/otuschhoff/invoice-gen/internal/templating"
+	"github.com/otuschhoff/invoice-gen/internal/flowrender"
 )
 
 const (
@@ -246,7 +246,7 @@ func renderMainFlow(layout *pdfrender.LayoutPDF, assets Assets, source map[strin
 		}
 		funcs := buildFuncMap(input, strings.TrimSpace(input.DefaultLocale), requiredString(jsonData, "locale"))
 
-		elements, err := templateflow.BuildFlowElementsWithFuncs(assets.HTML, section.Template, assets.CSS, jsonData, funcs)
+		elements, err := flowrender.BuildFlowElementsWithFuncs(assets.HTML, section.Template, assets.CSS, jsonData, funcs)
 		if err != nil {
 			return err
 		}
@@ -266,7 +266,7 @@ func pageNumberTemplateFlowElements(layout *pdfrender.LayoutPDF, assets Assets, 
 	}
 	funcs := buildFuncMap(input, layout.I18n.Locale(), requiredString(data, "locale"))
 
-	return templateflow.BuildFlowElementsWithFuncs(assets.HTML, assets.Flow.PageNumber.Template, assets.CSS, data, funcs)
+	return flowrender.BuildFlowElementsWithFuncs(assets.HTML, assets.Flow.PageNumber.Template, assets.CSS, data, funcs)
 }
 
 func buildFuncMap(input RenderInput, defaultLocale, payloadLocale string) htmltmpl.FuncMap {

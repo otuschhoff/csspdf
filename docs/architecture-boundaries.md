@@ -9,11 +9,11 @@ that are enforced by `scripts/check-maintainability.sh`.
 - Pure business/domain data structures only.
 - No rendering, orchestration, or template parsing logic.
 
-- `internal/template`
+- `internal/templating`
 - Template execution/parsing and CSS/page/docflow parsing only.
 - No business orchestration or PDF rendering dependencies.
 
-- `internal/templateflow`
+- `internal/flowrender`
 - Adapter layer: named template + CSS => PDFDOM element flow.
 - No business orchestration imports.
 
@@ -29,16 +29,16 @@ that are enforced by `scripts/check-maintainability.sh`.
 - `internal/domain` must not import:
 - `internal/invoice`
 - `internal/pdfrender`
-- `internal/templateflow`
+- `internal/flowrender`
 - `internal/app`
-- `internal/template`
+- `internal/templating`
 
-- `internal/template` must not import:
+- `internal/templating` must not import:
 - `internal/invoice`
 - `internal/pdfrender`
 - `internal/app`
 
-- `internal/templateflow` must not import:
+- `internal/flowrender` must not import:
 - `internal/invoice`
 - `internal/app`
 

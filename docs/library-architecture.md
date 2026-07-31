@@ -11,7 +11,7 @@ Provide a reusable Go library that renders PDFs from declarative assets:
 ## Layers
 
 - Public engine: docflowpdf
-- Rendering internals: internal/pdfrender, internal/pdfdom, internal/template, internal/templateflow
+- Rendering internals: internal/pdfrender, internal/pdfdom, internal/templating, internal/flowrender
 - Example profile package: examples/invoice
 
 ## Public API

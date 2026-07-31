@@ -167,12 +167,12 @@ Delete old layout helpers left in `internal/invoice` once switched.
 Strictly separate template generation, parsing, and mapping.
 
 ### Tasks
-1. Keep template execution and CSS parsing in `internal/template`.
+1. Keep template execution and CSS parsing in `internal/templating`.
 2. Move HTML->PDF element mapping adapter logic out of mixed invoice parser file where practical.
-3. Remove invoice-level wrappers that only forward to `internal/template`.
+3. Remove invoice-level wrappers that only forward to `internal/templating`.
 
 ### Acceptance Criteria
-- `internal/template` remains pure parser/template layer.
+- `internal/templating` remains pure parser/template layer.
 - No business/i18n logic leaks into parser package.
 
 ### Legacy Note
