@@ -43,8 +43,5 @@ func (a Assets) Validate() error {
 			return fmt.Errorf("every mainFlow section must define template and transformer")
 		}
 	}
-	if len(a.SourceData) == 0 {
-		return fmt.Errorf("source data must not be empty")
-	}
 	return nil
 }

@@ -29,6 +29,7 @@ type FuncMapFactory func(defaultLocale, payloadLocale string) htmltmpl.FuncMap
 type RenderInput struct {
 	OutputPath          string
 	Assets              Assets
+	AssetInput          *AssetInput
 	SourceData          any
 	PageWidth           float64
 	PageHeight          float64
@@ -54,7 +55,9 @@ func Render(input RenderInput) error {
 	if input.PageHeight < 0 {
 		return fmt.Errorf("pageHeight must be zero or greater")
 	}
-	if err := input.Assets.Validate(); err != nil {
+
+	assets, err := resolveRenderAssets(input)
+	if err != nil {
 		return err
 	}
 
@@ -81,7 +84,7 @@ func Render(input RenderInput) error {
 		Height:  effectiveHeight,
 		Margins: input.DefaultMargins,
 	}
-	defaultPage, firstPage, err := templateload.ParseCSSPageSettings(input.Assets.CSS, defaults, templateload.ParseLengthValue)
+	defaultPage, firstPage, err := templateload.ParseCSSPageSettings(assets.CSS, defaults, templateload.ParseLengthValue)
 	if err != nil {
 		return fmt.Errorf("failed to parse @page settings from template CSS: %w", err)
 	}
@@ -102,7 +105,10 @@ func Render(input RenderInput) error {
 
 	source := input.SourceData
 	if source == nil {
-		source = input.Assets.SourceData
+		source = assets.SourceData
+	}
+	if source == nil {
+		return fmt.Errorf("source data is required")
 	}
 	sourceData, err := asJSONObject(source)
 	if err != nil {
@@ -120,7 +126,7 @@ func Render(input RenderInput) error {
 		if page <= 1 {
 			return
 		}
-		elements, e := pageNumberTemplateFlowElements(layout, input.Assets, page, pageCount, input.FuncMapFactory)
+		elements, e := pageNumberTemplateFlowElements(layout, assets, page, pageCount, input.FuncMapFactory)
 		if e != nil {
 			fmt.Fprintf(warnWriter, "Warning: failed to render page-number template: %v\n", e)
 			return
@@ -129,7 +135,7 @@ func Render(input RenderInput) error {
 	}
 
 	l.BeginPage(1)
-	if err := renderMainFlow(l, input.Assets, sourceData, locale, input.FuncMapFactory); err != nil {
+	if err := renderMainFlow(l, assets, sourceData, locale, input.FuncMapFactory); err != nil {
 		fmt.Fprintf(warnWriter, "Warning: %v\n", err)
 	}
 
@@ -141,6 +147,16 @@ func Render(input RenderInput) error {
 		return fmt.Errorf("failed to write PDF to %s: %w", input.OutputPath, err)
 	}
 	return nil
+}
+
+func resolveRenderAssets(input RenderInput) (Assets, error) {
+	if input.AssetInput != nil {
+		return input.AssetInput.ResolveAssets()
+	}
+	if err := input.Assets.Validate(); err != nil {
+		return Assets{}, err
+	}
+	return input.Assets, nil
 }
 
 func renderMainFlow(layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, defaultLocale string, funcFactory FuncMapFactory) error {
