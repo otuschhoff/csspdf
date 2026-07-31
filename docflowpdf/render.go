@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/otuschhoff/invoice-gen/internal/flowrender"
 	"github.com/otuschhoff/invoice-gen/internal/format"
 	"github.com/otuschhoff/invoice-gen/internal/i18n"
 	"github.com/otuschhoff/invoice-gen/internal/pdfdom"
 	"github.com/otuschhoff/invoice-gen/internal/pdfrender"
 	templateload "github.com/otuschhoff/invoice-gen/internal/templating"
-	"github.com/otuschhoff/invoice-gen/internal/flowrender"
 )
 
 const (
@@ -167,8 +167,8 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 	l.SetWarningFunc(warnf)
 
 	l.StartFlow(input.PageCount)
-	l.DeferFlowPageNum = true
-	l.PageNumRenderer = func(layout *pdfrender.LayoutPDF, page, pageCount int) {
+	l.SetDeferFlowPageNum(true)
+	l.SetPageNumRenderer(func(layout *pdfrender.LayoutPDF, page, pageCount int) {
 		if page <= 1 {
 			return
 		}
@@ -178,15 +178,15 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 			return
 		}
 		pdfrender.RenderDocTemplateFlow(layout, elements)
-	}
+	})
 
 	l.BeginPage(1)
 	if err := renderMainFlow(l, assets, sourceData, input); err != nil {
 		warnf("%v", err)
 	}
 
-	if l.TotalPages < l.PDF.PageNo() {
-		l.TotalPages = l.PDF.PageNo()
+	if l.TotalPages() < l.PDF.PageNo() {
+		l.EnsureTotalPagesAtLeast(l.PDF.PageNo())
 	}
 	l.RenderFinalFlowPageNums()
 	return &renderArtifact{layout: l}, nil

@@ -98,7 +98,7 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 			}
 			xPos, yPos, _, absolute := l.ResolveFlowPlacement(n, x, currentY, maxW)
 			if !absolute {
-				tableHeight, err := l.TableRdr.MeasureTableHeight(tableDef)
+				tableHeight, err := l.tableRenderer.MeasureTableHeight(tableDef)
 				if err != nil {
 					l.warnf("failed to measure table from doc flow: %v", err)
 					continue
@@ -111,7 +111,7 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 				}
 			}
 			l.PDF.SetXY(xPos, yPos)
-			if err := l.TableRdr.RenderTable(tableDef); err != nil {
+			if err := l.tableRenderer.RenderTable(tableDef); err != nil {
 				l.warnf("failed to render table from doc flow: %v", err)
 				continue
 			}

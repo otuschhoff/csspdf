@@ -22,26 +22,26 @@ const (
 // standalone rendering subcommands. Build one with NewLayoutPDF; use the
 // exported methods to compose pages.
 type LayoutPDF struct {
-	PDF               *gofpdf.Fpdf
-	Formatter         *format.Formatter
-	I18n              *i18n.I18n
-	TableRdr          *TableRenderer
-	warningf          func(format string, args ...any)
-	PageNumRenderer   func(l *LayoutPDF, page, pageCount int)
-	DeferFlowPageNum  bool
-	CurrentPage       int
-	TotalPages        int
-	pageWidth         float64
-	pageHeight        float64
-	currentMargins    templateload.PageMargins
-	defaultPage       templateload.PageSettings
-	firstPage         templateload.PageSettings
-	defaultAssets     layoutPageAssets
-	firstAssets       layoutPageAssets
-	ringTpl           gofpdf.Template
-	runningFooterTpl  gofpdf.Template
-	runningFooterSize gofpdf.SizeType
-	userTemplates     map[string]gofpdf.Template
+	PDF                   *gofpdf.Fpdf
+	Formatter             *format.Formatter
+	I18n                  *i18n.I18n
+	tableRenderer         *TableRenderer
+	warningf              func(format string, args ...any)
+	pageNumRenderer       func(l *LayoutPDF, page, pageCount int)
+	deferFlowPageNum      bool
+	currentPage           int
+	totalPages            int
+	pageWidth             float64
+	pageHeight            float64
+	currentMargins        templateload.PageMargins
+	defaultPage           templateload.PageSettings
+	firstPage             templateload.PageSettings
+	defaultAssets         layoutPageAssets
+	firstAssets           layoutPageAssets
+	ringTemplate          gofpdf.Template
+	runningFooterTemplate gofpdf.Template
+	runningFooterSize     gofpdf.SizeType
+	userTemplates         map[string]gofpdf.Template
 }
 
 type layoutPageAssets struct {
@@ -64,13 +64,13 @@ func NewLayoutPDF(defaultPage, firstPage templateload.PageSettings, i18nInst *i1
 	defaultAssets := buildLayoutPageAssets(defaultPage.Width, defaultPage.Height)
 	firstAssets := buildLayoutPageAssets(firstPage.Width, firstPage.Height)
 
-	tableRdr := NewTableRenderer(pdf, formatter)
+	tableRenderer := NewTableRenderer(pdf, formatter)
 
 	return &LayoutPDF{
-		PDF:       pdf,
-		Formatter: formatter,
-		I18n:      i18nInst,
-		TableRdr:  tableRdr,
+		PDF:           pdf,
+		Formatter:     formatter,
+		I18n:          i18nInst,
+		tableRenderer: tableRenderer,
 		warningf: func(format string, args ...any) {
 			fmt.Fprintf(os.Stderr, "Warning: "+format+"\n", args...)
 		},
@@ -81,7 +81,7 @@ func NewLayoutPDF(defaultPage, firstPage templateload.PageSettings, i18nInst *i1
 		firstPage:      firstPage,
 		defaultAssets:  defaultAssets,
 		firstAssets:    firstAssets,
-		ringTpl:        ringTpl,
+		ringTemplate:   ringTpl,
 	}, nil
 }
 
@@ -99,6 +99,42 @@ func (l *LayoutPDF) warnf(format string, args ...any) {
 		return
 	}
 	l.warningf(format, args...)
+}
+
+// SetPageNumRenderer sets the callback used to render page numbers.
+func (l *LayoutPDF) SetPageNumRenderer(fn func(layout *LayoutPDF, page, pageCount int)) {
+	if l == nil {
+		return
+	}
+	l.pageNumRenderer = fn
+}
+
+// SetDeferFlowPageNum controls whether page numbers are deferred until
+// RenderFinalFlowPageNums.
+func (l *LayoutPDF) SetDeferFlowPageNum(v bool) {
+	if l == nil {
+		return
+	}
+	l.deferFlowPageNum = v
+}
+
+// TotalPages returns the current tracked total page count.
+func (l *LayoutPDF) TotalPages() int {
+	if l == nil {
+		return 0
+	}
+	return l.totalPages
+}
+
+// EnsureTotalPagesAtLeast sets the total page count to n if n is larger than
+// the current tracked value.
+func (l *LayoutPDF) EnsureTotalPagesAtLeast(n int) {
+	if l == nil {
+		return
+	}
+	if n > l.totalPages {
+		l.totalPages = n
+	}
 }
 
 func buildLayoutPageAssets(pageWidth, pageHeight float64) layoutPageAssets {
@@ -219,14 +255,14 @@ func (l *LayoutPDF) SetRunningFooterTemplateFromElement(name string, footerElem 
 		},
 	)
 
-	l.runningFooterTpl = tpl
+	l.runningFooterTemplate = tpl
 	l.runningFooterSize = gofpdf.SizeType{Wd: tplWidth, Ht: tplHeight}
 	l.renderRunningFooterTemplate()
 	return nil
 }
 
 func (l *LayoutPDF) renderRunningFooterTemplate() {
-	if l.runningFooterTpl == nil || l.runningFooterSize.Wd <= 0 || l.runningFooterSize.Ht <= 0 {
+	if l.runningFooterTemplate == nil || l.runningFooterSize.Wd <= 0 || l.runningFooterSize.Ht <= 0 {
 		return
 	}
 	x := (l.pageWidth - l.runningFooterSize.Wd) / 2
@@ -240,7 +276,7 @@ func (l *LayoutPDF) renderRunningFooterTemplate() {
 	if y < 0 {
 		y = 0
 	}
-	l.PDF.UseTemplateScaled(l.runningFooterTpl, gofpdf.PointType{X: x, Y: y}, l.runningFooterSize)
+	l.PDF.UseTemplateScaled(l.runningFooterTemplate, gofpdf.PointType{X: x, Y: y}, l.runningFooterSize)
 }
 
 func (l *LayoutPDF) pageConfigFor(page int) (templateload.PageSettings, layoutPageAssets) {
@@ -272,32 +308,32 @@ func (l *LayoutPDF) CurrentFlowBottom() float64 {
 
 // StartFlow initialises page tracking for a multi-page flow.
 func (l *LayoutPDF) StartFlow(pageCount int) {
-	l.CurrentPage = 1
+	l.currentPage = 1
 	if pageCount < 1 {
 		pageCount = 1
 	}
-	l.TotalPages = pageCount
+	l.totalPages = pageCount
 }
 
 // NextFlowPage advances to the next page in the flow.
 func (l *LayoutPDF) NextFlowPage() {
-	if l.CurrentPage < 1 {
-		l.CurrentPage = 1
+	if l.currentPage < 1 {
+		l.currentPage = 1
 	}
-	l.CurrentPage++
-	if l.CurrentPage > l.TotalPages {
-		l.TotalPages = l.CurrentPage
+	l.currentPage++
+	if l.currentPage > l.totalPages {
+		l.totalPages = l.currentPage
 	}
-	l.BeginPage(l.CurrentPage)
-	if !l.DeferFlowPageNum {
-		l.renderPageNum(l.CurrentPage, l.TotalPages)
+	l.BeginPage(l.currentPage)
+	if !l.deferFlowPageNum {
+		l.renderPageNum(l.currentPage, l.totalPages)
 	}
 }
 
 // RenderFinalFlowPageNums re-renders page numbers on all non-first pages after
 // the total page count is known.
 func (l *LayoutPDF) RenderFinalFlowPageNums() {
-	finalTotal := l.TotalPages
+	finalTotal := l.totalPages
 	for page := 2; page <= finalTotal; page++ {
 		settings, assets := l.pageConfigFor(page)
 		l.pageWidth = assets.pageWidth
@@ -309,8 +345,8 @@ func (l *LayoutPDF) RenderFinalFlowPageNums() {
 }
 
 func (l *LayoutPDF) renderPageNum(page, pageCount int) {
-	if l.PageNumRenderer != nil {
-		l.PageNumRenderer(l, page, pageCount)
+	if l.pageNumRenderer != nil {
+		l.pageNumRenderer(l, page, pageCount)
 		return
 	}
 	l.RenderPageNum(page, pageCount)
@@ -782,10 +818,10 @@ func (l *LayoutPDF) TemplateByName(name string) (gofpdf.Template, error) {
 	}
 	switch strings.ToLower(strings.TrimSpace(name)) {
 	case "ringlogo", "ring-logo", "ring_logo":
-		if l.ringTpl == nil {
+		if l.ringTemplate == nil {
 			return nil, fmt.Errorf("ring logo template not initialised")
 		}
-		return l.ringTpl, nil
+		return l.ringTemplate, nil
 	default:
 		return nil, fmt.Errorf("unknown template name %q", name)
 	}
