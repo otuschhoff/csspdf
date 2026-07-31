@@ -1,8 +1,6 @@
 package pdfrender
 
 import (
-	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
@@ -53,7 +51,7 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 	if name, footerElem, remaining := ExtractRunningFooterElement(elements, ""); footerElem != nil {
 		elements = remaining
 		if err := l.SetRunningFooterTemplateFromElement(name, footerElem); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to register running footer %q: %v\n", name, err)
+			l.warnf("failed to register running footer %q: %v", name, err)
 		}
 	}
 
@@ -74,7 +72,7 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 			if !absolute {
 				metrics, err := engine.MeasureInBox(n, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: w, Fit: pdfdom.TextFitWrap})
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to measure doc flow element: %v\n", err)
+					l.warnf("failed to measure doc flow element: %v", err)
 					continue
 				}
 				if currentY > y && yPos+metrics.Height > l.CurrentFlowBottom() {
@@ -86,7 +84,7 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 			}
 			metrics, err := engine.RenderInBox(n, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: w, Fit: pdfdom.TextFitWrap})
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to render doc flow element: %v\n", err)
+				l.warnf("failed to render doc flow element: %v", err)
 				continue
 			}
 			if !absolute {
@@ -95,14 +93,14 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 		case *pdfdom.ElemTable:
 			tableDef, err := l.TableDefFromElement(n)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to build table definition from doc flow: %v\n", err)
+				l.warnf("failed to build table definition from doc flow: %v", err)
 				continue
 			}
 			xPos, yPos, _, absolute := l.ResolveFlowPlacement(n, x, currentY, maxW)
 			if !absolute {
 				tableHeight, err := l.TableRdr.MeasureTableHeight(tableDef)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to measure table from doc flow: %v\n", err)
+					l.warnf("failed to measure table from doc flow: %v", err)
 					continue
 				}
 				if currentY > y && yPos+tableHeight > l.CurrentFlowBottom() {
@@ -114,7 +112,7 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 			}
 			l.PDF.SetXY(xPos, yPos)
 			if err := l.TableRdr.RenderTable(tableDef); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to render table from doc flow: %v\n", err)
+				l.warnf("failed to render table from doc flow: %v", err)
 				continue
 			}
 			if !absolute {
@@ -125,7 +123,7 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 			if !absolute {
 				metrics, err := engine.MeasureInBox(n, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: w, Fit: pdfdom.TextFitWrap})
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to measure doc image: %v\n", err)
+					l.warnf("failed to measure doc image: %v", err)
 					continue
 				}
 				if currentY > y && yPos+metrics.Height > l.CurrentFlowBottom() {
@@ -137,7 +135,7 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 			}
 			metrics, err := engine.RenderInBox(n, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: w, Fit: pdfdom.TextFitWrap})
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to render doc image: %v\n", err)
+				l.warnf("failed to render doc image: %v", err)
 				continue
 			}
 			if !absolute {
@@ -147,13 +145,13 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 			xPos, yPos, _, absolute := l.ResolveFlowPlacement(n, x, currentY, maxW)
 			h, _, uerr := l.RenderUseTemplateElement(n, xPos, yPos)
 			if uerr != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to render use-template element: %v\n", uerr)
+				l.warnf("failed to render use-template element: %v", uerr)
 			} else if !absolute {
 				currentY += h
 			}
 		case *pdfdom.ElemCreateTemplate:
 			if cerr := l.RenderCreateTemplateElement(n); cerr != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to create template: %v\n", cerr)
+				l.warnf("failed to create template: %v", cerr)
 			}
 		}
 

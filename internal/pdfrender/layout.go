@@ -26,6 +26,7 @@ type LayoutPDF struct {
 	Formatter         *format.Formatter
 	I18n              *i18n.I18n
 	TableRdr          *TableRenderer
+	warningf          func(format string, args ...any)
 	PageNumRenderer   func(l *LayoutPDF, page, pageCount int)
 	DeferFlowPageNum  bool
 	CurrentPage       int
@@ -70,6 +71,9 @@ func NewLayoutPDF(defaultPage, firstPage templateload.PageSettings, i18nInst *i1
 		Formatter:      formatter,
 		I18n:           i18nInst,
 		TableRdr:       tableRdr,
+		warningf: func(format string, args ...any) {
+			fmt.Fprintf(os.Stderr, "Warning: "+format+"\n", args...)
+		},
 		pageWidth:      firstPage.Width,
 		pageHeight:     firstPage.Height,
 		currentMargins: firstPage.Margins,
@@ -79,6 +83,22 @@ func NewLayoutPDF(defaultPage, firstPage templateload.PageSettings, i18nInst *i1
 		firstAssets:    firstAssets,
 		ringTpl:        ringTpl,
 	}, nil
+}
+
+// SetWarningFunc sets the warning sink used by non-fatal renderer warnings.
+// Passing nil disables warning output.
+func (l *LayoutPDF) SetWarningFunc(fn func(format string, args ...any)) {
+	if l == nil {
+		return
+	}
+	l.warningf = fn
+}
+
+func (l *LayoutPDF) warnf(format string, args ...any) {
+	if l == nil || l.warningf == nil {
+		return
+	}
+	l.warningf(format, args...)
 }
 
 func buildLayoutPageAssets(pageWidth, pageHeight float64) layoutPageAssets {
@@ -157,7 +177,7 @@ func (l *LayoutPDF) SetRunningFooterTemplateFromElement(name string, footerElem 
 					}
 					childTpl, err := l.TemplateByName(tplName)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: running footer %q: %v\n", name, err)
+						l.warnf("running footer %q: %v", name, err)
 						continue
 					}
 					_, nativeSize := childTpl.Size()
@@ -188,7 +208,7 @@ func (l *LayoutPDF) SetRunningFooterTemplateFromElement(name string, footerElem 
 						X: x, Y: y, Width: w, Fit: pdfdom.TextFitWrap,
 					})
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: running footer %q: failed to render child: %v\n", name, err)
+						l.warnf("running footer %q: failed to render child: %v", name, err)
 						continue
 					}
 					if !isAbsolute {
@@ -826,7 +846,7 @@ func (l *LayoutPDF) RenderCreateTemplateElement(elem *pdfdom.ElemCreateTemplate)
 					X: x, Y: currentY, Width: width, Fit: pdfdom.TextFitWrap,
 				})
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: create-template %q: failed to render child: %v\n", name, err)
+					l.warnf("create-template %q: failed to render child: %v", name, err)
 					continue
 				}
 				currentY += metrics.Height

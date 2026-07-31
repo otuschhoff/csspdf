@@ -164,6 +164,7 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 	}
 
 	warnf := warningFunc(input)
+	l.SetWarningFunc(warnf)
 
 	l.StartFlow(input.PageCount)
 	l.DeferFlowPageNum = true

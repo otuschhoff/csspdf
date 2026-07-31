@@ -15,10 +15,13 @@ func ExecuteNamedWithFuncs(templateSource, templateName string, data any, funcs 
 	if len(funcs) > 0 {
 		tmpl = tmpl.Funcs(funcs)
 	}
-	tmpl = template.Must(tmpl.Parse(templateSource))
+	parsed, err := tmpl.Parse(templateSource)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template source: %w", err)
+	}
 
 	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, templateName, data); err != nil {
+	if err := parsed.ExecuteTemplate(&buf, templateName, data); err != nil {
 		return "", fmt.Errorf("failed to execute %s template flow: %w", templateName, err)
 	}
 
