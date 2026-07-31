@@ -54,10 +54,10 @@ func ParseHTMLTableElem(htmlStr, cssStyle string) (*ElemTable, error) {
 	return htmlBuildTable(tableNode)
 }
 
-// ParseHTMLIntroElem parses an HTML fragment containing a
+// ParseHTMLSectionElem parses an HTML fragment containing a
 // <div id="intro"> element with <span>, <div> and <br> children and maps it
 // to an ElemDiv. cssStyle is applied before parsing (may be empty).
-func ParseHTMLIntroElem(htmlStr, cssStyle string) (*ElemDiv, error) {
+func ParseHTMLSectionElem(htmlStr, cssStyle string) (*ElemDiv, error) {
 	doc, err := tmpl.ParseStyledFragment(htmlStr, cssStyle)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,16 @@ func ParseHTMLIntroElem(htmlStr, cssStyle string) (*ElemDiv, error) {
 		return nil, fmt.Errorf("no <div id=\"intro\"> element found in HTML fragment")
 	}
 
-	return htmlBuildIntroDiv(introNode), nil
+	return htmlBuildSectionDiv(introNode), nil
+}
+
+// ParseHTMLIntroElem parses an HTML fragment containing a
+// <div id="intro"> element with <span>, <div> and <br> children and maps it
+// to an ElemDiv. cssStyle is applied before parsing (may be empty).
+//
+// Deprecated: use ParseHTMLSectionElem.
+func ParseHTMLIntroElem(htmlStr, cssStyle string) (*ElemDiv, error) {
+	return ParseHTMLSectionElem(htmlStr, cssStyle)
 }
 
 // ParseHTMLDocFlow parses an HTML fragment into top-level renderable elements
@@ -90,9 +99,9 @@ func ParseHTMLDocFlow(htmlStr, cssStyle string) ([]PDFElementNode, error) {
 	for _, child := range tmpl.ElemChildren(body) {
 		switch child.Data {
 		case "div":
-			out = append(out, htmlBuildIntroDiv(child))
+			out = append(out, htmlBuildSectionDiv(child))
 		case "footer":
-			out = append(out, htmlBuildIntroDiv(child))
+			out = append(out, htmlBuildSectionDiv(child))
 		case "h1", "h2", "h3":
 			heading, err := htmlBuildHeading(child)
 			if err != nil {
@@ -167,7 +176,7 @@ func htmlNormaliseAttrKey(key string) string {
 	return key
 }
 
-func htmlBuildIntroDiv(n *html.Node) *ElemDiv {
+func htmlBuildSectionDiv(n *html.Node) *ElemDiv {
 	div := NewElemDiv()
 	htmlSetAttrs(div, n.Attr)
 	baseSpan := htmlBuildSpan(n)
@@ -232,6 +241,13 @@ func htmlBuildIntroDiv(n *html.Node) *ElemDiv {
 	return div
 }
 
+// htmlBuildIntroDiv builds a generic section div from an HTML node.
+//
+// Deprecated: use htmlBuildSectionDiv.
+func htmlBuildIntroDiv(n *html.Node) *ElemDiv {
+	return htmlBuildSectionDiv(n)
+}
+
 func htmlBuildImage(n *html.Node) *ElemImg {
 	img := NewElemImg()
 	htmlSetAttrs(img, n.Attr)
@@ -252,9 +268,9 @@ func htmlBuildCreateTemplate(n *html.Node) *ElemCreateTemplate {
 	for _, child := range tmpl.ElemChildren(n) {
 		switch child.Data {
 		case "div":
-			elem.Add(htmlBuildIntroDiv(child))
+			elem.Add(htmlBuildSectionDiv(child))
 		case "footer":
-			elem.Add(htmlBuildIntroDiv(child))
+			elem.Add(htmlBuildSectionDiv(child))
 		case "h1", "h2", "h3":
 			if heading, err := htmlBuildHeading(child); err == nil {
 				elem.Add(heading)

@@ -246,7 +246,7 @@ func renderMainFlow(layout *pdfrender.LayoutPDF, assets Assets, source map[strin
 		}
 		funcs := buildFuncMap(input, strings.TrimSpace(input.DefaultLocale), requiredString(jsonData, "locale"))
 
-		elements, err := templateflow.BuildNamedElementsWithFuncs(assets.HTML, section.Template, assets.CSS, jsonData, funcs)
+		elements, err := templateflow.BuildFlowElementsWithFuncs(assets.HTML, section.Template, assets.CSS, jsonData, funcs)
 		if err != nil {
 			return err
 		}
@@ -266,7 +266,7 @@ func pageNumberTemplateFlowElements(layout *pdfrender.LayoutPDF, assets Assets, 
 	}
 	funcs := buildFuncMap(input, layout.I18n.Locale(), requiredString(data, "locale"))
 
-	return templateflow.BuildNamedElementsWithFuncs(assets.HTML, assets.Flow.PageNumber.Template, assets.CSS, data, funcs)
+	return templateflow.BuildFlowElementsWithFuncs(assets.HTML, assets.Flow.PageNumber.Template, assets.CSS, data, funcs)
 }
 
 func buildFuncMap(input RenderInput, defaultLocale, payloadLocale string) htmltmpl.FuncMap {

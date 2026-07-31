@@ -8,16 +8,16 @@ import (
 	templateload "github.com/otuschhoff/invoice-gen/internal/template"
 )
 
-// BuildNamedElements executes a named HTML template, applies CSS styling, and
+// BuildFlowElements executes a named HTML template, applies CSS styling, and
 // converts the resulting document flow into PDFDOM elements.
-func BuildNamedElements(templateSource, templateName, cssStyle string, data any) ([]pdfdom.PDFElementNode, error) {
-	return BuildNamedElementsWithFuncs(templateSource, templateName, cssStyle, data, nil)
+func BuildFlowElements(templateSource, templateName, cssStyle string, data any) ([]pdfdom.PDFElementNode, error) {
+	return BuildFlowElementsWithFuncs(templateSource, templateName, cssStyle, data, nil)
 }
 
-// BuildNamedElementsWithFuncs executes a named HTML template with custom
+// BuildFlowElementsWithFuncs executes a named HTML template with custom
 // template functions, applies CSS styling, and converts the resulting document
 // flow into PDFDOM elements.
-func BuildNamedElementsWithFuncs(templateSource, templateName, cssStyle string, data any, funcs htmltmpl.FuncMap) ([]pdfdom.PDFElementNode, error) {
+func BuildFlowElementsWithFuncs(templateSource, templateName, cssStyle string, data any, funcs htmltmpl.FuncMap) ([]pdfdom.PDFElementNode, error) {
 	var (
 		htmlStr string
 		err     error
@@ -37,4 +37,21 @@ func BuildNamedElementsWithFuncs(templateSource, templateName, cssStyle string, 
 	}
 
 	return elements, nil
+}
+
+// BuildNamedElements executes a named HTML template, applies CSS styling, and
+// converts the resulting document flow into PDFDOM elements.
+//
+// Deprecated: use BuildFlowElements.
+func BuildNamedElements(templateSource, templateName, cssStyle string, data any) ([]pdfdom.PDFElementNode, error) {
+	return BuildFlowElements(templateSource, templateName, cssStyle, data)
+}
+
+// BuildNamedElementsWithFuncs executes a named HTML template with custom
+// template functions, applies CSS styling, and converts the resulting document
+// flow into PDFDOM elements.
+//
+// Deprecated: use BuildFlowElementsWithFuncs.
+func BuildNamedElementsWithFuncs(templateSource, templateName, cssStyle string, data any, funcs htmltmpl.FuncMap) ([]pdfdom.PDFElementNode, error) {
+	return BuildFlowElementsWithFuncs(templateSource, templateName, cssStyle, data, funcs)
 }

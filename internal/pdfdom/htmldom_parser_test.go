@@ -50,7 +50,7 @@ func TestParseHTMLTableElem_AppliesNumColHeaderAlignment(t *testing.T) {
 func TestParseHTMLTableElem_AppliesWhiteSpaceNoWrapToHeaderCell(t *testing.T) {
 	css := `table th.nowrap-col { white-space: nowrap; }`
 	table, err := ParseHTMLTableElem(
-		"<table><thead><tr><th class="nowrap-col"><span>Date</span></th></tr></thead></table>",
+		"<table><thead><tr><th class=\"nowrap-col\"><span>Date</span></th></tr></thead></table>",
 		css,
 	)
 	if err != nil {
