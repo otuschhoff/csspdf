@@ -17,7 +17,7 @@ type Formatter struct {
 	currency string
 }
 
-// New creates a new Formatter with the given i18n instance and currency symbol.
+// New creates a new Formatter with the given i18n instance and currency code.
 func New(i *i18n.I18n, currency string) *Formatter {
 	return &Formatter{
 		i18n:     i,
@@ -44,10 +44,15 @@ func (f *Formatter) FormatCurrency(value float64) string {
 		fracPart,
 	)
 
-	if f.i18n.Locale() == "de" {
-		return result + " \u20ac"
+	currency := strings.TrimSpace(f.currency)
+	if currency == "" {
+		currency = "EUR"
 	}
-	return "\u20ac" + result
+
+	if f.i18n.Locale() == "de" {
+		return result + " " + currency
+	}
+	return currency + " " + result
 }
 
 // FormatFloat formats a float with the specified number of decimal places.
