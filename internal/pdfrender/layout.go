@@ -13,54 +13,6 @@ import (
 	templateload "github.com/otuschhoff/invoice-gen/internal/template"
 )
 
-// Company holds the business owner's company information used for PDF headers and footers.
-type Company struct {
-	Name     string
-	Suffix   string
-	FullName string
-	Street   string
-	PLZ      string
-	City     string
-	Country  string
-	Tel      string
-	Mail     string
-	VAT      string
-	Bank     BankDetails
-	FiscalID string
-	FiscalNo string
-}
-
-// BankDetails holds the bank account details for a company.
-type BankDetails struct {
-	Name string
-	IBAN string
-	BIC  string
-}
-
-// Style holds font and colour styling used across PDF rendering.
-type Style struct {
-	FontFace           string
-	FontColor          string
-	FontColorSub       string
-	FontSize           int
-	FontSizeSmall      int
-	FontSizeTitle      int
-	TableCellYOffset   float64
-	Normal             pdfdom.StyleVariant
-	Small              pdfdom.StyleVariant
-	SmallGreyed        pdfdom.StyleVariant
-	Sub                pdfdom.StyleVariant
-	PageNum            pdfdom.StyleVariant
-	PageTot            pdfdom.StyleVariant
-	Footer             pdfdom.StyleVariant
-	Title              pdfdom.StyleVariant
-	CompanyName        pdfdom.StyleVariant
-	CompanyNameSmall   pdfdom.StyleVariant
-	CompanySuffix      pdfdom.StyleVariant
-	CompanySuffixSmall pdfdom.StyleVariant
-	DocType            pdfdom.StyleVariant
-}
-
 const (
 	footerBulletSep = " • "
 )
