@@ -11,17 +11,17 @@ type TemplateRenderData struct {
 }
 
 type CompanyProfile struct {
-	Name            string
-	Description     string
-	Street          string
-	CityAndCode     string
-	TelContact      string
-	EmailContact    string
-	VATNumber       string
-	BankName        string
-	BankBIC         string
-	BankIBAN        string
-	VendorID        string
+	Name         string
+	Description  string
+	Street       string
+	CityAndCode  string
+	TelContact   string
+	EmailContact string
+	VATNumber    string
+	BankName     string
+	BankBIC      string
+	BankIBAN     string
+	VendorID     string
 }
 
 type RecipientProfile struct {
@@ -32,11 +32,11 @@ type RecipientProfile struct {
 }
 
 type InvoiceProfile struct {
-	ID       string
-	Subject  string
-	Currency string
-	NetTotal float64
-	VATTotal float64
+	ID         string
+	Subject    string
+	Currency   string
+	NetTotal   float64
+	VATTotal   float64
 	GrossTotal float64
 }
 
