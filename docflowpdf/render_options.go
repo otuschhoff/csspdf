@@ -162,6 +162,24 @@ func WithDefaultMargins(margins templateload.PageMargins) RenderOption {
 	}
 }
 
+// WithPageMarginsLeftRight sets both left and right default page margins.
+func WithPageMarginsLeftRight(value float64) RenderOption {
+	return func(input *RenderInput) error {
+		input.DefaultMargins.Left = value
+		input.DefaultMargins.Right = value
+		return nil
+	}
+}
+
+// WithPageMarginsTopBottom sets both top and bottom default page margins.
+func WithPageMarginsTopBottom(value float64) RenderOption {
+	return func(input *RenderInput) error {
+		input.DefaultMargins.Top = value
+		input.DefaultMargins.Bottom = value
+		return nil
+	}
+}
+
 // WithNow injects deterministic time source for template functions.
 func WithNow(now func() time.Time) RenderOption {
 	return func(input *RenderInput) error {
