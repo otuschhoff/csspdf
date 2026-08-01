@@ -87,11 +87,11 @@ func NewLayoutPDFWithOptions(defaultPage, firstPage templateload.PageSettings, i
 	tableRenderer := NewTableRenderer(pdf, formatter)
 
 	return &LayoutPDF{
-		PDF:           pdf,
-		Formatter:     formatter,
-		I18n:          i18nInst,
+		PDF:             pdf,
+		Formatter:       formatter,
+		I18n:            i18nInst,
 		imageSearchDirs: append([]string(nil), options.ImageSearchDirs...),
-		tableRenderer: tableRenderer,
+		tableRenderer:   tableRenderer,
 		warningf: func(format string, args ...any) {
 			fmt.Fprintf(os.Stderr, "Warning: "+format+"\n", args...)
 		},

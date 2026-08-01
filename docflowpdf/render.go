@@ -245,12 +245,23 @@ func resolveRenderAssets(input RenderInput) (Assets, error) {
 }
 
 func resolveI18nInput(locale string, input RenderInput) (*i18n.I18n, error) {
-	if !input.I18nSource.IsSet() {
+	i18nSource := input.I18nSource
+	if !i18nSource.IsSet() {
+		baseDir := strings.TrimSpace(input.AssetBaseDir)
+		if baseDir != "" {
+			candidate := filepath.Join(baseDir, "i18n.json")
+			if stat, err := os.Stat(candidate); err == nil && !stat.IsDir() {
+				i18nSource = JSONSource{FilePath: candidate}
+			}
+		}
+	}
+
+	if !i18nSource.IsSet() {
 		return i18n.New(locale)
 	}
 
 	var source map[string]any
-	if err := input.I18nSource.DecodeInto(&source, "i18n"); err != nil {
+	if err := i18nSource.DecodeInto(&source, "i18n"); err != nil {
 		return nil, err
 	}
 	return i18n.NewFromSource(locale, source)

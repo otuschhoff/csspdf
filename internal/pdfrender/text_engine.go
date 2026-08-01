@@ -87,10 +87,10 @@ func (g *FontGlyphRegistry) Snapshot() map[string][]rune {
 
 // PDFTextEngine hides low-level PDF calls and renders declarative PDFNode trees.
 type PDFTextEngine struct {
-	pdf          *gofpdf.Fpdf
-	i18n         Translator
-	defaultStyle PDFTextStyle
-	glyphs       *FontGlyphRegistry
+	pdf             *gofpdf.Fpdf
+	i18n            Translator
+	defaultStyle    PDFTextStyle
+	glyphs          *FontGlyphRegistry
 	imageSearchDirs []string
 }
 

@@ -251,3 +251,43 @@ func TestResolveImageSearchDirs_UsesBaseDirImages(t *testing.T) {
 		t.Fatalf("unexpected image search dir: got %q want %q", dirs[0], want)
 	}
 }
+
+func TestResolveI18nInput_AutoDetectsBaseDirI18n(t *testing.T) {
+	baseDir := t.TempDir()
+	i18nPath := filepath.Join(baseDir, "i18n.json")
+	content := `{"_floatSeparator":{"de":","},"_kiloSeparator":{"de":"."},"invoice":{"title":{"de":"Rechnung"}}}`
+	if err := os.WriteFile(i18nPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write i18n file: %v", err)
+	}
+
+	i18nInst, err := resolveI18nInput("de", RenderInput{AssetBaseDir: baseDir})
+	if err != nil {
+		t.Fatalf("resolveI18nInput returned error: %v", err)
+	}
+	if i18nInst.Locale() != "de" {
+		t.Fatalf("unexpected locale: got %q want %q", i18nInst.Locale(), "de")
+	}
+}
+
+func TestResolveI18nInput_ExplicitSourceOverridesBaseDir(t *testing.T) {
+	baseDir := t.TempDir()
+	i18nPath := filepath.Join(baseDir, "i18n.json")
+	baseContent := `{"_floatSeparator":{"de":","},"_kiloSeparator":{"de":"."},"invoice":{"title":{"de":"Basis"}}}`
+	if err := os.WriteFile(i18nPath, []byte(baseContent), 0644); err != nil {
+		t.Fatalf("failed to write base-dir i18n file: %v", err)
+	}
+
+	override := JSONSource{Object: map[string]any{
+		"_floatSeparator": map[string]any{"de": ","},
+		"_kiloSeparator":  map[string]any{"de": "."},
+		"invoice":         map[string]any{"title": map[string]any{"de": "Override"}},
+	}}
+
+	i18nInst, err := resolveI18nInput("de", RenderInput{AssetBaseDir: baseDir, I18nSource: override})
+	if err != nil {
+		t.Fatalf("resolveI18nInput returned error: %v", err)
+	}
+	if i18nInst.T("invoice.title") != "Override" {
+		t.Fatalf("expected explicit i18n override to win")
+	}
+}
