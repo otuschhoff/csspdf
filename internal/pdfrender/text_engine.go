@@ -9,8 +9,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/otuschhoff/go-dom2pdf/internal/pdfdom"
 	"github.com/otuschhoff/gofpdf"
-	"github.com/otuschhoff/invoice-gen/internal/pdfdom"
 )
 
 type Translator = pdfdom.Translator

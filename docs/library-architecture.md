@@ -16,7 +16,7 @@ Provide a reusable Go library that renders PDFs from declarative assets:
 
 ## Public API
 
-Package: github.com/otuschhoff/invoice-gen/docflowpdf
+Package: github.com/otuschhoff/go-dom2pdf/docflowpdf
 
 Key entry points:
 - Render(RenderInput)

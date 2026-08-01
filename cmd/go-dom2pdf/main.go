@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	invoiceexample "github.com/otuschhoff/invoice-gen/examples/invoice"
-	"github.com/otuschhoff/invoice-gen/internal/pdfdump"
-	templateload "github.com/otuschhoff/invoice-gen/internal/templating"
+	invoiceexample "github.com/otuschhoff/go-dom2pdf/examples/invoice"
+	"github.com/otuschhoff/go-dom2pdf/internal/pdfdump"
+	templateload "github.com/otuschhoff/go-dom2pdf/internal/templating"
 )
 
 const version = "0.1.0"
@@ -50,7 +50,7 @@ func main() {
 	case "dump-pdf":
 		os.Exit(runDumpPDF(os.Args[2:]))
 	case "version", "-version", "--version":
-		fmt.Printf("invoice-gen version %s\n", version)
+		fmt.Printf("go-dom2pdf version %s\n", version)
 	case "help", "-h", "--help":
 		printUsage(os.Stdout)
 	case "":
@@ -65,14 +65,14 @@ func main() {
 
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  invoice-gen <subcommand> [options]")
+	fmt.Fprintln(w, "  go-dom2pdf <subcommand> [options]")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Subcommands:")
 	fmt.Fprintln(w, "  totals      Generate intro layout plus table with service line items")
 	fmt.Fprintln(w, "  dump-pdf    Display PDF structure with binary streams hidden")
 	fmt.Fprintln(w, "  version     Print version and exit")
 	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Use 'invoice-gen <subcommand> -h' for command-specific options.")
+	fmt.Fprintln(w, "Use 'go-dom2pdf <subcommand> -h' for command-specific options.")
 }
 
 func runTotals(args []string) int {
@@ -88,7 +88,7 @@ func runTotals(args []string) int {
 
 	cmd.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage:")
-		fmt.Fprintln(os.Stderr, "  invoice-gen totals [options]")
+		fmt.Fprintln(os.Stderr, "  go-dom2pdf totals [options]")
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, "Options:")
 		cmd.PrintDefaults()
@@ -128,7 +128,7 @@ func runDumpPDF(args []string) int {
 
 	dumpCmd.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage:")
-		fmt.Fprintln(os.Stderr, "  invoice-gen dump-pdf <file.pdf>")
+		fmt.Fprintln(os.Stderr, "  go-dom2pdf dump-pdf <file.pdf>")
 	}
 
 	if err := dumpCmd.Parse(args); err != nil {

@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/otuschhoff/invoice-gen/internal/flowrender"
-	"github.com/otuschhoff/invoice-gen/internal/format"
-	"github.com/otuschhoff/invoice-gen/internal/i18n"
-	"github.com/otuschhoff/invoice-gen/internal/pdfdom"
-	"github.com/otuschhoff/invoice-gen/internal/pdfrender"
-	templateload "github.com/otuschhoff/invoice-gen/internal/templating"
+	"github.com/otuschhoff/go-dom2pdf/internal/flowrender"
+	"github.com/otuschhoff/go-dom2pdf/internal/format"
+	"github.com/otuschhoff/go-dom2pdf/internal/i18n"
+	"github.com/otuschhoff/go-dom2pdf/internal/pdfdom"
+	"github.com/otuschhoff/go-dom2pdf/internal/pdfrender"
+	templateload "github.com/otuschhoff/go-dom2pdf/internal/templating"
 )
 
 const (

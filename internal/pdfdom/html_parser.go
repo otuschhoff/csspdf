@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	tmpl "github.com/otuschhoff/invoice-gen/internal/templating"
+	tmpl "github.com/otuschhoff/go-dom2pdf/internal/templating"
 	"golang.org/x/net/html"
 )
 

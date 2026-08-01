@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/otuschhoff/invoice-gen/internal/i18n"
+	"github.com/otuschhoff/go-dom2pdf/internal/i18n"
 )
 
 // Formatter handles formatting of numbers, currency, and dates.

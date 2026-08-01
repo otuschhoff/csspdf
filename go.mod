@@ -1,4 +1,4 @@
-module github.com/otuschhoff/invoice-gen
+module github.com/otuschhoff/go-dom2pdf
 
 go 1.25.0
 
