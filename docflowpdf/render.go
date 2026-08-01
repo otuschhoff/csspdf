@@ -230,7 +230,7 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 		if page <= 1 {
 			return
 		}
-		elements, e := pageNumberTemplateFlowElements(layout, assets, page, pageCount, input)
+		elements, e := pageNumberTemplateFlowElements(layout, assets, sourceData, page, pageCount, input)
 		if e != nil {
 			if errors.Is(e, errI18nMacroExpansion) && pageNumberRenderErr == nil {
 				pageNumberRenderErr = fmt.Errorf("page-number template render failed on page %d/%d: %w", page, pageCount, e)
@@ -456,8 +456,8 @@ func renderMainFlow(layout *pdfrender.LayoutPDF, assets Assets, source map[strin
 	return nil
 }
 
-func pageNumberTemplateFlowElements(layout *pdfrender.LayoutPDF, assets Assets, page, total int, input RenderInput) ([]pdfdom.PDFElementNode, error) {
-	payload, err := transformSectionPayload(assets.Flow.PageNumber, transformContext{Layout: layout, Page: page, Total: total, Input: input})
+func pageNumberTemplateFlowElements(layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, page, total int, input RenderInput) ([]pdfdom.PDFElementNode, error) {
+	payload, err := transformSectionPayload(assets.Flow.PageNumber, transformContext{Layout: layout, Source: source, Page: page, Total: total, Input: input})
 	if err != nil {
 		return nil, err
 	}
