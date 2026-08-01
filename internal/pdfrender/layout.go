@@ -376,6 +376,77 @@ func (l *LayoutPDF) renderPageNum(page, pageCount int) {
 	l.RenderPageNum(page, pageCount)
 }
 
+// PageTemplateData returns page/runtime metadata intended for template payloads.
+// Values are resolved from the current layout state and optional explicit
+// pageNumber/pageTotal overrides.
+func (l *LayoutPDF) PageTemplateData(pageNumber, pageTotal int) map[string]any {
+	data := map[string]any{
+		"pageNumber":      pageNumber,
+		"pageNumberTotal": pageTotal,
+		"width":           0.0,
+		"height":          0.0,
+		"orientation":     "portrait",
+		"marginLeft":      0.0,
+		"marginRight":     0.0,
+		"marginTop":       0.0,
+		"marginBottom":    0.0,
+		"contentX":        0.0,
+		"contentY":        0.0,
+		"contentWidth":    0.0,
+		"contentHeight":   0.0,
+		"contentBottom":   0.0,
+	}
+	if l == nil {
+		return data
+	}
+
+	if pageNumber <= 0 {
+		pageNumber = l.PDF.PageNo()
+	}
+	if pageNumber <= 0 {
+		pageNumber = l.currentPage
+	}
+	if pageNumber <= 0 {
+		pageNumber = 1
+	}
+
+	if pageTotal <= 0 {
+		pageTotal = l.totalPages
+	}
+	if pageTotal < pageNumber {
+		pageTotal = pageNumber
+	}
+
+	orientation := "portrait"
+	if l.pageWidth > l.pageHeight {
+		orientation = "landscape"
+	}
+
+	contentX, contentY, contentW := l.CurrentFlowBox()
+	contentBottom := l.CurrentFlowBottom()
+	contentH := contentBottom - contentY
+	if contentH < 0 {
+		contentH = 0
+	}
+
+	data["pageNumber"] = pageNumber
+	data["pageNumberTotal"] = pageTotal
+	data["width"] = l.pageWidth
+	data["height"] = l.pageHeight
+	data["orientation"] = orientation
+	data["marginLeft"] = l.currentMargins.Left
+	data["marginRight"] = l.currentMargins.Right
+	data["marginTop"] = l.currentMargins.Top
+	data["marginBottom"] = l.currentMargins.Bottom
+	data["contentX"] = contentX
+	data["contentY"] = contentY
+	data["contentWidth"] = contentW
+	data["contentHeight"] = contentH
+	data["contentBottom"] = contentBottom
+
+	return data
+}
+
 // ShouldBreakPageBefore reports whether node carries a break-before:page attribute.
 func ShouldBreakPageBefore(node pdfdom.PDFElementNode) bool {
 	value := flowBreakValue(node, "breakBefore")

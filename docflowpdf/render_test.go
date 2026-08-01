@@ -9,6 +9,11 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
+
+	"github.com/otuschhoff/go-dom2pdf/internal/format"
+	"github.com/otuschhoff/go-dom2pdf/internal/i18n"
+	"github.com/otuschhoff/go-dom2pdf/internal/pdfrender"
+	templateload "github.com/otuschhoff/go-dom2pdf/internal/templating"
 )
 
 func minimalAssets() Assets {
@@ -256,6 +261,89 @@ func TestRender_I18nSource_FSPath(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("expected render to succeed with fs i18n source: %v", err)
+	}
+}
+
+func TestTransformGenericSection_InjectsImplicitPageObject(t *testing.T) {
+	i18nInst, err := i18n.New("en")
+	if err != nil {
+		t.Fatalf("failed to create i18n instance: %v", err)
+	}
+	formatter := format.New(i18nInst, "EUR")
+	pageSettings := templateload.PageSettings{
+		Width:  595.28,
+		Height: 841.89,
+		Margins: templateload.PageMargins{
+			Top:    90,
+			Right:  55,
+			Bottom: 20,
+			Left:   55,
+		},
+	}
+	layout, err := pdfrender.NewLayoutPDF(pageSettings, pageSettings, i18nInst, formatter)
+	if err != nil {
+		t.Fatalf("failed to create layout: %v", err)
+	}
+	layout.StartFlow()
+	layout.BeginPage(1)
+	layout.EnsureTotalPagesAtLeast(3)
+
+	section := Section{
+		Template:    "doc",
+		Transformer: "generic",
+		Payload: PayloadConfig{
+			IncludeSource: true,
+		},
+	}
+	payload, err := transformGenericSection(section, transformContext{
+		Layout: layout,
+		Source: map[string]any{"locale": "en"},
+		Page:   2,
+		Total:  3,
+		Input:  RenderInput{PageOrientation: "portrait"},
+	})
+	if err != nil {
+		t.Fatalf("transformGenericSection returned error: %v", err)
+	}
+
+	page, ok := payload["page"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected payload.page map, got %T", payload["page"])
+	}
+	if got := page["pageNumber"]; got != 2 {
+		t.Fatalf("expected page.pageNumber=2, got %v", got)
+	}
+	if got := page["pageNumberTotal"]; got != 3 {
+		t.Fatalf("expected page.pageNumberTotal=3, got %v", got)
+	}
+	if got := page["orientation"]; got != "portrait" {
+		t.Fatalf("expected page.orientation=portrait, got %v", got)
+	}
+	if got := page["marginLeft"]; got != 55.0 {
+		t.Fatalf("expected page.marginLeft=55, got %v", got)
+	}
+	if got := page["marginRight"]; got != 55.0 {
+		t.Fatalf("expected page.marginRight=55, got %v", got)
+	}
+	if got := page["width"]; got != 595.28 {
+		t.Fatalf("expected page.width=595.28, got %v", got)
+	}
+}
+
+func TestRender_PageTemplateCanUseImplicitPageObjectWithoutRuntimeConfig(t *testing.T) {
+	assets := minimalAssets()
+	assets.HTML = `
+{{define "doc"}}<div>{{.page.orientation}} {{.page.width}} {{.page.marginLeft}}</div>{{end}}
+{{define "page-number"}}<div>{{.page.pageNumber}} / {{.page.pageNumberTotal}}</div>{{end}}`
+	assets.Flow.PageNumber.Payload.Runtime = map[string]string{}
+
+	_, err := RenderToBytes(RenderInput{
+		Assets:              assets,
+		DefaultLocale:       "en",
+		DefaultCurrencyCode: "EUR",
+	})
+	if err != nil {
+		t.Fatalf("expected render to succeed without pageNumber runtime wiring: %v", err)
 	}
 }
 

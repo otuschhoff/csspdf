@@ -513,6 +513,7 @@ func transformGenericSection(section Section, ctx transformContext) (map[string]
 	if section.Payload.IncludeSource {
 		payload["Source"] = ctx.Source
 	}
+	payload["page"] = buildImplicitPagePayload(ctx)
 	for path, value := range section.Payload.Static {
 		setNestedValue(payload, path, value)
 	}
@@ -551,6 +552,32 @@ func transformGenericSection(section Section, ctx transformContext) (map[string]
 	}
 
 	return payload, nil
+}
+
+func buildImplicitPagePayload(ctx transformContext) map[string]any {
+	if ctx.Layout != nil {
+		return ctx.Layout.PageTemplateData(ctx.Page, ctx.Total)
+	}
+	orientation := strings.ToLower(strings.TrimSpace(ctx.Input.PageOrientation))
+	if orientation == "" {
+		orientation = PageOrientationPortrait
+	}
+	return map[string]any{
+		"pageNumber":      ctx.Page,
+		"pageNumberTotal": ctx.Total,
+		"width":           ctx.Input.PageWidth,
+		"height":          ctx.Input.PageHeight,
+		"orientation":     orientation,
+		"marginLeft":      0.0,
+		"marginRight":     0.0,
+		"marginTop":       0.0,
+		"marginBottom":    0.0,
+		"contentX":        0.0,
+		"contentY":        0.0,
+		"contentWidth":    0.0,
+		"contentHeight":   0.0,
+		"contentBottom":   0.0,
+	}
 }
 
 func renderI18nTemplateNode(node any, funcs htmltmpl.FuncMap, data any) (any, error) {
