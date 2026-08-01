@@ -88,6 +88,15 @@ func WithI18nSource(source JSONSource) RenderOption {
 	}
 }
 
+// WithI18nTemplateMacros enables execution of template macros inside i18n
+// translation values.
+func WithI18nTemplateMacros(enabled bool) RenderOption {
+	return func(input *RenderInput) error {
+		input.EnableI18nTemplateMacros = enabled
+		return nil
+	}
+}
+
 // WithFontRegistrations sets explicit font registrations.
 func WithFontRegistrations(registrations ...FontRegistration) RenderOption {
 	return func(input *RenderInput) error {

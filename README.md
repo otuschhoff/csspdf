@@ -115,6 +115,21 @@ Typical output examples:
 - `de` + `written-month` => `Juli`
 - `en` + `written-month` => `July`
 
+Optional i18n macro execution:
+- Enable with `WithI18nTemplateMacros(true)`.
+- When enabled, i18n string values are treated as Go templates and can use the
+	same helper functions as document templates.
+- i18n templates can reference values from `data.json` via `.Source`, for
+	example:
+
+```json
+{
+	"invoiceIntro": {
+		"en": "Services in {{formatLocalizedDateOrNow .Source.Invoice.Date \"written-month\"}}"
+	}
+}
+```
+
 ## Asset Input Modes
 
 TextSource supports:

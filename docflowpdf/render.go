@@ -27,23 +27,24 @@ const (
 
 // RenderInput contains all data and options needed to render a flow-driven PDF.
 type RenderInput struct {
-	OutputPath          string
-	AssetBaseDir        string
-	Assets              Assets
-	AssetInput          *AssetInput
-	SourceData          any
-	I18nSource          JSONSource
-	FontRegistrations   []FontRegistration
-	PageWidth           float64
-	PageHeight          float64
-	PageCount           int
-	DefaultLocale       string
-	DefaultCurrencyCode string
-	DefaultMargins      templateload.PageMargins
-	Now                 func() time.Time
-	FuncMapFactoryEx    FuncMapFactoryWithContext
-	FuncMapFactory      FuncMapFactory
-	Logger              Logger
+	OutputPath               string
+	AssetBaseDir             string
+	EnableI18nTemplateMacros bool
+	Assets                   Assets
+	AssetInput               *AssetInput
+	SourceData               any
+	I18nSource               JSONSource
+	FontRegistrations        []FontRegistration
+	PageWidth                float64
+	PageHeight               float64
+	PageCount                int
+	DefaultLocale            string
+	DefaultCurrencyCode      string
+	DefaultMargins           templateload.PageMargins
+	Now                      func() time.Time
+	FuncMapFactoryEx         FuncMapFactoryWithContext
+	FuncMapFactory           FuncMapFactory
+	Logger                   Logger
 	// Deprecated: use Logger.
 	WarningWriter io.Writer
 }
@@ -336,6 +337,7 @@ func renderMainFlow(layout *pdfrender.LayoutPDF, assets Assets, source map[strin
 	ctx := transformContext{
 		Layout: layout,
 		Source: source,
+		Input:  input,
 	}
 	for _, section := range assets.Flow.MainFlow {
 		payload, err := transformSectionPayload(section, ctx)
@@ -358,7 +360,7 @@ func renderMainFlow(layout *pdfrender.LayoutPDF, assets Assets, source map[strin
 }
 
 func pageNumberTemplateFlowElements(layout *pdfrender.LayoutPDF, assets Assets, page, total int, input RenderInput) ([]pdfdom.PDFElementNode, error) {
-	payload, err := transformSectionPayload(assets.Flow.PageNumber, transformContext{Layout: layout, Page: page, Total: total})
+	payload, err := transformSectionPayload(assets.Flow.PageNumber, transformContext{Layout: layout, Page: page, Total: total, Input: input})
 	if err != nil {
 		return nil, err
 	}
@@ -397,6 +399,7 @@ type transformContext struct {
 	Source map[string]any
 	Page   int
 	Total  int
+	Input  RenderInput
 }
 
 func transformSectionPayload(section Section, ctx transformContext) (map[string]any, error) {
@@ -429,10 +432,68 @@ func transformGenericSection(section Section, ctx transformContext) (map[string]
 
 	if ctx.Layout != nil && ctx.Layout.I18n != nil {
 		vars := extractStringVarsFromSourcePaths(ctx.Source, section.Payload.I18nVars)
-		payload["i18n"] = ctx.Layout.I18n.TemplateData(vars)
+		i18nData := ctx.Layout.I18n.TemplateData(vars)
+		if ctx.Input.EnableI18nTemplateMacros {
+			funcs := buildFuncMap(ctx.Input, strings.TrimSpace(ctx.Input.DefaultLocale), locale)
+			rendered, err := renderI18nTemplateNode(i18nData, funcs, map[string]any{
+				"Source":  ctx.Source,
+				"Payload": payload,
+				"locale":  locale,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to render i18n template macros: %w", err)
+			}
+			renderedMap, ok := rendered.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("unexpected rendered i18n payload type %T", rendered)
+			}
+			i18nData = renderedMap
+		}
+		payload["i18n"] = i18nData
 	}
 
 	return payload, nil
+}
+
+func renderI18nTemplateNode(node any, funcs htmltmpl.FuncMap, data any) (any, error) {
+	switch typed := node.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, value := range typed {
+			rendered, err := renderI18nTemplateNode(value, funcs, data)
+			if err != nil {
+				return nil, fmt.Errorf("key %q: %w", key, err)
+			}
+			out[key] = rendered
+		}
+		return out, nil
+	case []any:
+		out := make([]any, len(typed))
+		for i, value := range typed {
+			rendered, err := renderI18nTemplateNode(value, funcs, data)
+			if err != nil {
+				return nil, fmt.Errorf("index %d: %w", i, err)
+			}
+			out[i] = rendered
+		}
+		return out, nil
+	case string:
+		tmpl := htmltmpl.New("i18n-value")
+		if len(funcs) > 0 {
+			tmpl = tmpl.Funcs(funcs)
+		}
+		parsed, err := tmpl.Parse(typed)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse i18n template value: %w", err)
+		}
+		var buf bytes.Buffer
+		if err := parsed.Execute(&buf, data); err != nil {
+			return nil, fmt.Errorf("failed to execute i18n template value: %w", err)
+		}
+		return buf.String(), nil
+	default:
+		return typed, nil
+	}
 }
 
 func resolvePayloadLocale(localePath string, ctx transformContext) string {

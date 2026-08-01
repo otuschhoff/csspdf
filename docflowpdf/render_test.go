@@ -321,3 +321,53 @@ func TestResolveI18nInput_ExplicitSourceOverridesBaseDir(t *testing.T) {
 		t.Fatalf("expected explicit i18n override to win")
 	}
 }
+
+func TestRenderI18nTemplateNode_CanUseSourceAndTemplateFuncs(t *testing.T) {
+	fixed := time.Date(2026, 7, 31, 9, 0, 0, 0, time.UTC)
+	funcs := DefaultTemplateFuncMapWithContext(FuncContext{
+		DefaultLocale: "en",
+		PayloadLocale: "en",
+		Now: func() time.Time {
+			return fixed
+		},
+	})
+
+	node := map[string]any{
+		"invoice": map[string]any{
+			"intro": "Month {{formatLocalizedDateOrNow .Source.Invoice.Date \"written-month\"}} for {{.Source.Company.Name}}",
+		},
+	}
+
+	data := map[string]any{
+		"Source": map[string]any{
+			"Company": map[string]any{"Name": "ACME"},
+			"Invoice": map[string]any{"Date": "2026-07-31"},
+		},
+	}
+
+	rendered, err := renderI18nTemplateNode(node, funcs, data)
+	if err != nil {
+		t.Fatalf("renderI18nTemplateNode returned error: %v", err)
+	}
+	renderedMap, ok := rendered.(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected rendered type: %T", rendered)
+	}
+	invoice, ok := renderedMap["invoice"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected invoice map in rendered i18n data")
+	}
+	if got, _ := invoice["intro"].(string); got != "Month July for ACME" {
+		t.Fatalf("unexpected rendered i18n value: %q", got)
+	}
+}
+
+func TestBuildRenderInput_WithI18nTemplateMacrosOption(t *testing.T) {
+	input, err := buildRenderInput("out.pdf", WithI18nTemplateMacros(true))
+	if err != nil {
+		t.Fatalf("buildRenderInput returned error: %v", err)
+	}
+	if !input.EnableI18nTemplateMacros {
+		t.Fatalf("expected EnableI18nTemplateMacros to be true")
+	}
+}
