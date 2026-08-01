@@ -90,10 +90,10 @@ func renderInvoicePDF(outputPath, pageFormat, pageOrientation string) error {
 
 func resolveTemplateBaseDir() (string, error) {
 	candidates := []string{
-		filepath.Join("examples", "invoice", "templates"),
-		filepath.Join("..", "examples", "invoice", "templates"),
-		filepath.Join("..", "..", "examples", "invoice", "templates"),
-		"templates",
+		filepath.Join("examples", "invoice"),
+		filepath.Join("..", "examples", "invoice"),
+		filepath.Join("..", "..", "examples", "invoice"),
+		".",
 	}
 
 	for _, candidate := range candidates {
