@@ -347,6 +347,33 @@ func TestRender_PageTemplateCanUseImplicitPageObjectWithoutRuntimeConfig(t *test
 	}
 }
 
+func TestRenderToBytes_AppliesFlowDefaultsWhenFlowEntriesMissing(t *testing.T) {
+	assets := Assets{
+		HTML: `
+{{define "doc"}}<div>Hello {{.Source.Name}}</div>{{end}}
+{{define "timesheet"}}<div>{{.Source.Name}}</div>{{end}}
+{{define "page-number"}}<div>{{.page.pageNumber}}/{{.page.pageNumberTotal}}</div>{{end}}`,
+		CSS: "@page { size: A4; margin: 20pt; }",
+		Flow: Flow{},
+		SourceData: map[string]any{
+			"Name":   "Docflow",
+			"locale": "en",
+		},
+	}
+
+	b, err := RenderToBytes(RenderInput{
+		Assets:              assets,
+		DefaultLocale:       "en",
+		DefaultCurrencyCode: "EUR",
+	})
+	if err != nil {
+		t.Fatalf("expected render to succeed with inferred flow defaults: %v", err)
+	}
+	if len(b) == 0 || !bytes.HasPrefix(b, []byte("%PDF")) {
+		t.Fatalf("expected rendered PDF output")
+	}
+}
+
 func TestResolveFontRegistrations_UsesBaseDirFontsWhenNoOverride(t *testing.T) {
 	baseDir := t.TempDir()
 	fontsDir := filepath.Join(baseDir, "fonts")

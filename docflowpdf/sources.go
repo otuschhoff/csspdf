@@ -119,10 +119,15 @@ type AssetInput struct {
 //   - data.json
 func (in AssetInput) ResolveWithBaseDir(baseDir string) (Assets, error) {
 	baseDir = filepath.Clean(baseDir)
+	flowPath := filepath.Join(baseDir, "flow.json")
+	flowSource := JSONSource{}
+	if stat, err := os.Stat(flowPath); err == nil && !stat.IsDir() {
+		flowSource = JSONSource{FilePath: flowPath}
+	}
 	merged := AssetInput{
 		HTML:       TextSource{FilePath: filepath.Join(baseDir, "doc.html")},
 		CSS:        TextSource{FilePath: filepath.Join(baseDir, "doc.css")},
-		Flow:       JSONSource{FilePath: filepath.Join(baseDir, "flow.json")},
+		Flow:       flowSource,
 		SourceData: JSONSource{FilePath: filepath.Join(baseDir, "data.json")},
 	}
 
@@ -153,7 +158,12 @@ func (in AssetInput) ResolveAssets() (Assets, error) {
 	}
 
 	var flow Flow
-	if err := in.Flow.DecodeInto(&flow, "flow"); err != nil {
+	if in.Flow.IsSet() {
+		if err := in.Flow.DecodeInto(&flow, "flow"); err != nil {
+			return Assets{}, err
+		}
+	}
+	if err := applyFlowDefaults(&flow, html); err != nil {
 		return Assets{}, err
 	}
 

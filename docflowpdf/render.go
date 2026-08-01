@@ -329,10 +329,14 @@ func resolveRenderAssets(input RenderInput) (Assets, error) {
 	if input.AssetInput != nil {
 		return input.AssetInput.ResolveAssets()
 	}
-	if err := input.Assets.Validate(); err != nil {
+	assets := input.Assets
+	if err := applyFlowDefaults(&assets.Flow, assets.HTML); err != nil {
 		return Assets{}, err
 	}
-	return input.Assets, nil
+	if err := assets.Validate(); err != nil {
+		return Assets{}, err
+	}
+	return assets, nil
 }
 
 func resolveI18nInput(locale string, input RenderInput) (*i18n.I18n, error) {

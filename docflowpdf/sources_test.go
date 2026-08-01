@@ -134,6 +134,56 @@ func TestAssetInputResolveWithBaseDir_AllowsPerAssetOverrides(t *testing.T) {
 	}
 }
 
+func TestAssetInputResolveAssets_AppliesFlowDefaultsWhenEntriesOmitted(t *testing.T) {
+	input := AssetInput{
+		HTML: TextSource{Text: `
+{{define "doc"}}<div>doc</div>{{end}}
+{{define "timesheet"}}<div>timesheet</div>{{end}}
+{{define "page-number"}}<div>{{.page.pageNumber}}</div>{{end}}`},
+		CSS:  TextSource{Text: "@page { size: A4; }"},
+		Flow: JSONSource{Text: `{}`},
+	}
+
+	assets, err := input.ResolveAssets()
+	if err != nil {
+		t.Fatalf("ResolveAssets returned error: %v", err)
+	}
+	if len(assets.Flow.MainFlow) != 2 {
+		t.Fatalf("expected 2 inferred mainFlow sections, got %d", len(assets.Flow.MainFlow))
+	}
+	if assets.Flow.MainFlow[0].Template != "doc" || assets.Flow.MainFlow[1].Template != "timesheet" {
+		t.Fatalf("unexpected inferred mainFlow ordering: %+v", assets.Flow.MainFlow)
+	}
+	if assets.Flow.PageNumber.Template != "page-number" {
+		t.Fatalf("expected inferred pageNumber template page-number, got %q", assets.Flow.PageNumber.Template)
+	}
+	if assets.Flow.PageNumber.Transformer != "generic" {
+		t.Fatalf("expected inferred pageNumber transformer generic, got %q", assets.Flow.PageNumber.Transformer)
+	}
+}
+
+func TestAssetInputResolveWithBaseDir_AllowsMissingFlowFile(t *testing.T) {
+	baseDir := t.TempDir()
+	html := `{{define "doc"}}<div>doc</div>{{end}}{{define "timesheet"}}<div>ts</div>{{end}}{{define "page-number"}}<div>{{.page.pageNumber}}</div>{{end}}`
+	css := "@page { size: A4; }"
+	data := `{"Invoice":{"ID":"42"}}`
+
+	writeFile(t, filepath.Join(baseDir, "doc.html"), html)
+	writeFile(t, filepath.Join(baseDir, "doc.css"), css)
+	writeFile(t, filepath.Join(baseDir, "data.json"), data)
+
+	assets, err := (AssetInput{}).ResolveWithBaseDir(baseDir)
+	if err != nil {
+		t.Fatalf("ResolveWithBaseDir returned error with missing flow.json: %v", err)
+	}
+	if len(assets.Flow.MainFlow) != 2 {
+		t.Fatalf("expected inferred 2 mainFlow sections, got %d", len(assets.Flow.MainFlow))
+	}
+	if assets.Flow.PageNumber.Template != "page-number" {
+		t.Fatalf("expected inferred page-number template, got %q", assets.Flow.PageNumber.Template)
+	}
+}
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
