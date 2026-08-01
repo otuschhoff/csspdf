@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/otuschhoff/go-dom2pdf/internal/pdfdom"
+	"github.com/otuschhoff/csspdf/internal/pdfdom"
 	"github.com/otuschhoff/gofpdf"
 )
 

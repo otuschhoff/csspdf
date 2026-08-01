@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/otuschhoff/go-dom2pdf/docflowpdf"
-	"github.com/otuschhoff/go-dom2pdf/internal/pdfdump"
+	"github.com/otuschhoff/csspdf/docflowpdf"
+	"github.com/otuschhoff/csspdf/internal/pdfdump"
 )
 
 const version = "0.1.0"

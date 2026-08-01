@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/otuschhoff/go-dom2pdf/internal/i18n"
+	"github.com/otuschhoff/csspdf/internal/i18n"
 )
 
 func TestFormatCurrency_UsesSymbolForISOCode_DE(t *testing.T) {

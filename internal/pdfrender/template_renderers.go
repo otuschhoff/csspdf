@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/otuschhoff/go-dom2pdf/internal/pdfdom"
+	"github.com/otuschhoff/csspdf/internal/pdfdom"
 )
 
 var runningPositionRe = regexp.MustCompile(`^running\(\s*([a-z0-9_-]+)\s*\)$`)

@@ -133,9 +133,9 @@ check_forbidden_imports() {
   fi
 }
 
-check_forbidden_imports "internal/domain" 'github.com/otuschhoff/go-dom2pdf/internal/(invoice|pdfrender|templateflow|app|template)' "internal/domain must not import rendering/orchestration/template layers"
-check_forbidden_imports "internal/templating" 'github.com/otuschhoff/go-dom2pdf/internal/(invoice|pdfrender|app)' "internal/templating must stay parser/template only"
-check_forbidden_imports "internal/flowrender" 'github.com/otuschhoff/go-dom2pdf/internal/(invoice|app)' "internal/flowrender must stay adapter-only (no business layer imports)"
+check_forbidden_imports "internal/domain" 'github.com/otuschhoff/csspdf/internal/(invoice|pdfrender|templateflow|app|template)' "internal/domain must not import rendering/orchestration/template layers"
+check_forbidden_imports "internal/templating" 'github.com/otuschhoff/csspdf/internal/(invoice|pdfrender|app)' "internal/templating must stay parser/template only"
+check_forbidden_imports "internal/flowrender" 'github.com/otuschhoff/csspdf/internal/(invoice|app)' "internal/flowrender must stay adapter-only (no business layer imports)"
 
 if (( status != 0 )); then
   echo "[maintainability] FAILED"

@@ -1,4 +1,4 @@
-module github.com/otuschhoff/go-dom2pdf
+module github.com/otuschhoff/csspdf
 
 go 1.25.0
 

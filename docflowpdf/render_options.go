@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	templateload "github.com/otuschhoff/go-dom2pdf/internal/templating"
+	templateload "github.com/otuschhoff/csspdf/internal/templating"
 )
 
 // RenderOption customizes the default RenderInput used by Render.

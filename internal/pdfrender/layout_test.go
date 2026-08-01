@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/otuschhoff/go-dom2pdf/internal/pdfdom"
+	"github.com/otuschhoff/csspdf/internal/pdfdom"
 )
 
 func TestTableDefFromElement_AllowsFlexibleColWithoutWidth(t *testing.T) {

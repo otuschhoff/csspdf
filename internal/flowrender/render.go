@@ -4,8 +4,8 @@ import (
 	"fmt"
 	htmltmpl "html/template"
 
-	"github.com/otuschhoff/go-dom2pdf/internal/pdfdom"
-	templateload "github.com/otuschhoff/go-dom2pdf/internal/templating"
+	"github.com/otuschhoff/csspdf/internal/pdfdom"
+	templateload "github.com/otuschhoff/csspdf/internal/templating"
 )
 
 // BuildFlowElements executes a named HTML template, applies CSS styling, and

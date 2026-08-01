@@ -10,10 +10,10 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/otuschhoff/go-dom2pdf/internal/format"
-	"github.com/otuschhoff/go-dom2pdf/internal/i18n"
-	"github.com/otuschhoff/go-dom2pdf/internal/pdfrender"
-	templateload "github.com/otuschhoff/go-dom2pdf/internal/templating"
+	"github.com/otuschhoff/csspdf/internal/format"
+	"github.com/otuschhoff/csspdf/internal/i18n"
+	"github.com/otuschhoff/csspdf/internal/pdfrender"
+	templateload "github.com/otuschhoff/csspdf/internal/templating"
 )
 
 func minimalAssets() Assets {

@@ -1,4 +1,4 @@
-# docflowpdf Library (go-dom2pdf)
+# docflowpdf Library (csspdf)
 
 A Go library for generating PDF files from:
 - HTML template fragments
@@ -8,7 +8,7 @@ A Go library for generating PDF files from:
 - optional Go template functions
 
 The reusable public package is:
-- github.com/otuschhoff/go-dom2pdf/docflowpdf
+- github.com/otuschhoff/csspdf/docflowpdf
 
 ## Status
 
@@ -26,7 +26,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/otuschhoff/go-dom2pdf/docflowpdf"
+	"github.com/otuschhoff/csspdf/docflowpdf"
 )
 
 func main() {
