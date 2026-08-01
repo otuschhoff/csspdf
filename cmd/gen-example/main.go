@@ -20,16 +20,16 @@ const (
 	DocHeight = templateload.A4Height
 )
 
-// RenderTotalsOptions holds all parameters for the totals PDF rendering use case.
-type RenderTotalsOptions struct {
+// RenderInvoiceOptions holds all parameters for the invoice PDF rendering use case.
+type RenderInvoiceOptions struct {
 	OutputPath string
 	PageWidth  float64
 	PageHeight float64
 	PageCount  int
 }
 
-// RenderTotals generates the totals PDF and writes it to opts.OutputPath.
-func RenderTotals(opts RenderTotalsOptions) error {
+// RenderInvoice generates the invoice PDF and writes it to opts.OutputPath.
+func RenderInvoice(opts RenderInvoiceOptions) error {
 	return invoiceexample.RenderTotalsPDF(
 		opts.OutputPath,
 		opts.PageWidth,
@@ -45,12 +45,12 @@ func main() {
 	}
 
 	switch os.Args[1] {
-	case "totals":
-		os.Exit(runTotals(os.Args[2:]))
+	case "invoice":
+		os.Exit(runInvoice(os.Args[2:]))
 	case "dump-pdf":
 		os.Exit(runDumpPDF(os.Args[2:]))
 	case "version", "-version", "--version":
-		fmt.Printf("go-dom2pdf version %s\n", version)
+		fmt.Printf("gen-example version %s\n", version)
 	case "help", "-h", "--help":
 		printUsage(os.Stdout)
 	case "":
@@ -65,22 +65,22 @@ func main() {
 
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  go-dom2pdf <subcommand> [options]")
+	fmt.Fprintln(w, "  gen-example <subcommand> [options]")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Subcommands:")
-	fmt.Fprintln(w, "  totals      Generate intro layout plus table with service line items")
+	fmt.Fprintln(w, "  invoice     Generate intro layout plus table with service line items")
 	fmt.Fprintln(w, "  dump-pdf    Display PDF structure with binary streams hidden")
 	fmt.Fprintln(w, "  version     Print version and exit")
 	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Use 'go-dom2pdf <subcommand> -h' for command-specific options.")
+	fmt.Fprintln(w, "Use 'gen-example <subcommand> -h' for command-specific options.")
 }
 
-func runTotals(args []string) int {
-	cmd := flag.NewFlagSet("totals", flag.ContinueOnError)
+func runInvoice(args []string) int {
+	cmd := flag.NewFlagSet("invoice", flag.ContinueOnError)
 	cmd.SetOutput(os.Stderr)
 
 	var (
-		outputPath = cmd.String("o", "output/totals.pdf", "Output PDF path")
+		outputPath = cmd.String("o", "output/invoice.pdf", "Output PDF path")
 		pageWidth  = cmd.Float64("page-width", DocWidth, "Page width in points")
 		pageHeight = cmd.Float64("page-height", DocHeight, "Page height in points")
 		pageCount  = cmd.Int("pages", 2, "Number of pages to generate")
@@ -88,7 +88,7 @@ func runTotals(args []string) int {
 
 	cmd.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage:")
-		fmt.Fprintln(os.Stderr, "  go-dom2pdf totals [options]")
+		fmt.Fprintln(os.Stderr, "  gen-example invoice [options]")
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, "Options:")
 		cmd.PrintDefaults()
@@ -108,17 +108,17 @@ func runTotals(args []string) int {
 		return 1
 	}
 
-	if err := RenderTotals(RenderTotalsOptions{
+	if err := RenderInvoice(RenderInvoiceOptions{
 		OutputPath: *outputPath,
 		PageWidth:  *pageWidth,
 		PageHeight: *pageHeight,
 		PageCount:  *pageCount,
 	}); err != nil {
-		fmt.Fprintf(os.Stderr, "Error rendering totals PDF: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error rendering invoice PDF: %v\n", err)
 		return 1
 	}
 
-	fmt.Printf("✓ Totals PDF generated successfully: %s\n", *outputPath)
+	fmt.Printf("✓ Invoice PDF generated successfully: %s\n", *outputPath)
 	return 0
 }
 
@@ -128,7 +128,7 @@ func runDumpPDF(args []string) int {
 
 	dumpCmd.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage:")
-		fmt.Fprintln(os.Stderr, "  go-dom2pdf dump-pdf <file.pdf>")
+		fmt.Fprintln(os.Stderr, "  gen-example dump-pdf <file.pdf>")
 	}
 
 	if err := dumpCmd.Parse(args); err != nil {

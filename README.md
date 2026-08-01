@@ -140,7 +140,7 @@ This keeps docflowpdf generic while preserving an invoice profile implementation
 Focused package tests:
 
 ```bash
-go test ./docflowpdf ./examples/invoice ./cmd/go-dom2pdf ./internal/pdfrender
+go test ./docflowpdf ./examples/invoice ./cmd/gen-example ./internal/pdfrender
 ```
 
 ## Tasks
@@ -152,17 +152,17 @@ Run tasks with `xc <task>`. The task definitions below are xc-compatible.
 Build CLI binaries into `bin/`.
 
 ```sh
-go build -o bin/go-dom2pdf ./cmd/go-dom2pdf
+go build -o bin/gen-example ./cmd/gen-example
 go build -o bin/dom-parse ./cmd/dom-parse
 ```
 
 ### render-sample
 
-Build and render the sample totals document.
+Build and render the sample invoice document.
 
 ```sh
-go build -o bin/go-dom2pdf ./cmd/go-dom2pdf
-./bin/go-dom2pdf totals -o output/totals.pdf
+go build -o bin/gen-example ./cmd/gen-example
+./bin/gen-example invoice -o output/invoice.pdf
 ```
 
 ### test
@@ -170,7 +170,7 @@ go build -o bin/go-dom2pdf ./cmd/go-dom2pdf
 Run focused tests used during the library refactor.
 
 ```sh
-go test ./docflowpdf ./examples/invoice ./cmd/go-dom2pdf ./internal/pdfrender ./internal/i18n
+go test ./docflowpdf ./examples/invoice ./cmd/gen-example ./internal/pdfrender ./internal/i18n
 ```
 
 ## Notes
