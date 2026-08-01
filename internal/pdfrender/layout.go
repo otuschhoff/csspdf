@@ -463,8 +463,10 @@ func (l *LayoutPDF) ResolveFlowPlacement(node pdfdom.PDFElementNode, flowX, flow
 }
 
 // TableDefFromElement builds a TableDef from an HTML table element.
-func (l *LayoutPDF) TableDefFromElement(table *pdfdom.ElemTable) (*TableDef, error) {
-	tableWidth, err := parseLayoutFloatAttr(table, "width")
+// availableWidth is the current flow-box width used to resolve percentage
+// widths like "100%".
+func (l *LayoutPDF) TableDefFromElement(table *pdfdom.ElemTable, availableWidth float64) (*TableDef, error) {
+	tableWidth, err := parseTableWidthAttr(table, availableWidth)
 	if err != nil {
 		return nil, err
 	}
@@ -617,6 +619,33 @@ func (l *LayoutPDF) TableDefFromElement(table *pdfdom.ElemTable) (*TableDef, err
 	}
 
 	return tableDef, nil
+}
+
+func parseTableWidthAttr(node pdfdom.PDFElementNode, availableWidth float64) (float64, error) {
+	value, ok := node.Attribute("width")
+	if !ok {
+		return 0, fmt.Errorf("missing required width attribute on %s", node.ElementType())
+	}
+	raw := strings.TrimSpace(value)
+	if strings.HasSuffix(raw, "%") {
+		pctRaw := strings.TrimSpace(strings.TrimSuffix(raw, "%"))
+		pct, err := strconv.ParseFloat(pctRaw, 64)
+		if err != nil {
+			return 0, fmt.Errorf("invalid width percentage on %s: %q", node.ElementType(), value)
+		}
+		if pct <= 0 {
+			return 0, fmt.Errorf("width percentage must be greater than zero on %s: %q", node.ElementType(), value)
+		}
+		if availableWidth <= 0 {
+			return 0, fmt.Errorf("cannot resolve width %q on %s without positive available width", value, node.ElementType())
+		}
+		return availableWidth * (pct / 100.0), nil
+	}
+	var parsed float64
+	if _, err := fmt.Sscanf(raw, "%f", &parsed); err != nil {
+		return 0, fmt.Errorf("invalid width attribute on %s: %q", node.ElementType(), value)
+	}
+	return parsed, nil
 }
 
 func parseLayoutFloatAttr(node pdfdom.PDFElementNode, attr string) (float64, error) {

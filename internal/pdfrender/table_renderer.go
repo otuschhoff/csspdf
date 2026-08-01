@@ -228,7 +228,8 @@ func (tr *TableRenderer) resolveTableLayout(table *TableDef) resolvedTableLayout
 		flexIndices = append(flexIndices, i)
 	}
 
-	tableWidth := table.Width
+	requestedWidth := table.Width
+	tableWidth := requestedWidth
 	if tableWidth <= 0 {
 		if len(flexIndices) == 0 {
 			tableWidth = fixedTotal
@@ -238,7 +239,7 @@ func (tr *TableRenderer) resolveTableLayout(table *TableDef) resolvedTableLayout
 			tableWidth = pageW - left - right
 		}
 	}
-	if reqMin := fixedTotal + minFlexTotal; tableWidth < reqMin {
+	if reqMin := fixedTotal + minFlexTotal; requestedWidth <= 0 && tableWidth < reqMin {
 		tableWidth = reqMin
 	}
 
@@ -427,35 +428,45 @@ func (tr *TableRenderer) enforceNoWrapColumnWidths(table *TableDef, widths []flo
 		totalOriginal += w
 	}
 
-	// If nowrap cols fit within original total width, just expand them as needed
-	// and leave wrapping cols unchanged
 	if nowrapRequired <= totalOriginal {
-		for i := range widths {
-			if hasNoWrap[i] {
-				widths[i] = requiredWidths[i]
+		remainingForWrapping := totalOriginal - nowrapRequired
+		for _, i := range nowrapIndices {
+			widths[i] = requiredWidths[i]
+		}
+		if len(wrappingIndices) > 0 {
+			wrappingOriginal := 0.0
+			for _, i := range wrappingIndices {
+				wrappingOriginal += widths[i]
+			}
+			if wrappingOriginal > 0 {
+				scale := remainingForWrapping / wrappingOriginal
+				for _, i := range wrappingIndices {
+					widths[i] *= scale
+				}
+			} else {
+				share := remainingForWrapping / float64(len(wrappingIndices))
+				for _, i := range wrappingIndices {
+					widths[i] = share
+				}
 			}
 		}
 		return
 	}
 
-	// Nowrap cols need more space than originally available.
-	// Shrink wrapping columns to accommodate nowrap requirements.
-	remainingForWrapping := totalOriginal - nowrapRequired
-	if remainingForWrapping < 0 {
-		remainingForWrapping = 0
+	// If nowrap requirements exceed available width, prioritise nowrap columns
+	// proportionally and collapse wrapping columns.
+	if len(nowrapIndices) == 0 {
+		return
 	}
-
-	// Set nowrap columns to their required widths
+	scale := 0.0
+	if nowrapRequired > 0 {
+		scale = totalOriginal / nowrapRequired
+	}
 	for _, i := range nowrapIndices {
-		widths[i] = requiredWidths[i]
+		widths[i] = requiredWidths[i] * scale
 	}
-
-	// Distribute remaining space proportionally among wrapping columns
-	if len(wrappingIndices) > 0 {
-		avgWrappingWidth := remainingForWrapping / float64(len(wrappingIndices))
-		for _, i := range wrappingIndices {
-			widths[i] = avgWrappingWidth
-		}
+	for _, i := range wrappingIndices {
+		widths[i] = 0
 	}
 }
 

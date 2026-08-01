@@ -91,12 +91,12 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 				currentY = yPos + metrics.Height
 			}
 		case *pdfdom.ElemTable:
-			tableDef, err := l.TableDefFromElement(n)
+			xPos, yPos, w, absolute := l.ResolveFlowPlacement(n, x, currentY, maxW)
+			tableDef, err := l.TableDefFromElement(n, w)
 			if err != nil {
 				l.warnf("failed to build table definition from doc flow: %v", err)
 				continue
 			}
-			xPos, yPos, _, absolute := l.ResolveFlowPlacement(n, x, currentY, maxW)
 			if !absolute {
 				tableHeight, err := l.tableRenderer.MeasureTableHeight(tableDef)
 				if err != nil {
@@ -107,7 +107,12 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 					l.NextFlowPage()
 					x, y, maxW = l.CurrentFlowBox()
 					currentY = y
-					xPos, yPos, _, absolute = l.ResolveFlowPlacement(n, x, currentY, maxW)
+					xPos, yPos, w, absolute = l.ResolveFlowPlacement(n, x, currentY, maxW)
+					tableDef, err = l.TableDefFromElement(n, w)
+					if err != nil {
+						l.warnf("failed to rebuild table definition after page break: %v", err)
+						continue
+					}
 				}
 			}
 			l.PDF.SetXY(xPos, yPos)

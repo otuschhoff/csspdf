@@ -82,3 +82,38 @@ func TestResolveTableLayout_AutoHonorsNoWrapMinimums(t *testing.T) {
 		t.Fatalf("hours nowrap width not honored: got=%f required=%f", layout.colWidths[1], requiredHours)
 	}
 }
+
+func TestResolveTableLayout_DoesNotExceedExplicitWidth(t *testing.T) {
+	pdf := gofpdf.New("P", "pt", "A4", "")
+	pdf.AddPage()
+	r := NewTableRenderer(pdf, nil)
+
+	table := &TableDef{
+		Width:       220,
+		TableLayout: "auto",
+		Padding:     4,
+		Columns:     []ColumnDef{{}, {}, {}},
+		Rows: []RowDef{
+			{
+				Cells: []CellDef{
+					{Text: "2026-06-30", NoWrap: true},
+					{Text: "12:30", NoWrap: true},
+					{Text: "Long description that should wrap and not force table overflow into right margin."},
+				},
+			},
+		},
+	}
+
+	layout := r.resolveTableLayout(table)
+	total := 0.0
+	for _, w := range layout.colWidths {
+		total += w
+	}
+
+	if total > table.Width+0.001 {
+		t.Fatalf("resolved columns exceed explicit width: total=%f width=%f", total, table.Width)
+	}
+	if layout.tableWidth > table.Width+0.001 {
+		t.Fatalf("resolved table width exceeds explicit width: got=%f width=%f", layout.tableWidth, table.Width)
+	}
+}
