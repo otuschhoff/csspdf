@@ -91,6 +91,7 @@ type PDFTextEngine struct {
 	i18n         Translator
 	defaultStyle PDFTextStyle
 	glyphs       *FontGlyphRegistry
+	imageSearchDirs []string
 }
 
 func NewPDFTextEngine(pdf *gofpdf.Fpdf, i18n Translator) *PDFTextEngine {
@@ -106,6 +107,13 @@ func NewPDFTextEngine(pdf *gofpdf.Fpdf, i18n Translator) *PDFTextEngine {
 		},
 		glyphs: NewFontGlyphRegistry(),
 	}
+}
+
+func (e *PDFTextEngine) SetImageSearchDirs(paths []string) {
+	if e == nil {
+		return
+	}
+	e.imageSearchDirs = append([]string(nil), paths...)
 }
 
 func (e *PDFTextEngine) SetDefaultStyle(style PDFTextStyle) {
@@ -219,7 +227,7 @@ func (e *PDFTextEngine) layoutContainerNode(nodeStyle *PDFTextStyle, children []
 
 func (e *PDFTextEngine) layoutImageNode(node *ElemImg, parentStyle PDFTextStyle, box PDFTextBox) (*textPlan, PDFTextMetrics, error) {
 	style := parentStyle.Merge(node.ElementStyle())
-	path, width, height, marginTop, marginBottom, err := resolveImageElement(node, box.Width)
+	path, width, height, marginTop, marginBottom, err := resolveImageElement(node, box.Width, e.imageSearchDirs)
 	if err != nil {
 		return nil, PDFTextMetrics{}, err
 	}
@@ -714,7 +722,7 @@ func htmlLengthToFloat(node PDFElementNode, keys ...string) float64 {
 	return 0
 }
 
-func resolveImageElement(node PDFElementNode, fallbackWidth float64) (path string, width, height, marginTop, marginBottom float64, err error) {
+func resolveImageElement(node PDFElementNode, fallbackWidth float64, searchDirs []string) (path string, width, height, marginTop, marginBottom float64, err error) {
 	if node == nil {
 		return "", 0, 0, 0, 0, fmt.Errorf("image node cannot be nil")
 	}
@@ -722,7 +730,7 @@ func resolveImageElement(node PDFElementNode, fallbackWidth float64) (path strin
 	if !ok || strings.TrimSpace(src) == "" {
 		return "", 0, 0, 0, 0, fmt.Errorf("img missing src attribute")
 	}
-	path, ok = resolveImagePath(src)
+	path, ok = resolveImagePath(src, searchDirs)
 	if !ok {
 		return "", 0, 0, 0, 0, fmt.Errorf("image not found: %s", src)
 	}
@@ -742,7 +750,7 @@ func resolveImageElement(node PDFElementNode, fallbackWidth float64) (path strin
 	return path, width, height, marginTop, marginBottom, nil
 }
 
-func resolveImagePath(src string) (string, bool) {
+func resolveImagePath(src string, searchDirs []string) (string, bool) {
 	trimmed := strings.TrimSpace(src)
 	if trimmed == "" {
 		return "", false
@@ -751,6 +759,16 @@ func resolveImagePath(src string) (string, bool) {
 	candidates := []string{trimmed}
 	if !filepath.IsAbs(trimmed) {
 		base := filepath.Base(trimmed)
+		for _, dir := range searchDirs {
+			cleanDir := strings.TrimSpace(dir)
+			if cleanDir == "" {
+				continue
+			}
+			candidates = append(candidates,
+				filepath.Join(cleanDir, trimmed),
+				filepath.Join(cleanDir, base),
+			)
+		}
 		candidates = append(candidates,
 			filepath.Join("examples", "invoice", "templates", trimmed),
 			filepath.Join("examples", "invoice", "templates", base),

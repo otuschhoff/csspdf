@@ -7,6 +7,7 @@ import (
 	htmltmpl "html/template"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -27,6 +28,7 @@ const (
 // RenderInput contains all data and options needed to render a flow-driven PDF.
 type RenderInput struct {
 	OutputPath          string
+	AssetBaseDir        string
 	Assets              Assets
 	AssetInput          *AssetInput
 	SourceData          any
@@ -117,6 +119,10 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 	if err != nil {
 		return nil, err
 	}
+	resolvedFontRegistrations, err := resolveFontRegistrations(input)
+	if err != nil {
+		return nil, err
+	}
 
 	effectiveWidth := templateload.A4Width
 	if input.PageWidth > 0 {
@@ -156,7 +162,8 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 	}
 	formatter := format.New(i18nInst, currencyCode)
 	l, err := pdfrender.NewLayoutPDFWithOptions(defaultPage, firstPage, i18nInst, formatter, pdfrender.LayoutOptions{
-		FontRegistrations: toLayoutFontRegistrations(input.FontRegistrations),
+		FontRegistrations: toLayoutFontRegistrations(resolvedFontRegistrations),
+		ImageSearchDirs:   resolveImageSearchDirs(input),
 	})
 	if err != nil {
 		return nil, err
@@ -220,6 +227,14 @@ func warningFunc(input RenderInput) func(string, ...any) {
 }
 
 func resolveRenderAssets(input RenderInput) (Assets, error) {
+	if baseDir := strings.TrimSpace(input.AssetBaseDir); baseDir != "" {
+		overrides := AssetInput{}
+		if input.AssetInput != nil {
+			overrides = *input.AssetInput
+		}
+		return overrides.ResolveWithBaseDir(baseDir)
+	}
+
 	if input.AssetInput != nil {
 		return input.AssetInput.ResolveAssets()
 	}
@@ -239,6 +254,54 @@ func resolveI18nInput(locale string, input RenderInput) (*i18n.I18n, error) {
 		return nil, err
 	}
 	return i18n.NewFromSource(locale, source)
+}
+
+func resolveFontRegistrations(input RenderInput) ([]FontRegistration, error) {
+	if len(input.FontRegistrations) > 0 {
+		return input.FontRegistrations, nil
+	}
+	baseDir := strings.TrimSpace(input.AssetBaseDir)
+	if baseDir == "" {
+		return nil, nil
+	}
+	fontsDir := filepath.Join(baseDir, "fonts")
+	entries, err := os.ReadDir(fontsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to scan font directory %q: %w", fontsDir, err)
+	}
+
+	registrations := make([]FontRegistration, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := strings.TrimSpace(entry.Name())
+		ext := strings.ToLower(filepath.Ext(name))
+		if ext != ".ttf" && ext != ".otf" && ext != ".ttc" {
+			continue
+		}
+		family := strings.TrimSpace(strings.TrimSuffix(name, filepath.Ext(name)))
+		if family == "" {
+			continue
+		}
+		registrations = append(registrations, FontRegistration{
+			Family:  family,
+			Style:   "",
+			Sources: []string{filepath.Join(fontsDir, name)},
+		})
+	}
+	return registrations, nil
+}
+
+func resolveImageSearchDirs(input RenderInput) []string {
+	baseDir := strings.TrimSpace(input.AssetBaseDir)
+	if baseDir == "" {
+		return nil
+	}
+	return []string{filepath.Join(baseDir, "images")}
 }
 
 func toLayoutFontRegistrations(registrations []FontRegistration) []pdfrender.FontRegistration {

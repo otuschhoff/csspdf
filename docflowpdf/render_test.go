@@ -4,6 +4,7 @@ import (
 	"bytes"
 	htmltmpl "html/template"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -202,5 +203,51 @@ func TestRender_I18nSource_FSPath(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("expected render to succeed with fs i18n source: %v", err)
+	}
+}
+
+func TestResolveFontRegistrations_UsesBaseDirFontsWhenNoOverride(t *testing.T) {
+	baseDir := t.TempDir()
+	fontsDir := filepath.Join(baseDir, "fonts")
+	if err := os.MkdirAll(fontsDir, 0755); err != nil {
+		t.Fatalf("failed to create fonts dir: %v", err)
+	}
+	fontPath := filepath.Join(fontsDir, "MyFont.ttf")
+	if err := os.WriteFile(fontPath, []byte("dummy"), 0644); err != nil {
+		t.Fatalf("failed to write font file: %v", err)
+	}
+
+	regs, err := resolveFontRegistrations(RenderInput{AssetBaseDir: baseDir})
+	if err != nil {
+		t.Fatalf("resolveFontRegistrations returned error: %v", err)
+	}
+	if len(regs) != 1 {
+		t.Fatalf("expected one discovered font registration, got %d", len(regs))
+	}
+	if regs[0].Family != "MyFont" {
+		t.Fatalf("unexpected discovered family: %q", regs[0].Family)
+	}
+}
+
+func TestResolveFontRegistrations_PrefersExplicitOverrides(t *testing.T) {
+	overrides := []FontRegistration{{Family: "Override", Sources: []string{"/tmp/override.ttf"}}}
+	regs, err := resolveFontRegistrations(RenderInput{AssetBaseDir: t.TempDir(), FontRegistrations: overrides})
+	if err != nil {
+		t.Fatalf("resolveFontRegistrations returned error: %v", err)
+	}
+	if len(regs) != 1 || regs[0].Family != "Override" {
+		t.Fatalf("expected explicit override registration to be used")
+	}
+}
+
+func TestResolveImageSearchDirs_UsesBaseDirImages(t *testing.T) {
+	baseDir := filepath.Join("/tmp", "profile")
+	dirs := resolveImageSearchDirs(RenderInput{AssetBaseDir: baseDir})
+	if len(dirs) != 1 {
+		t.Fatalf("expected one image search dir, got %d", len(dirs))
+	}
+	want := filepath.Join(baseDir, "images")
+	if dirs[0] != want {
+		t.Fatalf("unexpected image search dir: got %q want %q", dirs[0], want)
 	}
 }

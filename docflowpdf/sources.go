@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 )
 
 // TextSource resolves textual content from in-memory bytes/text, a file path,
@@ -15,6 +16,10 @@ type TextSource struct {
 	FilePath string
 	FS       fs.FS
 	FSPath   string
+}
+
+func (s TextSource) IsSet() bool {
+	return s.Raw != nil || s.Text != "" || s.FilePath != "" || (s.FS != nil && s.FSPath != "")
 }
 
 func (s TextSource) Resolve(label string) (string, error) {
@@ -102,6 +107,39 @@ type AssetInput struct {
 	CSS        TextSource
 	Flow       JSONSource
 	SourceData JSONSource
+}
+
+// ResolveWithBaseDir resolves assets from baseDir defaults and allows
+// per-asset overrides from the receiver.
+//
+// Defaults relative to baseDir:
+//   - doc.html
+//   - doc.css
+//   - flow.json
+//   - data.json
+func (in AssetInput) ResolveWithBaseDir(baseDir string) (Assets, error) {
+	baseDir = filepath.Clean(baseDir)
+	merged := AssetInput{
+		HTML:       TextSource{FilePath: filepath.Join(baseDir, "doc.html")},
+		CSS:        TextSource{FilePath: filepath.Join(baseDir, "doc.css")},
+		Flow:       JSONSource{FilePath: filepath.Join(baseDir, "flow.json")},
+		SourceData: JSONSource{FilePath: filepath.Join(baseDir, "data.json")},
+	}
+
+	if in.HTML.IsSet() {
+		merged.HTML = in.HTML
+	}
+	if in.CSS.IsSet() {
+		merged.CSS = in.CSS
+	}
+	if in.Flow.IsSet() {
+		merged.Flow = in.Flow
+	}
+	if in.SourceData.IsSet() {
+		merged.SourceData = in.SourceData
+	}
+
+	return merged.ResolveAssets()
 }
 
 func (in AssetInput) ResolveAssets() (Assets, error) {

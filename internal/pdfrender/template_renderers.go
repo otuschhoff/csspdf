@@ -56,7 +56,7 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 	}
 
 	x, y, maxW := l.CurrentFlowBox()
-	engine := NewPDFTextEngine(l.PDF, l.I18n)
+	engine := l.newTextEngine(l.PDF, l.I18n)
 
 	currentY := y
 	for _, elem := range elements {

@@ -24,6 +24,7 @@ type LayoutPDF struct {
 	PDF                   *gofpdf.Fpdf
 	Formatter             *format.Formatter
 	I18n                  *i18n.I18n
+	imageSearchDirs       []string
 	tableRenderer         *TableRenderer
 	warningf              func(format string, args ...any)
 	pageNumRenderer       func(l *LayoutPDF, page, pageCount int)
@@ -59,6 +60,7 @@ type FontRegistration struct {
 // LayoutOptions controls optional renderer initialization behavior.
 type LayoutOptions struct {
 	FontRegistrations []FontRegistration
+	ImageSearchDirs   []string
 }
 
 // NewLayoutPDF creates a LayoutPDF from page settings and locale/format helpers.
@@ -88,6 +90,7 @@ func NewLayoutPDFWithOptions(defaultPage, firstPage templateload.PageSettings, i
 		PDF:           pdf,
 		Formatter:     formatter,
 		I18n:          i18nInst,
+		imageSearchDirs: append([]string(nil), options.ImageSearchDirs...),
 		tableRenderer: tableRenderer,
 		warningf: func(format string, args ...any) {
 			fmt.Fprintf(os.Stderr, "Warning: "+format+"\n", args...)
@@ -101,6 +104,12 @@ func NewLayoutPDFWithOptions(defaultPage, firstPage templateload.PageSettings, i
 		firstAssets:    firstAssets,
 		ringTemplate:   ringTpl,
 	}, nil
+}
+
+func (l *LayoutPDF) newTextEngine(pdf *gofpdf.Fpdf, i18n Translator) *PDFTextEngine {
+	engine := NewPDFTextEngine(pdf, i18n)
+	engine.SetImageSearchDirs(l.imageSearchDirs)
+	return engine
 }
 
 // SetWarningFunc sets the warning sink used by non-fatal renderer warnings.
@@ -215,7 +224,7 @@ func (l *LayoutPDF) SetRunningFooterTemplateFromElement(name string, footerElem 
 		gofpdf.SizeType{Wd: tplWidth, Ht: tplHeight},
 		safeName,
 		func(t *gofpdf.Tpl) {
-			engine := NewPDFTextEngine(&t.Fpdf, i18nInst)
+			engine := l.newTextEngine(&t.Fpdf, i18nInst)
 			currentY := 0.0
 			for _, child := range children {
 				childElem, ok := child.(pdfdom.PDFElementNode)
@@ -889,7 +898,7 @@ func (l *LayoutPDF) RenderCreateTemplateElement(elem *pdfdom.ElemCreateTemplate)
 		gofpdf.SizeType{Wd: width, Ht: height},
 		name,
 		func(t *gofpdf.Tpl) {
-			engine := NewPDFTextEngine(&t.Fpdf, i18nInst)
+			engine := l.newTextEngine(&t.Fpdf, i18nInst)
 			currentY := y
 			for _, child := range children {
 				childElem, ok := child.(pdfdom.PDFElementNode)

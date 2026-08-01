@@ -1,6 +1,8 @@
 package docflowpdf
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"testing/fstest"
 )
@@ -79,5 +81,62 @@ func TestAssetInputResolveAssets_AllowsMissingSourceData(t *testing.T) {
 	}
 	if assets.SourceData != nil {
 		t.Fatalf("expected nil source data when no source data input is provided")
+	}
+}
+
+func TestAssetInputResolveWithBaseDir_DefaultFiles(t *testing.T) {
+	baseDir := t.TempDir()
+	html := `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`
+	css := "@page { size: A4; }"
+	flow := `{"mainFlow":[{"template":"doc","transformer":"generic"}],"pageNumber":{"template":"page-number","transformer":"generic"}}`
+	data := `{"Invoice":{"ID":"42"}}`
+
+	writeFile(t, filepath.Join(baseDir, "doc.html"), html)
+	writeFile(t, filepath.Join(baseDir, "doc.css"), css)
+	writeFile(t, filepath.Join(baseDir, "flow.json"), flow)
+	writeFile(t, filepath.Join(baseDir, "data.json"), data)
+
+	assets, err := (AssetInput{}).ResolveWithBaseDir(baseDir)
+	if err != nil {
+		t.Fatalf("ResolveWithBaseDir returned error: %v", err)
+	}
+	if assets.Flow.PageNumber.Template != "page-number" {
+		t.Fatalf("unexpected page-number template: %q", assets.Flow.PageNumber.Template)
+	}
+	if _, ok := assets.SourceData["Invoice"]; !ok {
+		t.Fatalf("expected source data to include Invoice")
+	}
+}
+
+func TestAssetInputResolveWithBaseDir_AllowsPerAssetOverrides(t *testing.T) {
+	baseDir := t.TempDir()
+	html := `{{define "doc"}}<div>base</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`
+	css := "@page { size: A4; }"
+	flow := `{"mainFlow":[{"template":"doc","transformer":"generic"}],"pageNumber":{"template":"page-number","transformer":"generic"}}`
+	data := `{"Invoice":{"ID":"base"}}`
+
+	writeFile(t, filepath.Join(baseDir, "doc.html"), html)
+	writeFile(t, filepath.Join(baseDir, "doc.css"), css)
+	writeFile(t, filepath.Join(baseDir, "flow.json"), flow)
+	writeFile(t, filepath.Join(baseDir, "data.json"), data)
+
+	overrideData := JSONSource{Object: map[string]any{"Invoice": map[string]any{"ID": "override"}}}
+	assets, err := (AssetInput{SourceData: overrideData}).ResolveWithBaseDir(baseDir)
+	if err != nil {
+		t.Fatalf("ResolveWithBaseDir returned error: %v", err)
+	}
+	invoice, ok := assets.SourceData["Invoice"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected invoice map in source data")
+	}
+	if got, _ := invoice["ID"].(string); got != "override" {
+		t.Fatalf("expected overridden ID, got %q", got)
+	}
+}
+
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write %s: %v", path, err)
 	}
 }
