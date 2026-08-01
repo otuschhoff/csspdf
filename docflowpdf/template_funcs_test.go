@@ -79,4 +79,7 @@ func TestDefaultTemplateFuncMapWithContext_FormatLocalizedDateStyles(t *testing.
 	if got := formatFn(date, "layout:2006-01-02", "en"); got != "2026-07-31" {
 		t.Fatalf("unexpected custom layout format: %q", got)
 	}
+	if got := formatFn("2026-07", "written-month", "de"); got != "Juli" {
+		t.Fatalf("unexpected YYYY-MM month format: %q", got)
+	}
 }
