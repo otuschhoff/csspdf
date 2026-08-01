@@ -353,7 +353,7 @@ func TestRenderToBytes_AppliesFlowDefaultsWhenFlowEntriesMissing(t *testing.T) {
 {{define "doc"}}<div>Hello {{.Source.Name}}</div>{{end}}
 {{define "timesheet"}}<div>{{.Source.Name}}</div>{{end}}
 {{define "page-number"}}<div>{{.page.pageNumber}}/{{.page.pageNumberTotal}}</div>{{end}}`,
-		CSS: "@page { size: A4; margin: 20pt; }",
+		CSS:  "@page { size: A4; margin: 20pt; }",
 		Flow: Flow{},
 		SourceData: map[string]any{
 			"Name":   "Docflow",
