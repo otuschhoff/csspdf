@@ -48,7 +48,6 @@ func main() {
 
 	err = docflowpdf.RenderToWriter(docflowpdf.RenderInput{
 		Assets:              assets,
-		PageCount:           1,
 		DefaultLocale:       "en",
 		DefaultCurrencyCode: "EUR",
 	}, f)

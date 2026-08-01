@@ -38,7 +38,6 @@ func minimalAssets() Assets {
 func TestRenderToBytes_ReturnsPDFBytes(t *testing.T) {
 	b, err := RenderToBytes(RenderInput{
 		Assets:              minimalAssets(),
-		PageCount:           1,
 		DefaultLocale:       "en",
 		DefaultCurrencyCode: "EUR",
 	})
@@ -59,7 +58,6 @@ func TestRender_OptionsAPI_WritesPDF(t *testing.T) {
 	err := Render(
 		outPath,
 		WithAssets(assets),
-		WithPageCount(1),
 		WithPageSize(595.28, 841.89),
 		WithDefaultLocale("en"),
 		WithDefaultCurrencyCode("EUR"),
@@ -87,7 +85,6 @@ func TestRenderToWriter_WritesPDF(t *testing.T) {
 	var out bytes.Buffer
 	err := RenderToWriter(RenderInput{
 		Assets:              minimalAssets(),
-		PageCount:           1,
 		DefaultLocale:       "en",
 		DefaultCurrencyCode: "EUR",
 	}, &out)
@@ -109,13 +106,12 @@ func (l *testLogger) Warnf(format string, args ...any) {
 
 func TestRender_UsesLoggerForNonFatalWarnings(t *testing.T) {
 	assets := minimalAssets()
-	assets.Flow.PageNumber.Template = "missing-page-number-template"
+	assets.Flow.MainFlow[0].Template = "missing-doc-template"
 
 	logger := &testLogger{}
 	var out bytes.Buffer
 	err := RenderToWriter(RenderInput{
 		Assets:              assets,
-		PageCount:           2,
 		DefaultLocale:       "en",
 		DefaultCurrencyCode: "EUR",
 		Logger:              logger,
@@ -124,7 +120,7 @@ func TestRender_UsesLoggerForNonFatalWarnings(t *testing.T) {
 		t.Fatalf("RenderToWriter returned error: %v", err)
 	}
 	if len(logger.warnings) == 0 {
-		t.Fatalf("expected warning log for page-number render issue")
+		t.Fatalf("expected warning log for main-flow render issue")
 	}
 }
 
@@ -135,7 +131,6 @@ func TestRender_UsesContextFuncFactoryNow(t *testing.T) {
 	called := false
 	_, err := RenderToBytes(RenderInput{
 		Assets:              assets,
-		PageCount:           1,
 		DefaultLocale:       "en",
 		DefaultCurrencyCode: "EUR",
 		Now: func() time.Time {
@@ -157,7 +152,7 @@ func TestRender_UsesContextFuncFactoryNow(t *testing.T) {
 }
 
 func TestRenderToFile_RequiresPath(t *testing.T) {
-	err := RenderToFile(RenderInput{Assets: minimalAssets(), PageCount: 1}, "")
+	err := RenderToFile(RenderInput{Assets: minimalAssets()}, "")
 	if err == nil || !strings.Contains(err.Error(), "output path is required") {
 		t.Fatalf("expected output path validation error, got %v", err)
 	}
@@ -176,7 +171,6 @@ func minimalI18nSourceForLocale(locale string) map[string]any {
 func TestRender_I18nSource_Object(t *testing.T) {
 	_, err := RenderToBytes(RenderInput{
 		Assets:              minimalAssets(),
-		PageCount:           1,
 		DefaultLocale:       "zz",
 		DefaultCurrencyCode: "EUR",
 		I18nSource:          JSONSource{Object: minimalI18nSourceForLocale("zz")},
@@ -189,7 +183,6 @@ func TestRender_I18nSource_Object(t *testing.T) {
 func TestRender_I18nSource_Text(t *testing.T) {
 	_, err := RenderToBytes(RenderInput{
 		Assets:              minimalAssets(),
-		PageCount:           1,
 		DefaultLocale:       "yy",
 		DefaultCurrencyCode: "EUR",
 		I18nSource:          JSONSource{Text: `{"_floatSeparator":{"yy":"."},"_kiloSeparator":{"yy":","},"invoice":{"title":{"yy":"Invoice"}}}`},
@@ -209,7 +202,6 @@ func TestRender_I18nSource_FilePath(t *testing.T) {
 
 	_, err := RenderToBytes(RenderInput{
 		Assets:              minimalAssets(),
-		PageCount:           1,
 		DefaultLocale:       "xx",
 		DefaultCurrencyCode: "EUR",
 		I18nSource:          JSONSource{FilePath: filePath},
@@ -226,7 +218,6 @@ func TestRender_I18nSource_FSPath(t *testing.T) {
 
 	_, err := RenderToBytes(RenderInput{
 		Assets:              minimalAssets(),
-		PageCount:           1,
 		DefaultLocale:       "xy",
 		DefaultCurrencyCode: "EUR",
 		I18nSource:          JSONSource{FS: fs, FSPath: "cfg/i18n.json"},

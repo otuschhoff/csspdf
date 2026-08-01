@@ -29,7 +29,6 @@ func buildRenderInput(outputPath string, options ...RenderOption) (RenderInput, 
 
 	input := RenderInput{
 		OutputPath:          outputPath,
-		PageCount:           1,
 		DefaultLocale:       DefaultLocale,
 		DefaultCurrencyCode: DefaultCurrencyCode,
 	}
@@ -126,14 +125,6 @@ func WithPageWidth(width float64) RenderOption {
 func WithPageHeight(height float64) RenderOption {
 	return func(input *RenderInput) error {
 		input.PageHeight = height
-		return nil
-	}
-}
-
-// WithPageCount sets the number of pages for flow rendering.
-func WithPageCount(pageCount int) RenderOption {
-	return func(input *RenderInput) error {
-		input.PageCount = pageCount
 		return nil
 	}
 }

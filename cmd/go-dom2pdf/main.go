@@ -25,16 +25,14 @@ type RenderInvoiceOptions struct {
 	OutputPath string
 	PageWidth  float64
 	PageHeight float64
-	PageCount  int
 }
 
 // RenderInvoice generates the invoice PDF and writes it to opts.OutputPath.
 func RenderInvoice(opts RenderInvoiceOptions) error {
-	return invoiceexample.RenderTotalsPDF(
+	return invoiceexample.RenderInvoicePDF(
 		opts.OutputPath,
 		opts.PageWidth,
 		opts.PageHeight,
-		opts.PageCount,
 	)
 }
 
@@ -83,7 +81,6 @@ func runInvoice(args []string) int {
 		outputPath = cmd.String("o", "output/invoice.pdf", "Output PDF path")
 		pageWidth  = cmd.Float64("page-width", DocWidth, "Page width in points")
 		pageHeight = cmd.Float64("page-height", DocHeight, "Page height in points")
-		pageCount  = cmd.Int("pages", 2, "Number of pages to generate")
 	)
 
 	cmd.Usage = func() {
@@ -98,8 +95,8 @@ func runInvoice(args []string) int {
 		return 2
 	}
 
-	if *pageWidth <= 0 || *pageHeight <= 0 || *pageCount < 1 {
-		fmt.Fprintln(os.Stderr, "Error: page size must be greater than zero and pages must be at least 1")
+	if *pageWidth <= 0 || *pageHeight <= 0 {
+		fmt.Fprintln(os.Stderr, "Error: page size must be greater than zero")
 		return 2
 	}
 
@@ -112,7 +109,6 @@ func runInvoice(args []string) int {
 		OutputPath: *outputPath,
 		PageWidth:  *pageWidth,
 		PageHeight: *pageHeight,
-		PageCount:  *pageCount,
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error rendering invoice PDF: %v\n", err)
 		return 1

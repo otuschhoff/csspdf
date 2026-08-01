@@ -334,12 +334,9 @@ func (l *LayoutPDF) CurrentFlowBottom() float64 {
 }
 
 // StartFlow initialises page tracking for a multi-page flow.
-func (l *LayoutPDF) StartFlow(pageCount int) {
+func (l *LayoutPDF) StartFlow() {
 	l.currentPage = 1
-	if pageCount < 1 {
-		pageCount = 1
-	}
-	l.totalPages = pageCount
+	l.totalPages = 1
 }
 
 // NextFlowPage advances to the next page in the flow.

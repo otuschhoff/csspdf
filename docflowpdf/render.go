@@ -37,7 +37,6 @@ type RenderInput struct {
 	FontRegistrations        []FontRegistration
 	PageWidth                float64
 	PageHeight               float64
-	PageCount                int
 	DefaultLocale            string
 	DefaultCurrencyCode      string
 	DefaultMargins           templateload.PageMargins
@@ -106,9 +105,6 @@ func RenderToBytes(input RenderInput) ([]byte, error) {
 }
 
 func buildArtifact(input RenderInput) (*renderArtifact, error) {
-	if input.PageCount < 1 {
-		return nil, fmt.Errorf("pageCount must be at least 1")
-	}
 	if input.PageWidth < 0 {
 		return nil, fmt.Errorf("pageWidth must be zero or greater")
 	}
@@ -185,7 +181,7 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 	warnf := warningFunc(input)
 	l.SetWarningFunc(warnf)
 
-	l.StartFlow(input.PageCount)
+	l.StartFlow()
 	l.SetDeferFlowPageNum(true)
 	l.SetPageNumRenderer(func(layout *pdfrender.LayoutPDF, page, pageCount int) {
 		if page <= 1 {
