@@ -30,7 +30,7 @@ type RenderInvoiceOptions struct {
 
 // RenderInvoice generates the invoice PDF and writes it to opts.OutputPath.
 func RenderInvoice(opts RenderInvoiceOptions) error {
-	return invoiceexample.RenderTotalsPDF(
+	return invoiceexample.RenderInvoicePDF(
 		opts.OutputPath,
 		opts.PageWidth,
 		opts.PageHeight,
