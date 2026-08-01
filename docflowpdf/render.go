@@ -48,6 +48,7 @@ func (e *i18nTemplateValueError) Unwrap() error {
 }
 
 var undefinedTemplateFunctionPattern = regexp.MustCompile(`function "([^"]+)" not defined`)
+var templateExecutionTokenPattern = regexp.MustCompile(`at <([^>]+)>`)
 
 type fatalFlowRenderError struct {
 	err error
@@ -633,22 +634,25 @@ func annotateI18nErrorLine(filePath string, valueErr *i18nTemplateValueError) (s
 	}
 
 	lines := strings.Split(string(content), "\n")
+	token := extractI18nErrorToken(valueErr.Err)
 	lineNum, lineText := findLineByValue(lines, valueErr.Value)
 	if lineNum == 0 {
-		macro := extractUndefinedMacroToken(valueErr.Err)
-		if macro == "" {
+		if token == "" {
 			return "", false
 		}
-		lineNum, lineText = findLineByValue(lines, macro)
+		lineNum, lineText = findLineByValue(lines, token)
 		if lineNum == 0 {
 			return "", false
 		}
 	}
 
-	macro := extractUndefinedMacroToken(valueErr.Err)
-	highlightedLine, markerLine := highlightMacroInLine(lineText, macro)
+	highlightedLine, markerLine := highlightMacroInLine(lineText, token)
 	if markerLine == "" {
-		markerLine = "  " + strings.Repeat(" ", strings.Index(lineText, valueErr.Value)) + "^"
+		idx := strings.Index(lineText, valueErr.Value)
+		if idx < 0 {
+			idx = 0
+		}
+		markerLine = "  " + strings.Repeat(" ", idx) + "^"
 	}
 
 	return fmt.Sprintf("%s:%d\n%s\n%s", filePath, lineNum, highlightedLine, markerLine), true
@@ -676,6 +680,27 @@ func extractUndefinedMacroToken(err error) string {
 		return ""
 	}
 	return "{{" + matches[1] + "}}"
+}
+
+func extractI18nErrorToken(err error) string {
+	if token := extractUndefinedMacroToken(err); token != "" {
+		return token
+	}
+	if err == nil {
+		return ""
+	}
+	matches := templateExecutionTokenPattern.FindStringSubmatch(err.Error())
+	if len(matches) != 2 {
+		return ""
+	}
+	expr := strings.TrimSpace(matches[1])
+	if expr == "" {
+		return ""
+	}
+	if strings.HasPrefix(expr, "{{") {
+		return expr
+	}
+	return "{{" + expr + "}}"
 }
 
 func highlightMacroInLine(line, macro string) (string, string) {
@@ -753,7 +778,7 @@ func renderI18nTemplateNodeAtPath(node any, funcs htmltmpl.FuncMap, data any, pa
 		}
 		return out, nil
 	case string:
-		tmpl := htmltmpl.New("i18n-value")
+		tmpl := htmltmpl.New("i18n-value").Option("missingkey=error")
 		if len(funcs) > 0 {
 			tmpl = tmpl.Funcs(funcs)
 		}

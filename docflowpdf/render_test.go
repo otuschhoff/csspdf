@@ -510,3 +510,65 @@ func TestBuildRenderInput_WithI18nTemplateMacrosOption(t *testing.T) {
 		t.Fatalf("expected EnableI18nTemplateMacros to be true")
 	}
 }
+
+func TestRenderI18nTemplateNode_FailsOnMissingSourceReference(t *testing.T) {
+	node := map[string]any{
+		"invoice": map[string]any{
+			"subject": "Invoice {{.Source.Invoice.ID}} for {{.Source.Order.ID}}",
+		},
+	}
+	data := map[string]any{
+		"Source": map[string]any{
+			"Invoice": map[string]any{"ID": "INV-42"},
+		},
+	}
+
+	_, err := renderI18nTemplateNode(node, nil, data)
+	if err == nil {
+		t.Fatalf("expected renderI18nTemplateNode to fail on missing source reference")
+	}
+	if !strings.Contains(err.Error(), ".Source.Order.ID") {
+		t.Fatalf("expected error to mention missing source path, got %v", err)
+	}
+}
+
+func TestRenderToBytes_I18nMacroErrorIncludesFileAndHighlightedToken(t *testing.T) {
+	baseDir := t.TempDir()
+	html := `
+{{define "doc"}}<div id="subject">{{.i18n.invoiceSubject}}</div>{{end}}
+{{define "page-number"}}<div>{{.page.pageNumber}}</div>{{end}}`
+	css := "@page { size: A4; margin: 20pt; }"
+	i18nContent := `{
+  "_floatSeparator": {"en": "."},
+  "_kiloSeparator": {"en": ","},
+  "invoiceSubject": {
+    "en": "Invoice {{.Source.Invoice.ID}} for {{.Source.Order.ID}}"
+  }
+}`
+	data := `{"locale":"en","Invoice":{"ID":"INV-42"}}`
+
+	writeFile(t, filepath.Join(baseDir, "doc.html"), html)
+	writeFile(t, filepath.Join(baseDir, "doc.css"), css)
+	writeFile(t, filepath.Join(baseDir, "i18n.json"), i18nContent)
+	writeFile(t, filepath.Join(baseDir, "data.json"), data)
+
+	_, err := RenderToBytes(RenderInput{
+		AssetBaseDir:             baseDir,
+		DefaultLocale:            "en",
+		DefaultCurrencyCode:      "EUR",
+		EnableI18nTemplateMacros: true,
+	})
+	if err == nil {
+		t.Fatalf("expected i18n macro expansion to fail")
+	}
+	errText := err.Error()
+	if !strings.Contains(errText, "i18n macro expansion failed") {
+		t.Fatalf("expected i18n macro expansion error, got %v", err)
+	}
+	if !strings.Contains(errText, "i18n.json") {
+		t.Fatalf("expected error to include i18n source file path, got %v", err)
+	}
+	if !strings.Contains(errText, "{{.Source.Order.ID}}") {
+		t.Fatalf("expected error to highlight missing token, got %v", err)
+	}
+}
