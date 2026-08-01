@@ -36,7 +36,7 @@ func TestDefaultTemplateFuncMapWithContext_UsesDeterministicNow(t *testing.T) {
 func TestDefaultTemplateFuncMap_ContainsGenericHelpers(t *testing.T) {
 	funcs := DefaultTemplateFuncMap("en", "en")
 
-	required := []string{"now", "formatDate", "formatDateTime", "dateLocalizedOrNow", "formatLocalizedDate", "formatLocalizedDateOrNow", "firstDate", "workWeek", "sumNumbers"}
+	required := []string{"now", "formatDate", "formatDateTime", "dateLocalizedOrNow", "formatLocalizedDate", "formatLocalizedDateOrNow", "firstDate", "workWeek", "sumNumbers", "currency", "currencyCode", "currencySymbol", "currencyName"}
 	for _, name := range required {
 		if _, ok := funcs[name]; !ok {
 			t.Fatalf("expected helper %q to exist", name)
@@ -56,6 +56,37 @@ func TestDefaultTemplateFuncMap_ContainsGenericHelpers(t *testing.T) {
 	}
 
 	_ = htmltmpl.FuncMap(funcs)
+}
+
+func TestDefaultTemplateFuncMapWithContext_CurrencyHelpers(t *testing.T) {
+	funcs := DefaultTemplateFuncMapWithContext(FuncContext{DefaultCurrencyCode: "EUR"})
+
+	currencyFn, ok := funcs["currency"].(func(...string) string)
+	if !ok {
+		t.Fatalf("expected currency helper")
+	}
+	if got := currencyFn(); got != "EUR" {
+		t.Fatalf("unexpected default currency code: %q", got)
+	}
+	if got := currencyFn("symbol"); got != "\u20ac" {
+		t.Fatalf("unexpected currency symbol: %q", got)
+	}
+	if got := currencyFn("name"); got != "Euro" {
+		t.Fatalf("unexpected currency name: %q", got)
+	}
+
+	codeFn, ok := funcs["currencyCode"].(func() string)
+	if !ok || codeFn() != "EUR" {
+		t.Fatalf("expected currencyCode helper to return EUR")
+	}
+	symbolFn, ok := funcs["currencySymbol"].(func() string)
+	if !ok || symbolFn() != "\u20ac" {
+		t.Fatalf("expected currencySymbol helper to return euro sign")
+	}
+	nameFn, ok := funcs["currencyName"].(func() string)
+	if !ok || nameFn() != "Euro" {
+		t.Fatalf("expected currencyName helper to return Euro")
+	}
 }
 
 func TestDefaultTemplateFuncMapWithContext_FormatLocalizedDateStyles(t *testing.T) {

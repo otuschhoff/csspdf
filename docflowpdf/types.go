@@ -17,9 +17,10 @@ type Logger interface {
 
 // FuncContext provides deterministic context to template function factories.
 type FuncContext struct {
-	DefaultLocale string
-	PayloadLocale string
-	Now           func() time.Time
+	DefaultLocale       string
+	PayloadLocale       string
+	DefaultCurrencyCode string
+	Now                 func() time.Time
 }
 
 // FuncMapFactoryWithContext builds template functions using contextual runtime

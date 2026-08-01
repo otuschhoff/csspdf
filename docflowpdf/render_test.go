@@ -348,8 +348,9 @@ func TestResolveI18nInput_ExplicitSourceOverridesBaseDir(t *testing.T) {
 func TestRenderI18nTemplateNode_CanUseSourceAndTemplateFuncs(t *testing.T) {
 	fixed := time.Date(2026, 7, 31, 9, 0, 0, 0, time.UTC)
 	funcs := DefaultTemplateFuncMapWithContext(FuncContext{
-		DefaultLocale: "en",
-		PayloadLocale: "en",
+		DefaultLocale:       "en",
+		PayloadLocale:       "en",
+		DefaultCurrencyCode: "EUR",
 		Now: func() time.Time {
 			return fixed
 		},
@@ -357,7 +358,7 @@ func TestRenderI18nTemplateNode_CanUseSourceAndTemplateFuncs(t *testing.T) {
 
 	node := map[string]any{
 		"invoice": map[string]any{
-			"intro": "Month {{formatLocalizedDateOrNow .Source.Invoice.Date \"written-month\"}} for {{.Source.Company.Name}}",
+			"intro": "Month {{formatLocalizedDateOrNow .Source.Invoice.Date \"written-month\"}} for {{.Source.Company.Name}} in {{currency}} ({{currency \"symbol\"}})",
 		},
 	}
 
@@ -380,7 +381,7 @@ func TestRenderI18nTemplateNode_CanUseSourceAndTemplateFuncs(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected invoice map in rendered i18n data")
 	}
-	if got, _ := invoice["intro"].(string); got != "Month July for ACME" {
+	if got, _ := invoice["intro"].(string); got != "Month July for ACME in EUR (€)" {
 		t.Fatalf("unexpected rendered i18n value: %q", got)
 	}
 }

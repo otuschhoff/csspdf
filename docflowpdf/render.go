@@ -443,15 +443,20 @@ func buildFuncMap(input RenderInput, defaultLocale, payloadLocale string) htmltm
 	if defaultLocale == "" {
 		defaultLocale = DefaultLocale
 	}
+	defaultCurrencyCode := strings.TrimSpace(input.DefaultCurrencyCode)
+	if defaultCurrencyCode == "" {
+		defaultCurrencyCode = DefaultCurrencyCode
+	}
 	nowFn := input.Now
 	if nowFn == nil {
 		nowFn = time.Now
 	}
 	if input.FuncMapFactoryEx != nil {
 		return input.FuncMapFactoryEx(FuncContext{
-			DefaultLocale: defaultLocale,
-			PayloadLocale: payloadLocale,
-			Now:           nowFn,
+			DefaultLocale:       defaultLocale,
+			PayloadLocale:       payloadLocale,
+			DefaultCurrencyCode: defaultCurrencyCode,
+			Now:                 nowFn,
 		})
 	}
 	if input.FuncMapFactory != nil {
