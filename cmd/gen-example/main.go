@@ -14,8 +14,8 @@ import (
 const version = "0.1.0"
 
 const (
-	defaultLocale       = "de"
-	defaultCurrencyCode = "EUR"
+	defaultLocale         = "de"
+	defaultCurrencyCode   = "EUR"
 	defaultPageMarginTop  = 30.0
 	defaultPageMarginLeft = 55.0
 )
@@ -25,6 +25,35 @@ type RenderInvoiceOptions struct {
 	OutputPath      string
 	PageFormat      string
 	PageOrientation string
+}
+
+// Run executes the CLI for a specific program name with argv without the
+// executable name itself.
+func Run(programName string, args []string) int {
+	if len(args) < 1 {
+		printUsage(os.Stderr, programName)
+		return 2
+	}
+
+	switch args[0] {
+	case "invoice":
+		return runInvoice(programName, args[1:])
+	case "dump-pdf":
+		return runDumpPDF(programName, args[1:])
+	case "version", "-version", "--version":
+		fmt.Printf("%s version %s\n", programName, version)
+		return 0
+	case "help", "-h", "--help", "":
+		printUsage(os.Stdout, programName)
+		if args[0] == "" {
+			return 2
+		}
+		return 0
+	default:
+		fmt.Fprintf(os.Stderr, "Error: unknown subcommand %q\n\n", args[0])
+		printUsage(os.Stderr, programName)
+		return 2
+	}
 }
 
 // RenderInvoice generates the invoice PDF and writes it to opts.OutputPath.
@@ -77,44 +106,19 @@ func resolveTemplateBaseDir() (string, error) {
 	return "", os.ErrNotExist
 }
 
-func main() {
-	if len(os.Args) < 2 {
-		printUsage(os.Stderr)
-		os.Exit(2)
-	}
-
-	switch os.Args[1] {
-	case "invoice":
-		os.Exit(runInvoice(os.Args[2:]))
-	case "dump-pdf":
-		os.Exit(runDumpPDF(os.Args[2:]))
-	case "version", "-version", "--version":
-		fmt.Printf("gen-example version %s\n", version)
-	case "help", "-h", "--help":
-		printUsage(os.Stdout)
-	case "":
-		printUsage(os.Stderr)
-		os.Exit(2)
-	default:
-		fmt.Fprintf(os.Stderr, "Error: unknown subcommand %q\n\n", os.Args[1])
-		printUsage(os.Stderr)
-		os.Exit(2)
-	}
-}
-
-func printUsage(w io.Writer) {
+func printUsage(w io.Writer, programName string) {
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  gen-example <subcommand> [options]")
+	fmt.Fprintf(w, "  %s <subcommand> [options]\n", programName)
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Subcommands:")
 	fmt.Fprintln(w, "  invoice     Generate intro layout plus table with service line items")
 	fmt.Fprintln(w, "  dump-pdf    Display PDF structure with binary streams hidden")
 	fmt.Fprintln(w, "  version     Print version and exit")
 	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Use 'gen-example <subcommand> -h' for command-specific options.")
+	fmt.Fprintf(w, "Use '%s <subcommand> -h' for command-specific options.\n", programName)
 }
 
-func runInvoice(args []string) int {
+func runInvoice(programName string, args []string) int {
 	cmd := flag.NewFlagSet("invoice", flag.ContinueOnError)
 	cmd.SetOutput(os.Stderr)
 
@@ -126,7 +130,7 @@ func runInvoice(args []string) int {
 
 	cmd.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage:")
-		fmt.Fprintln(os.Stderr, "  gen-example invoice [options]")
+		fmt.Fprintf(os.Stderr, "  %s invoice [options]\n", programName)
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, "Options:")
 		cmd.PrintDefaults()
@@ -154,13 +158,13 @@ func runInvoice(args []string) int {
 	return 0
 }
 
-func runDumpPDF(args []string) int {
+func runDumpPDF(programName string, args []string) int {
 	dumpCmd := flag.NewFlagSet("dump-pdf", flag.ContinueOnError)
 	dumpCmd.SetOutput(os.Stderr)
 
 	dumpCmd.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage:")
-		fmt.Fprintln(os.Stderr, "  gen-example dump-pdf <file.pdf>")
+		fmt.Fprintf(os.Stderr, "  %s dump-pdf <file.pdf>\n", programName)
 	}
 
 	if err := dumpCmd.Parse(args); err != nil {
@@ -181,4 +185,8 @@ func runDumpPDF(args []string) int {
 	}
 
 	return 0
+}
+
+func main() {
+	os.Exit(Run("gen-example", os.Args[1:]))
 }
