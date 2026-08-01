@@ -72,3 +72,15 @@ func TestTableDefFromElement_InvalidColWidthHasHighlightedDiagnostic(t *testing.
 		t.Fatalf("expected caret marker in diagnostic, got %q", msg)
 	}
 }
+
+func TestCellDefFromTableCell_UsesFillAsBackground(t *testing.T) {
+	cellElem := pdfdom.NewElemTd()
+	cellElem.SetAttribute("fill", "#EEE")
+
+	layout := &LayoutPDF{}
+	cell := layout.CellDefFromTableCell(cellElem, false)
+
+	if cell.Background != "#EEE" {
+		t.Fatalf("expected cell background to come from fill, got %q", cell.Background)
+	}
+}

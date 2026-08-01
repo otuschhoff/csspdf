@@ -71,6 +71,7 @@ type CellDef struct {
 	FontStyle     string
 	FontSize      float64
 	FontColor     string
+	Background    string
 	LineHeight    float64
 	Value         interface{}
 	Type          string
@@ -624,6 +625,12 @@ func (tr *TableRenderer) wrapTextLines(text string, width float64, noWrap bool) 
 }
 
 func (tr *TableRenderer) renderCell(cell *CellDef, x, y, width, height, padding float64) {
+	if cell != nil && strings.TrimSpace(cell.Background) != "" {
+		r, g, b := tableHexToRGB(cell.Background)
+		tr.pdf.SetFillColor(r, g, b)
+		tr.pdf.Rect(x, y, width, height, "F")
+	}
+
 	fontSize, lineHeightMul := tr.applyCellStyle(cell)
 
 	align := cell.Align

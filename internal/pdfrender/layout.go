@@ -837,6 +837,13 @@ func (l *LayoutPDF) CellDefFromTableCell(cellElem pdfdom.PDFElementNode, isHeade
 	} else if fontColor, ok := cellElem.Attribute("font-color"); ok {
 		cell.FontColor = strings.TrimSpace(fontColor)
 	}
+	if bg, ok := cellElem.Attribute("fill"); ok {
+		cell.Background = strings.TrimSpace(bg)
+	} else if bg, ok := cellElem.Attribute("backgroundColor"); ok {
+		cell.Background = strings.TrimSpace(bg)
+	} else if bg, ok := cellElem.Attribute("background-color"); ok {
+		cell.Background = strings.TrimSpace(bg)
+	}
 	if fontSize, ok := cellElem.Attribute("fontSize"); ok {
 		cell.FontSize = parseTableFloat(fontSize)
 	} else if fontSize, ok := cellElem.Attribute("font-size"); ok {
