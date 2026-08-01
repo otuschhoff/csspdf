@@ -3,11 +3,13 @@ package docflowpdf
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	htmltmpl "html/template"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +30,24 @@ const (
 	PageOrientationPortrait  = "portrait"
 	PageOrientationLandscape = "landscape"
 )
+
+var errI18nMacroExpansion = errors.New("i18n macro expansion failed")
+
+type i18nTemplateValueError struct {
+	Path  string
+	Value string
+	Err   error
+}
+
+func (e *i18nTemplateValueError) Error() string {
+	return fmt.Sprintf("path %s: %v", e.Path, e.Err)
+}
+
+func (e *i18nTemplateValueError) Unwrap() error {
+	return e.Err
+}
+
+var undefinedTemplateFunctionPattern = regexp.MustCompile(`function "([^"]+)" not defined`)
 
 // RenderInput contains all data and options needed to render a flow-driven PDF.
 type RenderInput struct {
@@ -183,6 +203,8 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 	warnf := warningFunc(input)
 	l.SetWarningFunc(warnf)
 
+	var pageNumberRenderErr error
+
 	l.StartFlow()
 	l.SetDeferFlowPageNum(true)
 	l.SetPageNumRenderer(func(layout *pdfrender.LayoutPDF, page, pageCount int) {
@@ -191,6 +213,9 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 		}
 		elements, e := pageNumberTemplateFlowElements(layout, assets, page, pageCount, input)
 		if e != nil {
+			if errors.Is(e, errI18nMacroExpansion) && pageNumberRenderErr == nil {
+				pageNumberRenderErr = fmt.Errorf("page-number template render failed on page %d/%d: %w", page, pageCount, e)
+			}
 			warnf("failed to render page-number template: %v", e)
 			return
 		}
@@ -199,6 +224,9 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 
 	l.BeginPage(1)
 	if err := renderMainFlow(l, assets, sourceData, input); err != nil {
+		if errors.Is(err, errI18nMacroExpansion) {
+			return nil, err
+		}
 		warnf("%v", err)
 	}
 
@@ -206,6 +234,9 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 		l.EnsureTotalPagesAtLeast(l.PDF.PageNo())
 	}
 	l.RenderFinalFlowPageNums()
+	if pageNumberRenderErr != nil {
+		return nil, pageNumberRenderErr
+	}
 	return &renderArtifact{layout: l}, nil
 }
 
@@ -476,7 +507,8 @@ func transformGenericSection(section Section, ctx transformContext) (map[string]
 				"locale":  locale,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to render i18n template macros: %w", err)
+				details := formatI18nMacroErrorDetails(err, ctx.Input)
+				return nil, fmt.Errorf("%w in section %q: %s", errI18nMacroExpansion, section.Template, details)
 			}
 			renderedMap, ok := rendered.(map[string]any)
 			if !ok {
@@ -491,13 +523,158 @@ func transformGenericSection(section Section, ctx transformContext) (map[string]
 }
 
 func renderI18nTemplateNode(node any, funcs htmltmpl.FuncMap, data any) (any, error) {
+	return renderI18nTemplateNodeAtPath(node, funcs, data, "root")
+}
+
+func formatI18nMacroErrorDetails(err error, input RenderInput) string {
+	base := err.Error()
+	var valueErr *i18nTemplateValueError
+	if !errors.As(err, &valueErr) {
+		return base
+	}
+
+	filePath := resolveI18nSourceFilePath(input)
+	if strings.TrimSpace(filePath) == "" {
+		return base
+	}
+
+	annotation, ok := annotateI18nErrorLine(filePath, valueErr)
+	if !ok {
+		return base
+	}
+
+	return base + "\n" + annotation
+}
+
+func resolveI18nSourceFilePath(input RenderInput) string {
+	if filePath := strings.TrimSpace(input.I18nSource.FilePath); filePath != "" {
+		return filePath
+	}
+	if input.I18nSource.IsSet() {
+		return ""
+	}
+	baseDir := strings.TrimSpace(input.AssetBaseDir)
+	if baseDir == "" {
+		return ""
+	}
+	candidate := filepath.Join(baseDir, "i18n.json")
+	if stat, err := os.Stat(candidate); err == nil && !stat.IsDir() {
+		return candidate
+	}
+	return ""
+}
+
+func annotateI18nErrorLine(filePath string, valueErr *i18nTemplateValueError) (string, bool) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", false
+	}
+
+	lines := strings.Split(string(content), "\n")
+	lineNum, lineText := findLineByValue(lines, valueErr.Value)
+	if lineNum == 0 {
+		macro := extractUndefinedMacroToken(valueErr.Err)
+		if macro == "" {
+			return "", false
+		}
+		lineNum, lineText = findLineByValue(lines, macro)
+		if lineNum == 0 {
+			return "", false
+		}
+	}
+
+	macro := extractUndefinedMacroToken(valueErr.Err)
+	highlightedLine, markerLine := highlightMacroInLine(lineText, macro)
+	if markerLine == "" {
+		markerLine = "  " + strings.Repeat(" ", strings.Index(lineText, valueErr.Value)) + "^"
+	}
+
+	return fmt.Sprintf("%s:%d\n%s\n%s", filePath, lineNum, highlightedLine, markerLine), true
+}
+
+func findLineByValue(lines []string, value string) (int, string) {
+	needle := strings.TrimSpace(value)
+	if needle == "" {
+		return 0, ""
+	}
+	for i, line := range lines {
+		if strings.Contains(line, needle) {
+			return i + 1, line
+		}
+	}
+	return 0, ""
+}
+
+func extractUndefinedMacroToken(err error) string {
+	if err == nil {
+		return ""
+	}
+	matches := undefinedTemplateFunctionPattern.FindStringSubmatch(err.Error())
+	if len(matches) != 2 {
+		return ""
+	}
+	return "{{" + matches[1] + "}}"
+}
+
+func highlightMacroInLine(line, macro string) (string, string) {
+	const (
+		reset = "\x1b[0m"
+		cyan  = "\x1b[36m"
+		green = "\x1b[32m"
+		red   = "\x1b[31;1m"
+	)
+
+	colored := line
+	if key, rest, ok := splitJSONLine(line); ok {
+		colored = cyan + key + reset + rest
+		colon := strings.Index(rest, ":")
+		if colon >= 0 {
+			prefix := rest[:colon+1]
+			value := rest[colon+1:]
+			trimmed := strings.TrimSpace(value)
+			if strings.HasPrefix(trimmed, "\"") {
+				colored = cyan + key + reset + prefix + green + value + reset
+			}
+		}
+	}
+
+	if strings.TrimSpace(macro) == "" {
+		return "  " + colored, ""
+	}
+	idx := strings.Index(line, macro)
+	if idx < 0 {
+		return "  " + colored, ""
+	}
+	colored = strings.Replace(colored, macro, red+macro+reset, 1)
+	marker := "  " + strings.Repeat(" ", idx) + red + strings.Repeat("^", len(macro)) + reset
+	return "  " + colored, marker
+}
+
+func splitJSONLine(line string) (string, string, bool) {
+	trimmedLeft := strings.TrimLeft(line, " \t")
+	indentLen := len(line) - len(trimmedLeft)
+	if !strings.HasPrefix(trimmedLeft, "\"") {
+		return "", "", false
+	}
+	end := strings.Index(trimmedLeft[1:], "\"")
+	if end < 0 {
+		return "", "", false
+	}
+	end++
+	key := line[:indentLen] + trimmedLeft[:end+1]
+	rest := trimmedLeft[end+1:]
+	return key, rest, true
+}
+
+func renderI18nTemplateNodeAtPath(node any, funcs htmltmpl.FuncMap, data any, path string) (any, error) {
 	switch typed := node.(type) {
 	case map[string]any:
 		out := make(map[string]any, len(typed))
 		for key, value := range typed {
-			rendered, err := renderI18nTemplateNode(value, funcs, data)
+			childPath := path + "." + key
+			rendered, err := renderI18nTemplateNodeAtPath(value, funcs, data, childPath)
 			if err != nil {
-				return nil, fmt.Errorf("key %q: %w", key, err)
+				return nil, err
 			}
 			out[key] = rendered
 		}
@@ -505,9 +682,10 @@ func renderI18nTemplateNode(node any, funcs htmltmpl.FuncMap, data any) (any, er
 	case []any:
 		out := make([]any, len(typed))
 		for i, value := range typed {
-			rendered, err := renderI18nTemplateNode(value, funcs, data)
+			childPath := fmt.Sprintf("%s[%d]", path, i)
+			rendered, err := renderI18nTemplateNodeAtPath(value, funcs, data, childPath)
 			if err != nil {
-				return nil, fmt.Errorf("index %d: %w", i, err)
+				return nil, err
 			}
 			out[i] = rendered
 		}
@@ -519,11 +697,19 @@ func renderI18nTemplateNode(node any, funcs htmltmpl.FuncMap, data any) (any, er
 		}
 		parsed, err := tmpl.Parse(typed)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse i18n template value: %w", err)
+			return nil, &i18nTemplateValueError{
+				Path:  path,
+				Value: typed,
+				Err:   fmt.Errorf("failed to parse i18n template value %q: %w", typed, err),
+			}
 		}
 		var buf bytes.Buffer
 		if err := parsed.Execute(&buf, data); err != nil {
-			return nil, fmt.Errorf("failed to execute i18n template value: %w", err)
+			return nil, &i18nTemplateValueError{
+				Path:  path,
+				Value: typed,
+				Err:   fmt.Errorf("failed to execute i18n template value %q: %w", typed, err),
+			}
 		}
 		return buf.String(), nil
 	default:
