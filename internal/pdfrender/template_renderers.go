@@ -1,6 +1,7 @@
 package pdfrender
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -46,7 +47,7 @@ func ExtractRunningFooterElement(elements []pdfdom.PDFElementNode, name string) 
 // RenderDocTemplateFlow renders a document flow from pre-built PDFDOM elements.
 // Elements with CSS position:running(name) are extracted, registered as
 // running footer templates, and stamped on every page via BeginPage.
-func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
+func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) error {
 	// Extract and register any running-positioned footer element.
 	if name, footerElem, remaining := ExtractRunningFooterElement(elements, ""); footerElem != nil {
 		elements = remaining
@@ -94,14 +95,12 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 			xPos, yPos, w, absolute := l.ResolveFlowPlacement(n, x, currentY, maxW)
 			tableDef, err := l.TableDefFromElement(n, w)
 			if err != nil {
-				l.warnf("failed to build table definition from doc flow: %v", err)
-				continue
+				return fmt.Errorf("failed to build table definition from doc flow: %w", err)
 			}
 			if !absolute {
 				tableHeight, err := l.tableRenderer.MeasureTableHeight(tableDef)
 				if err != nil {
-					l.warnf("failed to measure table from doc flow: %v", err)
-					continue
+					return fmt.Errorf("failed to measure table from doc flow: %w", err)
 				}
 				if currentY > y && yPos+tableHeight > l.CurrentFlowBottom() {
 					l.NextFlowPage()
@@ -110,15 +109,13 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 					xPos, yPos, w, absolute = l.ResolveFlowPlacement(n, x, currentY, maxW)
 					tableDef, err = l.TableDefFromElement(n, w)
 					if err != nil {
-						l.warnf("failed to rebuild table definition after page break: %v", err)
-						continue
+						return fmt.Errorf("failed to rebuild table definition after page break: %w", err)
 					}
 				}
 			}
 			l.PDF.SetXY(xPos, yPos)
 			if err := l.tableRenderer.RenderTable(tableDef); err != nil {
-				l.warnf("failed to render table from doc flow: %v", err)
-				continue
+				return fmt.Errorf("failed to render table from doc flow: %w", err)
 			}
 			if !absolute {
 				currentY = l.PDF.GetY()
@@ -166,4 +163,5 @@ func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) {
 			currentY = y
 		}
 	}
+	return nil
 }

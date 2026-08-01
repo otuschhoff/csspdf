@@ -49,6 +49,24 @@ func (e *i18nTemplateValueError) Unwrap() error {
 
 var undefinedTemplateFunctionPattern = regexp.MustCompile(`function "([^"]+)" not defined`)
 
+type fatalFlowRenderError struct {
+	err error
+}
+
+func (e *fatalFlowRenderError) Error() string {
+	if e == nil || e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func (e *fatalFlowRenderError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
 // RenderInput contains all data and options needed to render a flow-driven PDF.
 type RenderInput struct {
 	OutputPath               string
@@ -219,11 +237,17 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 			warnf("failed to render page-number template: %v", e)
 			return
 		}
-		pdfrender.RenderDocTemplateFlow(layout, elements)
+		if e = pdfrender.RenderDocTemplateFlow(layout, elements); e != nil {
+			warnf("failed to render page-number template flow on page %d/%d: %v", page, pageCount, e)
+		}
 	})
 
 	l.BeginPage(1)
 	if err := renderMainFlow(l, assets, sourceData, input); err != nil {
+		var fatalErr *fatalFlowRenderError
+		if errors.As(err, &fatalErr) {
+			return nil, fatalErr
+		}
 		if errors.Is(err, errI18nMacroExpansion) {
 			return nil, err
 		}
@@ -420,7 +444,9 @@ func renderMainFlow(layout *pdfrender.LayoutPDF, assets Assets, source map[strin
 		if err != nil {
 			return err
 		}
-		pdfrender.RenderDocTemplateFlow(layout, elements)
+		if err := pdfrender.RenderDocTemplateFlow(layout, elements); err != nil {
+			return &fatalFlowRenderError{err: fmt.Errorf("failed to render section %q flow: %w", section.Template, err)}
+		}
 	}
 	return nil
 }

@@ -536,12 +536,15 @@ func (l *LayoutPDF) TableDefFromElement(table *pdfdom.ElemTable, availableWidth 
 				return nil, fmt.Errorf("colgroup contains non-col child")
 			}
 			width, ok := col.Attribute("width")
-			if !ok {
-				return nil, fmt.Errorf("col element missing width attribute")
+			if !ok || strings.TrimSpace(width) == "" {
+				// Missing width means this column is flexible and can consume
+				// remaining table width after fixed columns are allocated.
+				tableDef.Columns = append(tableDef.Columns, ColumnDef{})
+				continue
 			}
 			var colWidth float64
-			if _, err := fmt.Sscanf(width, "%f", &colWidth); err != nil {
-				return nil, fmt.Errorf("invalid col width attribute: %q", width)
+			if _, err := fmt.Sscanf(strings.TrimSpace(width), "%f", &colWidth); err != nil {
+				return nil, newInvalidColWidthError(col, len(tableDef.Columns)+1, width)
 			}
 			tableDef.Columns = append(tableDef.Columns, ColumnDef{Width: colWidth})
 		}
@@ -646,6 +649,69 @@ func parseTableWidthAttr(node pdfdom.PDFElementNode, availableWidth float64) (fl
 		return 0, fmt.Errorf("invalid width attribute on %s: %q", node.ElementType(), value)
 	}
 	return parsed, nil
+}
+
+func newInvalidColWidthError(col *pdfdom.ElemCol, colIndex int, widthValue string) error {
+	line, marker := highlightHTMLAttribute(col, "width")
+	if marker == "" {
+		marker = "  " + strings.Repeat(" ", 5) + "^"
+	}
+	return fmt.Errorf(
+		"invalid <col> width in table colgroup at column %d: got %q (expected a numeric width in points, or omit width for a flexible column)\n%s\n%s",
+		colIndex,
+		widthValue,
+		line,
+		marker,
+	)
+}
+
+func highlightHTMLAttribute(node pdfdom.PDFElementNode, attrName string) (line string, marker string) {
+	const (
+		reset = "\x1b[0m"
+		red   = "\x1b[31;1m"
+	)
+
+	base := renderElementOpenTag(node)
+	if strings.TrimSpace(attrName) == "" {
+		return "  " + base, ""
+	}
+	needle := attrName + "=\""
+	idx := strings.Index(base, needle)
+	if idx < 0 {
+		return "  " + base, ""
+	}
+	valueStart := idx + len(needle)
+	valueEndRel := strings.Index(base[valueStart:], "\"")
+	if valueEndRel < 0 {
+		return "  " + base, ""
+	}
+	valueEnd := valueStart + valueEndRel
+	value := base[valueStart:valueEnd]
+	coloured := base[:valueStart] + red + value + reset + base[valueEnd:]
+	markLen := len(value)
+	if markLen == 0 {
+		markLen = 1
+	}
+	marker = "  " + strings.Repeat(" ", valueStart) + red + strings.Repeat("^", markLen) + reset
+	return "  " + coloured, marker
+}
+
+func renderElementOpenTag(node pdfdom.PDFElementNode) string {
+	if node == nil {
+		return "<unknown>"
+	}
+	var b strings.Builder
+	b.WriteString("<")
+	b.WriteString(node.ElementType())
+	for _, attr := range node.ElementAttributes() {
+		b.WriteString(" ")
+		b.WriteString(attr.Name)
+		b.WriteString("=\"")
+		b.WriteString(attr.Value)
+		b.WriteString("\"")
+	}
+	b.WriteString(">")
+	return b.String()
 }
 
 func parseLayoutFloatAttr(node pdfdom.PDFElementNode, attr string) (float64, error) {
