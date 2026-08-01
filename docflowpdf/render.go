@@ -56,8 +56,8 @@ type FontRegistration struct {
 	Sources []string
 }
 
-// Render renders HTML template + CSS + source data + flow JSON to a PDF file.
-func Render(input RenderInput) error {
+// RenderWithInput renders using a fully specified RenderInput.
+func RenderWithInput(input RenderInput) error {
 	if strings.TrimSpace(input.OutputPath) == "" {
 		return fmt.Errorf("output path is required")
 	}

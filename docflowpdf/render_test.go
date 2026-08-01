@@ -53,6 +53,36 @@ func TestRenderToBytes_ReturnsPDFBytes(t *testing.T) {
 	}
 }
 
+func TestRender_OptionsAPI_WritesPDF(t *testing.T) {
+	assets := minimalAssets()
+	outPath := filepath.Join(t.TempDir(), "out.pdf")
+	err := Render(
+		outPath,
+		WithAssets(assets),
+		WithPageCount(1),
+		WithPageSize(595.28, 841.89),
+		WithDefaultLocale("en"),
+		WithDefaultCurrencyCode("EUR"),
+	)
+	if err != nil {
+		t.Fatalf("Render returned error: %v", err)
+	}
+	b, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("failed to read output pdf: %v", err)
+	}
+	if len(b) == 0 || !bytes.HasPrefix(b, []byte("%PDF")) {
+		t.Fatalf("expected PDF output file")
+	}
+}
+
+func TestRender_OptionsAPI_RequiresOutputPath(t *testing.T) {
+	err := Render("", WithAssets(minimalAssets()))
+	if err == nil || !strings.Contains(err.Error(), "output path is required") {
+		t.Fatalf("expected output path validation error, got %v", err)
+	}
+}
+
 func TestRenderToWriter_WritesPDF(t *testing.T) {
 	var out bytes.Buffer
 	err := RenderToWriter(RenderInput{

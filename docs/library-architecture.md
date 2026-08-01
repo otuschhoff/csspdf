@@ -19,7 +19,8 @@ Provide a reusable Go library that renders PDFs from declarative assets:
 Package: github.com/otuschhoff/go-dom2pdf/docflowpdf
 
 Key entry points:
-- Render(RenderInput)
+- Render(outputPath, options...)
+- RenderWithInput(RenderInput)
 - RenderToFile(RenderInput, outputPath)
 - RenderToWriter(RenderInput, io.Writer)
 - RenderToBytes(RenderInput)

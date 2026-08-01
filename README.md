@@ -64,7 +64,8 @@ Primary package:
 - docflowpdf
 
 Core methods:
-- Render(input): convenience method writing to input.OutputPath
+- Render(outputPath, options...): convenience API that builds RenderInput internally
+- RenderWithInput(input): full-struct API for advanced control
 - RenderToFile(input, outputPath)
 - RenderToWriter(input, writer)
 - RenderToBytes(input)
