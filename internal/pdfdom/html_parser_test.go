@@ -64,6 +64,47 @@ func TestParseHTMLTableElem_AppliesWhiteSpaceNoWrapToHeaderCell(t *testing.T) {
 	}
 }
 
+func TestParseHTMLTableElem_AppliesNthChildNoWrapToLeadingColumns(t *testing.T) {
+	css := `
+#timesheet-table th:nth-child(-n+4),
+#timesheet-table td:nth-child(-n+4) {
+	white-space: nowrap;
+}`
+	html := `<table id="timesheet-table"><thead><tr><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th></tr></thead></table>`
+	table, err := ParseHTMLTableElem(html, css)
+	if err != nil {
+		t.Fatalf("ParseHTMLTableElem returned error: %v", err)
+	}
+	thead := table.ElementChildren()[0].(*ElemThead)
+	row := thead.ElementChildren()[0].(*ElemTr)
+	cells := row.ElementChildren()
+	if len(cells) != 5 {
+		t.Fatalf("expected 5 header cells, got %d", len(cells))
+	}
+	for i := 0; i < 4; i++ {
+		cell := cells[i].(*ElemTh)
+		if got, ok := cell.Attribute("whiteSpace"); !ok || got != "nowrap" {
+			t.Fatalf("expected cell %d whiteSpace=nowrap, got %q (present=%v)", i+1, got, ok)
+		}
+	}
+	cell5 := cells[4].(*ElemTh)
+	if _, ok := cell5.Attribute("whiteSpace"); ok {
+		t.Fatalf("expected 5th header cell not to have whiteSpace override")
+	}
+}
+
+func TestParseHTMLTableElem_AppliesTableLayoutAuto(t *testing.T) {
+	css := `#timesheet-table { table-layout: auto; }`
+	html := `<table id="timesheet-table"><thead><tr><th>A</th></tr></thead></table>`
+	table, err := ParseHTMLTableElem(html, css)
+	if err != nil {
+		t.Fatalf("ParseHTMLTableElem returned error: %v", err)
+	}
+	if got, ok := table.Attribute("tableLayout"); !ok || got != "auto" {
+		t.Fatalf("expected tableLayout=auto, got %q (present=%v)", got, ok)
+	}
+}
+
 func TestParseHTMLDocFlow_IncludesTopLevelImage(t *testing.T) {
 	h := "<div id=\"closing\">Regards</div>" +
 		"<img id=\"signature\" src=\"Unterschrift.png\" width=\"100\" height=\"53\">"

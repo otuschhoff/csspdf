@@ -34,6 +34,7 @@ func NewTableRenderer(pdf *gofpdf.Fpdf, formatter CellFormatter) *TableRenderer 
 type TableDef struct {
 	Title        string
 	Width        float64
+	TableLayout  string
 	Padding      float64
 	RowHeightMin float64
 	Background   string
@@ -241,11 +242,51 @@ func (tr *TableRenderer) resolveTableLayout(table *TableDef) resolvedTableLayout
 		tableWidth = reqMin
 	}
 
+	if strings.EqualFold(strings.TrimSpace(table.TableLayout), "auto") && len(flexIndices) > 0 {
+		preferred := tr.preferredColumnWidths(table, widths, padding)
+		availFlex := tableWidth - fixedTotal
+		if availFlex < 0 {
+			availFlex = 0
+		}
+		minTotal := 0.0
+		desiredExtra := 0.0
+		for _, idx := range flexIndices {
+			minW := widths[idx]
+			minTotal += minW
+			target := preferred[idx]
+			if target < minW {
+				target = minW
+			}
+			desiredExtra += target - minW
+		}
+
+		extraAvail := availFlex - minTotal
+		if extraAvail < 0 {
+			extraAvail = 0
+		}
+
+		for _, idx := range flexIndices {
+			minW := widths[idx]
+			target := preferred[idx]
+			if target < minW {
+				target = minW
+			}
+			extra := target - minW
+			if desiredExtra > 0 && extraAvail > 0 {
+				widths[idx] = minW + extra*(extraAvail/desiredExtra)
+			} else {
+				widths[idx] = minW
+			}
+		}
+	}
+
 	remaining := tableWidth - fixedTotal - minFlexTotal
 	if remaining > 0 && len(flexIndices) > 0 {
-		extra := remaining / float64(len(flexIndices))
-		for _, idx := range flexIndices {
-			widths[idx] += extra
+		if !strings.EqualFold(strings.TrimSpace(table.TableLayout), "auto") {
+			extra := remaining / float64(len(flexIndices))
+			for _, idx := range flexIndices {
+				widths[idx] += extra
+			}
 		}
 	}
 
@@ -294,6 +335,45 @@ func (tr *TableRenderer) resolveTableLayout(table *TableDef) resolvedTableLayout
 	}
 
 	return resolvedTableLayout{tableWidth: actual, padding: padding, rowHeightMin: rowHeightMin, colWidths: widths}
+}
+
+func (tr *TableRenderer) preferredColumnWidths(table *TableDef, currentWidths []float64, defaultPadding float64) []float64 {
+	preferred := append([]float64(nil), currentWidths...)
+	for _, row := range table.Rows {
+		colIdx := 0
+		for _, cell := range row.Cells {
+			if colIdx >= len(preferred) {
+				break
+			}
+			span := cell.Colspan
+			if span < 1 {
+				span = 1
+			}
+			if span == 1 {
+				required := tr.measureNoWrapCellRequiredWidth(&cell, defaultPadding)
+				if cell.NoWrap {
+					if required > preferred[colIdx] {
+						preferred[colIdx] = required
+					}
+				} else {
+					// For wrapping cells, prefer larger width to reduce wraps,
+					// while avoiding hard no-wrap behavior.
+					target := required * 0.65
+					if target < preferred[colIdx] {
+						target = preferred[colIdx]
+					}
+					if target > 420 {
+						target = 420
+					}
+					if target > preferred[colIdx] {
+						preferred[colIdx] = target
+					}
+				}
+			}
+			colIdx += span
+		}
+	}
+	return preferred
 }
 
 func (tr *TableRenderer) enforceNoWrapColumnWidths(table *TableDef, widths []float64, defaultPadding float64) {

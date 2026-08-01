@@ -478,6 +478,11 @@ func (l *LayoutPDF) TableDefFromElement(table *pdfdom.ElemTable) (*TableDef, err
 	}
 
 	tableDef := &TableDef{Width: tableWidth, Padding: padding, RowHeightMin: rowHeightMin}
+	if tableLayout, ok := table.Attribute("tableLayout"); ok {
+		tableDef.TableLayout = strings.ToLower(strings.TrimSpace(tableLayout))
+	} else if tableLayout, ok := table.Attribute("table-layout"); ok {
+		tableDef.TableLayout = strings.ToLower(strings.TrimSpace(tableLayout))
+	}
 	if bg, ok := table.Attribute("backgroundColor"); ok {
 		tableDef.Background = strings.TrimSpace(bg)
 	} else if bg, ok := table.Attribute("background-color"); ok {

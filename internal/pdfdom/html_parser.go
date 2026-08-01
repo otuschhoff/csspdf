@@ -172,6 +172,8 @@ func htmlNormaliseAttrKey(key string) string {
 		return "breakAfter"
 	case "white-space":
 		return "whiteSpace"
+	case "table-layout":
+		return "tableLayout"
 	}
 	return key
 }
