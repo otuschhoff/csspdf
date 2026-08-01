@@ -7,33 +7,74 @@ import (
 	"os"
 	"path/filepath"
 
-	invoiceexample "github.com/otuschhoff/go-dom2pdf/examples/invoice"
+	"github.com/otuschhoff/go-dom2pdf/docflowpdf"
 	"github.com/otuschhoff/go-dom2pdf/internal/pdfdump"
-	templateload "github.com/otuschhoff/go-dom2pdf/internal/templating"
 )
 
 const version = "0.1.0"
 
-// Page dimension defaults matching the underlying layout engine.
 const (
-	DocWidth  = templateload.A4Width
-	DocHeight = templateload.A4Height
+	defaultLocale       = "de"
+	defaultCurrencyCode = "EUR"
+	defaultPageMarginTop  = 30.0
+	defaultPageMarginLeft = 55.0
 )
 
 // RenderInvoiceOptions holds all parameters for the invoice PDF rendering use case.
 type RenderInvoiceOptions struct {
-	OutputPath string
-	PageWidth  float64
-	PageHeight float64
+	OutputPath      string
+	PageFormat      string
+	PageOrientation string
 }
 
 // RenderInvoice generates the invoice PDF and writes it to opts.OutputPath.
 func RenderInvoice(opts RenderInvoiceOptions) error {
-	return invoiceexample.RenderInvoicePDF(
-		opts.OutputPath,
-		opts.PageWidth,
-		opts.PageHeight,
+	return renderInvoicePDF(opts.OutputPath, opts.PageFormat, opts.PageOrientation)
+}
+
+func renderInvoicePDF(outputPath, pageFormat, pageOrientation string) error {
+	baseDir, err := resolveTemplateBaseDir()
+	if err != nil {
+		return err
+	}
+
+	if pageFormat == "" {
+		pageFormat = docflowpdf.DefaultPageFormat
+	}
+	if pageOrientation == "" {
+		pageOrientation = docflowpdf.PageOrientationPortrait
+	}
+
+	return docflowpdf.Render(
+		outputPath,
+		docflowpdf.WithAssetBaseDir(baseDir),
+		docflowpdf.WithI18nTemplateMacros(true),
+		docflowpdf.WithPageFormat(pageFormat),
+		docflowpdf.WithPageOrientation(pageOrientation),
+		docflowpdf.WithDefaultLocale(defaultLocale),
+		docflowpdf.WithDefaultCurrencyCode(defaultCurrencyCode),
+		docflowpdf.WithPageMarginsTopBottom(defaultPageMarginTop),
+		docflowpdf.WithPageMarginsLeftRight(defaultPageMarginLeft),
+		docflowpdf.WithFuncMapFactoryEx(docflowpdf.DefaultTemplateFuncMapWithContext),
 	)
+}
+
+func resolveTemplateBaseDir() (string, error) {
+	candidates := []string{
+		filepath.Join("examples", "invoice", "templates"),
+		filepath.Join("..", "examples", "invoice", "templates"),
+		filepath.Join("..", "..", "examples", "invoice", "templates"),
+		"templates",
+	}
+
+	for _, candidate := range candidates {
+		dir := filepath.Clean(candidate)
+		if stat, err := os.Stat(dir); err == nil && stat.IsDir() {
+			return dir, nil
+		}
+	}
+
+	return "", os.ErrNotExist
 }
 
 func main() {
@@ -78,9 +119,9 @@ func runInvoice(args []string) int {
 	cmd.SetOutput(os.Stderr)
 
 	var (
-		outputPath = cmd.String("o", "output/invoice.pdf", "Output PDF path")
-		pageWidth  = cmd.Float64("page-width", DocWidth, "Page width in points")
-		pageHeight = cmd.Float64("page-height", DocHeight, "Page height in points")
+		outputPath      = cmd.String("o", "output/invoice.pdf", "Output PDF path")
+		pageFormat      = cmd.String("page-format", docflowpdf.DefaultPageFormat, "Named page format (e.g. A4, A3, A5, letter, legal)")
+		pageOrientation = cmd.String("page-orientation", docflowpdf.PageOrientationPortrait, "Page orientation: portrait or landscape")
 	)
 
 	cmd.Usage = func() {
@@ -95,20 +136,15 @@ func runInvoice(args []string) int {
 		return 2
 	}
 
-	if *pageWidth <= 0 || *pageHeight <= 0 {
-		fmt.Fprintln(os.Stderr, "Error: page size must be greater than zero")
-		return 2
-	}
-
 	if err := os.MkdirAll(filepath.Dir(*outputPath), 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
 		return 1
 	}
 
 	if err := RenderInvoice(RenderInvoiceOptions{
-		OutputPath: *outputPath,
-		PageWidth:  *pageWidth,
-		PageHeight: *pageHeight,
+		OutputPath:      *outputPath,
+		PageFormat:      *pageFormat,
+		PageOrientation: *pageOrientation,
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error rendering invoice PDF: %v\n", err)
 		return 1

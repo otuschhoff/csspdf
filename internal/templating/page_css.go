@@ -63,6 +63,16 @@ var namedPageSizes = map[string][2]float64{
 	"quarto":    {610.00, 780.00},
 }
 
+// ResolveNamedPageSize returns width and height in points for a known CSS
+// named page size, case-insensitive.
+func ResolveNamedPageSize(name string) (float64, float64, bool) {
+	named, ok := namedPageSizes[strings.ToLower(strings.TrimSpace(name))]
+	if !ok {
+		return 0, 0, false
+	}
+	return named[0], named[1], true
+}
+
 func ParseCSSPageSettings(cssText string, defaults PageSettings, parseLength func(string) (float64, bool)) (PageSettings, PageSettings, error) {
 	if strings.TrimSpace(cssText) == "" {
 		return defaults, defaults, nil

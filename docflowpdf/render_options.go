@@ -113,6 +113,22 @@ func WithPageSize(width, height float64) RenderOption {
 	}
 }
 
+// WithPageFormat sets a named page format like A4, A3, A5, letter, or legal.
+func WithPageFormat(format string) RenderOption {
+	return func(input *RenderInput) error {
+		input.PageFormat = format
+		return nil
+	}
+}
+
+// WithPageOrientation sets page orientation (portrait or landscape).
+func WithPageOrientation(orientation string) RenderOption {
+	return func(input *RenderInput) error {
+		input.PageOrientation = orientation
+		return nil
+	}
+}
+
 // WithPageWidth overrides page width.
 func WithPageWidth(width float64) RenderOption {
 	return func(input *RenderInput) error {

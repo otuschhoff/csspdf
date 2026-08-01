@@ -23,6 +23,10 @@ import (
 const (
 	DefaultLocale       = "en"
 	DefaultCurrencyCode = "EUR"
+	DefaultPageFormat   = "A4"
+
+	PageOrientationPortrait  = "portrait"
+	PageOrientationLandscape = "landscape"
 )
 
 // RenderInput contains all data and options needed to render a flow-driven PDF.
@@ -37,6 +41,8 @@ type RenderInput struct {
 	FontRegistrations        []FontRegistration
 	PageWidth                float64
 	PageHeight               float64
+	PageFormat               string
+	PageOrientation          string
 	DefaultLocale            string
 	DefaultCurrencyCode      string
 	DefaultMargins           templateload.PageMargins
@@ -121,13 +127,9 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 		return nil, err
 	}
 
-	effectiveWidth := templateload.A4Width
-	if input.PageWidth > 0 {
-		effectiveWidth = input.PageWidth
-	}
-	effectiveHeight := templateload.A4Height
-	if input.PageHeight > 0 {
-		effectiveHeight = input.PageHeight
+	effectiveWidth, effectiveHeight, err := resolvePageDimensions(input)
+	if err != nil {
+		return nil, err
 	}
 
 	locale := strings.TrimSpace(input.DefaultLocale)
@@ -205,6 +207,43 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 	}
 	l.RenderFinalFlowPageNums()
 	return &renderArtifact{layout: l}, nil
+}
+
+func resolvePageDimensions(input RenderInput) (float64, float64, error) {
+	formatName := strings.TrimSpace(input.PageFormat)
+	if formatName == "" {
+		formatName = DefaultPageFormat
+	}
+
+	orientation := strings.ToLower(strings.TrimSpace(input.PageOrientation))
+	if orientation == "" {
+		orientation = PageOrientationPortrait
+	}
+	if orientation != PageOrientationPortrait && orientation != PageOrientationLandscape {
+		return 0, 0, fmt.Errorf("unsupported page orientation %q (expected %q or %q)", input.PageOrientation, PageOrientationPortrait, PageOrientationLandscape)
+	}
+
+	width, height, ok := templateload.ResolveNamedPageSize(formatName)
+	if !ok {
+		return 0, 0, fmt.Errorf("unsupported page format %q", input.PageFormat)
+	}
+
+	if orientation == PageOrientationLandscape {
+		if height > width {
+			width, height = height, width
+		}
+	} else if width > height {
+		width, height = height, width
+	}
+
+	if input.PageWidth > 0 {
+		width = input.PageWidth
+	}
+	if input.PageHeight > 0 {
+		height = input.PageHeight
+	}
+
+	return width, height, nil
 }
 
 type renderArtifact struct {

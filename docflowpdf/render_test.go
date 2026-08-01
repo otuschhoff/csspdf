@@ -74,6 +74,38 @@ func TestRender_OptionsAPI_WritesPDF(t *testing.T) {
 	}
 }
 
+func TestResolvePageDimensions_DefaultsToA4Portrait(t *testing.T) {
+	width, height, err := resolvePageDimensions(RenderInput{})
+	if err != nil {
+		t.Fatalf("resolvePageDimensions returned error: %v", err)
+	}
+	if width != 595.28 || height != 841.89 {
+		t.Fatalf("unexpected A4 portrait defaults: got %fx%f", width, height)
+	}
+}
+
+func TestResolvePageDimensions_NamedFormatLandscape(t *testing.T) {
+	width, height, err := resolvePageDimensions(RenderInput{
+		PageFormat:      "A5",
+		PageOrientation: "landscape",
+	})
+	if err != nil {
+		t.Fatalf("resolvePageDimensions returned error: %v", err)
+	}
+	if width != 595.28 || height != 419.53 {
+		t.Fatalf("unexpected A5 landscape dimensions: got %fx%f", width, height)
+	}
+}
+
+func TestResolvePageDimensions_InvalidFormatOrOrientation(t *testing.T) {
+	if _, _, err := resolvePageDimensions(RenderInput{PageFormat: "bogus"}); err == nil {
+		t.Fatalf("expected error for unsupported format")
+	}
+	if _, _, err := resolvePageDimensions(RenderInput{PageOrientation: "sideways"}); err == nil {
+		t.Fatalf("expected error for unsupported orientation")
+	}
+}
+
 func TestRender_OptionsAPI_RequiresOutputPath(t *testing.T) {
 	err := Render("", WithAssets(minimalAssets()))
 	if err == nil || !strings.Contains(err.Error(), "output path is required") {
