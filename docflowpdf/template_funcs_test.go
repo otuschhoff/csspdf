@@ -36,7 +36,7 @@ func TestDefaultTemplateFuncMapWithContext_UsesDeterministicNow(t *testing.T) {
 func TestDefaultTemplateFuncMap_ContainsGenericHelpers(t *testing.T) {
 	funcs := DefaultTemplateFuncMap("en", "en")
 
-	required := []string{"now", "formatDate", "formatDateTime", "dateLocalizedOrNow", "firstDate", "workWeek", "sumNumbers"}
+	required := []string{"now", "formatDate", "formatDateTime", "dateLocalizedOrNow", "formatLocalizedDate", "formatLocalizedDateOrNow", "firstDate", "workWeek", "sumNumbers"}
 	for _, name := range required {
 		if _, ok := funcs[name]; !ok {
 			t.Fatalf("expected helper %q to exist", name)
@@ -56,4 +56,27 @@ func TestDefaultTemplateFuncMap_ContainsGenericHelpers(t *testing.T) {
 	}
 
 	_ = htmltmpl.FuncMap(funcs)
+}
+
+func TestDefaultTemplateFuncMapWithContext_FormatLocalizedDateStyles(t *testing.T) {
+	funcs := DefaultTemplateFuncMapWithContext(FuncContext{DefaultLocale: "en", PayloadLocale: "en"})
+	formatFn, ok := funcs["formatLocalizedDate"].(func(any, string, ...string) string)
+	if !ok {
+		t.Fatalf("expected formatLocalizedDate helper")
+	}
+
+	date := time.Date(2026, 7, 31, 16, 15, 0, 0, time.UTC)
+
+	if got := formatFn(date, "written-month", "de"); got != "Juli" {
+		t.Fatalf("unexpected german month format: %q", got)
+	}
+	if got := formatFn(date, "local", "en"); got != "July 31 2026" {
+		t.Fatalf("unexpected english local format: %q", got)
+	}
+	if got := formatFn(date, "local", "de"); got != "31. Juli 2026" {
+		t.Fatalf("unexpected german local format: %q", got)
+	}
+	if got := formatFn(date, "layout:2006-01-02", "en"); got != "2026-07-31" {
+		t.Fatalf("unexpected custom layout format: %q", got)
+	}
 }

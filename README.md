@@ -86,6 +86,35 @@ Template functions:
 - Reusable default helpers: DefaultTemplateFuncMap(defaultLocale, payloadLocale)
 - Context-aware default helpers: DefaultTemplateFuncMapWithContext(FuncContext)
 
+Date formatting helpers available in templates:
+- `formatLocalizedDate value style [localeOverride]`
+- `formatLocalizedDateOrNow value style [localeOverride]`
+
+Supported styles:
+- `written-month` (month name only)
+- `local` (locale-default full date)
+- `short` (numeric short date)
+- `datetime` (date + time)
+- `layout:<go time layout>` (custom layout)
+
+Examples:
+
+```gotemplate
+{{formatLocalizedDate .Source.Invoice.Date "local"}}
+{{formatLocalizedDate .Source.Invoice.Date "local" "de"}}
+{{formatLocalizedDate .Source.Invoice.Date "written-month"}}
+{{formatLocalizedDate .Source.Invoice.Date "short"}}
+{{formatLocalizedDate .Source.Invoice.Date "datetime"}}
+{{formatLocalizedDate .Source.Invoice.Date "layout:2006-01-02"}}
+{{formatLocalizedDateOrNow .Source.DocDate "local"}}
+```
+
+Typical output examples:
+- `de` + `local` => `31. Juli 2026`
+- `en` + `local` => `July 31 2026`
+- `de` + `written-month` => `Juli`
+- `en` + `written-month` => `July`
+
 ## Asset Input Modes
 
 TextSource supports:
