@@ -254,13 +254,16 @@ func (e *PDFTextEngine) layoutImageNode(node *ElemImg, parentStyle PDFTextStyle,
 }
 
 func (e *PDFTextEngine) layoutElementNode(node PDFElementNode, parentStyle PDFTextStyle, box PDFTextBox) (*textPlan, PDFTextMetrics, error) {
+	style := parentStyle.Merge(node.ElementStyle())
+
 	marginTop := 0.0
 	marginBottom := 0.0
 	paddingTop := 0.0
 	paddingRight := 0.0
 	paddingBottom := 0.0
 	paddingLeft := 0.0
-	if node.ElementType() == "div" {
+	switch node.ElementType() {
+	case "div":
 		marginTop = htmlLengthToFloat(node, "marginTop", "margin-top")
 		marginBottom = htmlLengthToFloat(node, "marginBottom", "margin-bottom")
 
@@ -278,6 +281,21 @@ func (e *PDFTextEngine) layoutElementNode(node PDFElementNode, parentStyle PDFTe
 		}
 		if pad := htmlLengthToFloat(node, "paddingLeft", "padding-left"); pad > 0 {
 			paddingLeft = pad
+		}
+	case "h1":
+		if _, ok := node.Attribute("marginTop"); ok {
+			marginTop = htmlLengthToFloat(node, "marginTop", "margin-top")
+		} else if _, ok := node.Attribute("margin-top"); ok {
+			marginTop = htmlLengthToFloat(node, "marginTop", "margin-top")
+		} else {
+			marginTop = style.FontSize * 0.67
+		}
+		if _, ok := node.Attribute("marginBottom"); ok {
+			marginBottom = htmlLengthToFloat(node, "marginBottom", "margin-bottom")
+		} else if _, ok := node.Attribute("margin-bottom"); ok {
+			marginBottom = htmlLengthToFloat(node, "marginBottom", "margin-bottom")
+		} else {
+			marginBottom = style.FontSize * 0.67
 		}
 	}
 	outerBox := box

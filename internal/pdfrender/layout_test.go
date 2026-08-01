@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/otuschhoff/csspdf/internal/pdfdom"
+	"github.com/otuschhoff/gofpdf"
 )
 
 func TestTableDefFromElement_AllowsFlexibleColWithoutWidth(t *testing.T) {
@@ -82,5 +83,47 @@ func TestCellDefFromTableCell_UsesFillAsBackground(t *testing.T) {
 
 	if cell.Background != "#EEE" {
 		t.Fatalf("expected cell background to come from fill, got %q", cell.Background)
+	}
+}
+
+func TestH1MeasureInBox_IncludesDefaultBlockMargins(t *testing.T) {
+	pdf := gofpdf.New("P", "pt", "A4", "")
+	pdf.AddPage()
+	engine := NewPDFTextEngine(pdf, nil)
+
+	heading := pdfdom.NewElemH1()
+	heading.Add(&pdfdom.PDFTextNode{Text: "Leistungsnachweis"})
+
+	metrics, err := engine.MeasureInBox(heading, &pdfdom.PDFTextBox{X: 0, Y: 0, Width: 500, Fit: pdfdom.TextFitWrap})
+	if err != nil {
+		t.Fatalf("MeasureInBox returned error: %v", err)
+	}
+	if metrics.Height < 40 {
+		t.Fatalf("expected h1 height to include default block margins, got %f", metrics.Height)
+	}
+}
+
+func TestTableBlockMargins_DefaultAndExplicit(t *testing.T) {
+	table := &TableDef{}
+	top, bottom := tableBlockMargins(table)
+	if top != defaultTableFontSize || bottom != defaultTableFontSize {
+		t.Fatalf("expected default table margins to match default table font size, got top=%f bottom=%f", top, bottom)
+	}
+
+	tableElem := pdfdom.NewElemTable()
+	tableElem.SetAttribute("width", "100%")
+	tableElem.SetAttribute("padding", "4")
+	tableElem.SetAttribute("rowHeightMin", "10")
+	tableElem.SetAttribute("marginTop", "12")
+	tableElem.SetAttribute("marginBottom", "14")
+
+	layout := &LayoutPDF{}
+	def, err := layout.TableDefFromElement(tableElem, 500)
+	if err != nil {
+		t.Fatalf("TableDefFromElement returned error: %v", err)
+	}
+	top, bottom = tableBlockMargins(def)
+	if top != 12 || bottom != 14 {
+		t.Fatalf("expected explicit table margins to be honored, got top=%f bottom=%f", top, bottom)
 	}
 }

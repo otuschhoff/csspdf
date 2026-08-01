@@ -37,6 +37,10 @@ type TableDef struct {
 	TableLayout  string
 	Padding      float64
 	RowHeightMin float64
+	MarginTop    float64
+	MarginBottom float64
+	MarginTopSet bool
+	MarginBottomSet bool
 	Background   string
 	BorderColor  string
 	BorderStyle  string

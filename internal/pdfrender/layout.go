@@ -556,6 +556,20 @@ func (l *LayoutPDF) TableDefFromElement(table *pdfdom.ElemTable, availableWidth 
 	} else if tableLayout, ok := table.Attribute("table-layout"); ok {
 		tableDef.TableLayout = strings.ToLower(strings.TrimSpace(tableLayout))
 	}
+	if _, ok := table.Attribute("marginTop"); ok {
+		tableDef.MarginTop = htmlLengthToFloat(table, "marginTop", "margin-top")
+		tableDef.MarginTopSet = ok
+	} else if _, ok := table.Attribute("margin-top"); ok {
+		tableDef.MarginTop = htmlLengthToFloat(table, "marginTop", "margin-top")
+		tableDef.MarginTopSet = true
+	}
+	if _, ok := table.Attribute("marginBottom"); ok {
+		tableDef.MarginBottom = htmlLengthToFloat(table, "marginBottom", "margin-bottom")
+		tableDef.MarginBottomSet = ok
+	} else if _, ok := table.Attribute("margin-bottom"); ok {
+		tableDef.MarginBottom = htmlLengthToFloat(table, "marginBottom", "margin-bottom")
+		tableDef.MarginBottomSet = true
+	}
 	if bg, ok := table.Attribute("backgroundColor"); ok {
 		tableDef.Background = strings.TrimSpace(bg)
 	} else if bg, ok := table.Attribute("background-color"); ok {
