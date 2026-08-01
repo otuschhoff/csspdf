@@ -1,0 +1,174 @@
+package docflowpdf
+
+import (
+	htmltmpl "html/template"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/goodsign/monday"
+)
+
+// DefaultTemplateFuncMap returns a reusable set of generic template helper
+// functions that can be embedded into profile-specific function maps.
+func DefaultTemplateFuncMap(defaultLocale, payloadLocale string) htmltmpl.FuncMap {
+	return DefaultTemplateFuncMapWithContext(FuncContext{
+		DefaultLocale: defaultLocale,
+		PayloadLocale: payloadLocale,
+		Now:           time.Now,
+	})
+}
+
+// DefaultTemplateFuncMapWithContext returns the same generic helper set as
+// DefaultTemplateFuncMap but uses FuncContext to support deterministic clocks.
+func DefaultTemplateFuncMapWithContext(ctx FuncContext) htmltmpl.FuncMap {
+	nowFn := ctx.Now
+	if nowFn == nil {
+		nowFn = time.Now
+	}
+
+	return htmltmpl.FuncMap{
+		"now": func() time.Time {
+			return nowFn()
+		},
+		"formatDate": func(value any, localeOverride ...string) string {
+			t, ok := parseTemplateTime(value)
+			if !ok {
+				return ""
+			}
+			return formatTemplateDate(t, resolveTemplateLocale(localeOverride, ctx.PayloadLocale, ctx.DefaultLocale))
+		},
+		"formatDateTime": func(value any, localeOverride ...string) string {
+			t, ok := parseTemplateTime(value)
+			if !ok {
+				return ""
+			}
+			return formatTemplateDateTime(t, resolveTemplateLocale(localeOverride, ctx.PayloadLocale, ctx.DefaultLocale))
+		},
+		"dateLocalizedOrNow": func(value any, localeOverride ...string) string {
+			t, ok := parseTemplateTime(value)
+			if !ok {
+				t = nowFn()
+			}
+			return formatTemplateDate(t, resolveTemplateLocale(localeOverride, ctx.PayloadLocale, ctx.DefaultLocale))
+		},
+		"firstDate": func(values ...any) any {
+			for _, value := range values {
+				if _, ok := parseTemplateTime(value); ok {
+					return value
+				}
+			}
+			return ""
+		},
+		"workWeek": func(value any) string {
+			t, ok := parseTemplateTime(value)
+			if !ok {
+				return ""
+			}
+			_, week := t.ISOWeek()
+			weekday := int(t.Weekday())
+			if weekday == 0 {
+				weekday = 7
+			}
+			return strings.TrimSpace(strings.Join([]string{strconv.Itoa(week), strconv.Itoa(weekday)}, "."))
+		},
+		"sumNumbers": func(rows any, key string) float64 {
+			items, ok := rows.([]any)
+			if !ok {
+				return 0
+			}
+			total := 0.0
+			for _, item := range items {
+				obj, ok := item.(map[string]any)
+				if !ok {
+					continue
+				}
+				total += asFloat64(obj[key])
+			}
+			return total
+		},
+	}
+}
+
+func resolveTemplateLocale(overrides []string, payloadLocale, fallback string) string {
+	if len(overrides) > 0 {
+		if locale := strings.TrimSpace(overrides[0]); locale != "" {
+			return locale
+		}
+	}
+	if locale := strings.TrimSpace(payloadLocale); locale != "" {
+		return locale
+	}
+	if locale := strings.TrimSpace(fallback); locale != "" {
+		return locale
+	}
+	return "en"
+}
+
+func parseTemplateTime(value any) (time.Time, bool) {
+	switch v := value.(type) {
+	case time.Time:
+		return v, true
+	case string:
+		s := strings.TrimSpace(v)
+		if s == "" {
+			return time.Time{}, false
+		}
+		for _, layout := range []string{
+			time.RFC3339,
+			time.RFC3339Nano,
+			"2006-01-02",
+			"2006-01-02 15:04:05",
+			"2006-01-02 15:04",
+		} {
+			if t, err := time.Parse(layout, s); err == nil {
+				return t, true
+			}
+		}
+	}
+	return time.Time{}, false
+}
+
+func mondayLocale(locale string) monday.Locale {
+	switch locale {
+	case "de":
+		return monday.LocaleDeDE
+	case "en":
+		return monday.LocaleEnUS
+	default:
+		return monday.LocaleEnUS
+	}
+}
+
+func formatTemplateDate(t time.Time, locale string) string {
+	loc := mondayLocale(locale)
+	if locale == "de" {
+		return monday.Format(t, "02. January 2006", loc)
+	}
+	return monday.Format(t, "01/02/2006", loc)
+}
+
+func formatTemplateDateTime(t time.Time, locale string) string {
+	loc := mondayLocale(locale)
+	if locale == "de" {
+		return monday.Format(t, "02. January 2006 15:04", loc)
+	}
+	return monday.Format(t, "01/02/2006 15:04", loc)
+}
+
+func asFloat64(v any) float64 {
+	switch typed := v.(type) {
+	case float64:
+		return typed
+	case float32:
+		return float64(typed)
+	case int:
+		return float64(typed)
+	case int32:
+		return float64(typed)
+	case int64:
+		return float64(typed)
+	default:
+		return 0
+	}
+}

@@ -82,6 +82,8 @@ I18n source input:
 Template functions:
 - Legacy hook: FuncMapFactory(defaultLocale, payloadLocale)
 - Context-aware hook: FuncMapFactoryEx(FuncContext) with deterministic Now function
+- Reusable default helpers: DefaultTemplateFuncMap(defaultLocale, payloadLocale)
+- Context-aware default helpers: DefaultTemplateFuncMapWithContext(FuncContext)
 
 ## Asset Input Modes
 
