@@ -63,6 +63,10 @@ Introduce layered CSS while preserving current API:
 Proposed structures:
 - CSSLayer
   - Name string
+  - CSS string
+  - Optional bool
+- CSSLayerInput (for AssetInput resolution)
+  - Name string
   - Source TextSource
   - Optional bool
 
@@ -110,18 +114,31 @@ Acceptance criteria:
 - short design note added to docs: done
 - team agreement on ordering contract and compatibility behavior: done
 
-## Phase 1 - Data model and asset resolution
+## Phase 1 - Data model and asset resolution - Completed 2026-08-02
+
+Status:
+- Completed in code and tests.
+
+Phase outputs delivered:
+- added resolved layer model: Assets.CSSLayers []CSSLayer
+- added source-layer model: AssetInput.CSSLayers []CSSLayerInput
+- added ordered CSS composition helper that appends legacy Assets.CSS as implicit final layer
+- preserved legacy behavior when no layers are provided
+- added optional/required layer resolution behavior
 
 Tasks:
-- add CSSLayer model and CSSLayers field in Assets
-- extend AssetInput to resolve ordered CSS layer sources
-- implement helper that builds effective CSS text from layers
-- preserve current single CSS behavior when no layers are provided
+- add CSSLayer model and CSSLayers field in Assets: done
+- extend AssetInput to resolve ordered CSS layer sources: done
+- implement helper that builds effective CSS text from layers: done
+- preserve current single CSS behavior when no layers are provided: done
 
 Acceptance criteria:
-- all current tests still pass without changes to existing callers
-- new unit tests verify order-sensitive concatenation
-- missing optional layers are ignored, required layers fail clearly
+- all current tests still pass without changes to existing callers: done
+- new unit tests verify order-sensitive concatenation: done
+- missing optional layers are ignored, required layers fail clearly: done
+
+Verification snapshot:
+- go test ./docflowpdf ./internal/pdfrender ./internal/pdfdom: pass
 
 ## Phase 2 - Render pipeline integration
 

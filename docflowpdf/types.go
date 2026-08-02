@@ -49,9 +49,18 @@ type Flow struct {
 	PageNumber Section   `json:"pageNumber"`
 }
 
+// CSSLayer is a resolved stylesheet layer.
+// Layers are applied in order and then legacy Assets.CSS is applied last.
+type CSSLayer struct {
+	Name     string
+	CSS      string
+	Optional bool
+}
+
 type Assets struct {
 	HTML       string
 	CSS        string
+	CSSLayers  []CSSLayer
 	Flow       Flow
 	SourceData map[string]any
 }
@@ -60,13 +69,46 @@ func (a Assets) Validate() error {
 	if a.HTML == "" {
 		return fmt.Errorf("template HTML must not be empty")
 	}
-	if a.CSS == "" {
-		return fmt.Errorf("template CSS must not be empty")
+	if _, err := effectiveTemplateCSS(a); err != nil {
+		return err
 	}
 	if err := a.Flow.Validate(); err != nil {
 		return err
 	}
 	return nil
+}
+
+func effectiveTemplateCSS(assets Assets) (string, error) {
+	return composeTemplateCSS(assets.CSSLayers, assets.CSS)
+}
+
+func composeTemplateCSS(layers []CSSLayer, legacyCSS string) (string, error) {
+	var b strings.Builder
+
+	appendPart := func(css string) {
+		trimmed := strings.TrimSpace(css)
+		if trimmed == "" {
+			return
+		}
+		if b.Len() > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(trimmed)
+		if !strings.HasSuffix(trimmed, "\n") {
+			b.WriteString("\n")
+		}
+	}
+
+	for _, layer := range layers {
+		appendPart(layer.CSS)
+	}
+	appendPart(legacyCSS)
+
+	composed := strings.TrimSpace(b.String())
+	if composed == "" {
+		return "", fmt.Errorf("template CSS must not be empty")
+	}
+	return composed, nil
 }
 
 var payloadPathPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$`)

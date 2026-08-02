@@ -161,6 +161,14 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 	if err != nil {
 		return nil, err
 	}
+	effectiveCSS, err := effectiveTemplateCSS(assets)
+	if err != nil {
+		return nil, err
+	}
+	if len(assets.CSSLayers) > 0 && strings.TrimSpace(assets.CSS) != "" {
+		warningFunc(input)("both CSSLayers and legacy CSS are set; legacy CSS is applied as the final implicit layer")
+	}
+	assets.CSS = effectiveCSS
 	resolvedFontRegistrations, err := resolveFontRegistrations(input)
 	if err != nil {
 		return nil, err

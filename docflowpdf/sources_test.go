@@ -3,6 +3,7 @@ package docflowpdf
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 )
@@ -181,6 +182,97 @@ func TestAssetInputResolveWithBaseDir_AllowsMissingFlowFile(t *testing.T) {
 	}
 	if assets.Flow.PageNumber.Template != "page-number" {
 		t.Fatalf("expected inferred page-number template, got %q", assets.Flow.PageNumber.Template)
+	}
+}
+
+func TestAssetInputResolveAssets_CSSLayers_OrderAndLegacyAppend(t *testing.T) {
+	input := AssetInput{
+		HTML: TextSource{Text: `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`},
+		CSSLayers: []CSSLayerInput{
+			{Name: "base", Source: TextSource{Text: "#a { color: red; }"}},
+			{Name: "doc", Source: TextSource{Text: "#a { color: blue; }"}},
+		},
+		CSS: TextSource{Text: "#a { color: green; }"},
+		Flow: JSONSource{Text: `{"mainFlow":[{"template":"doc","transformer":"generic"}],"pageNumber":{"template":"page-number","transformer":"generic"}}`},
+	}
+
+	assets, err := input.ResolveAssets()
+	if err != nil {
+		t.Fatalf("ResolveAssets returned error: %v", err)
+	}
+	if len(assets.CSSLayers) != 2 {
+		t.Fatalf("expected 2 resolved layers, got %d", len(assets.CSSLayers))
+	}
+	css, err := effectiveTemplateCSS(assets)
+	if err != nil {
+		t.Fatalf("effectiveTemplateCSS returned error: %v", err)
+	}
+	idxBase := strings.Index(css, "color: red")
+	idxDoc := strings.Index(css, "color: blue")
+	idxLegacy := strings.Index(css, "color: green")
+	if idxBase < 0 || idxDoc < 0 || idxLegacy < 0 {
+		t.Fatalf("expected composed css to include base/doc/legacy declarations")
+	}
+	if !(idxBase < idxDoc && idxDoc < idxLegacy) {
+		t.Fatalf("expected composed css order base -> doc -> legacy; got %q", css)
+	}
+}
+
+func TestAssetInputResolveAssets_CSSLayers_OptionalMissingLayerIgnored(t *testing.T) {
+	input := AssetInput{
+		HTML: TextSource{Text: `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`},
+		CSSLayers: []CSSLayerInput{
+			{Name: "optional-missing", Optional: true, Source: TextSource{FilePath: filepath.Join(t.TempDir(), "missing.css")}},
+			{Name: "present", Source: TextSource{Text: "#a { color: blue; }"}},
+		},
+		Flow: JSONSource{Text: `{"mainFlow":[{"template":"doc","transformer":"generic"}],"pageNumber":{"template":"page-number","transformer":"generic"}}`},
+	}
+
+	assets, err := input.ResolveAssets()
+	if err != nil {
+		t.Fatalf("ResolveAssets returned error: %v", err)
+	}
+	if len(assets.CSSLayers) != 1 {
+		t.Fatalf("expected only present layer to resolve, got %d", len(assets.CSSLayers))
+	}
+	if assets.CSSLayers[0].Name != "present" {
+		t.Fatalf("unexpected remaining layer name: %q", assets.CSSLayers[0].Name)
+	}
+}
+
+func TestAssetInputResolveAssets_CSSLayers_RequiredMissingLayerFails(t *testing.T) {
+	input := AssetInput{
+		HTML: TextSource{Text: `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`},
+		CSSLayers: []CSSLayerInput{
+			{Name: "required-missing", Source: TextSource{FilePath: filepath.Join(t.TempDir(), "missing.css")}},
+		},
+		Flow: JSONSource{Text: `{"mainFlow":[{"template":"doc","transformer":"generic"}],"pageNumber":{"template":"page-number","transformer":"generic"}}`},
+	}
+
+	_, err := input.ResolveAssets()
+	if err == nil {
+		t.Fatalf("expected ResolveAssets to fail for missing required css layer")
+	}
+}
+
+func TestAssetInputResolveWithBaseDir_CSSLayersDoNotRequireDocCSS(t *testing.T) {
+	baseDir := t.TempDir()
+	html := `{{define "doc"}}<div>doc</div>{{end}}{{define "page-number"}}<div>{{.page.pageNumber}}</div>{{end}}`
+	data := `{"locale":"en"}`
+	layerPath := filepath.Join(baseDir, "corp.css")
+
+	writeFile(t, filepath.Join(baseDir, "doc.html"), html)
+	writeFile(t, filepath.Join(baseDir, "data.json"), data)
+	writeFile(t, layerPath, "@page { size: A4; } #x { color: red; }")
+
+	assets, err := (AssetInput{
+		CSSLayers: []CSSLayerInput{{Name: "corp", Source: TextSource{FilePath: layerPath}}},
+	}).ResolveWithBaseDir(baseDir)
+	if err != nil {
+		t.Fatalf("ResolveWithBaseDir returned error for layer-only css setup: %v", err)
+	}
+	if len(assets.CSSLayers) != 1 {
+		t.Fatalf("expected one resolved css layer, got %d", len(assets.CSSLayers))
 	}
 }
 

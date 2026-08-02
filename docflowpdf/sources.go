@@ -2,10 +2,12 @@ package docflowpdf
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // TextSource resolves textual content from in-memory bytes/text, a file path,
@@ -102,9 +104,41 @@ func (s JSONSource) DecodeInto(target any, label string) error {
 }
 
 // AssetInput resolves all render assets from flexible sources.
+type CSSLayerInput struct {
+	Name     string
+	Source   TextSource
+	Optional bool
+}
+
+// Resolve resolves the layer source into a concrete CSSLayer.
+func (l CSSLayerInput) Resolve(index int) (CSSLayer, bool, error) {
+	name := strings.TrimSpace(l.Name)
+	if name == "" {
+		name = fmt.Sprintf("layer-%d", index+1)
+	}
+
+	if !l.Source.IsSet() {
+		if l.Optional {
+			return CSSLayer{}, true, nil
+		}
+		return CSSLayer{}, false, fmt.Errorf("missing template CSS layer source for %q", name)
+	}
+
+	cssText, err := l.Source.Resolve(fmt.Sprintf("template CSS layer %q", name))
+	if err != nil {
+		if l.Optional && errors.Is(err, os.ErrNotExist) {
+			return CSSLayer{}, true, nil
+		}
+		return CSSLayer{}, false, err
+	}
+
+	return CSSLayer{Name: name, CSS: cssText, Optional: l.Optional}, false, nil
+}
+
 type AssetInput struct {
 	HTML       TextSource
 	CSS        TextSource
+	CSSLayers  []CSSLayerInput
 	Flow       JSONSource
 	SourceData JSONSource
 }
@@ -127,6 +161,7 @@ func (in AssetInput) ResolveWithBaseDir(baseDir string) (Assets, error) {
 	merged := AssetInput{
 		HTML:       TextSource{FilePath: filepath.Join(baseDir, "doc.html")},
 		CSS:        TextSource{FilePath: filepath.Join(baseDir, "doc.css")},
+		CSSLayers:  nil,
 		Flow:       flowSource,
 		SourceData: JSONSource{FilePath: filepath.Join(baseDir, "data.json")},
 	}
@@ -136,6 +171,17 @@ func (in AssetInput) ResolveWithBaseDir(baseDir string) (Assets, error) {
 	}
 	if in.CSS.IsSet() {
 		merged.CSS = in.CSS
+	}
+	if len(in.CSSLayers) > 0 {
+		merged.CSSLayers = append([]CSSLayerInput(nil), in.CSSLayers...)
+		if !in.CSS.IsSet() {
+			defaultCSSPath := filepath.Join(baseDir, "doc.css")
+			if stat, err := os.Stat(defaultCSSPath); err == nil && !stat.IsDir() {
+				merged.CSS = TextSource{FilePath: defaultCSSPath}
+			} else {
+				merged.CSS = TextSource{}
+			}
+		}
 	}
 	if in.Flow.IsSet() {
 		merged.Flow = in.Flow
@@ -154,7 +200,22 @@ func (in AssetInput) ResolveAssets() (Assets, error) {
 	}
 	css, err := in.CSS.Resolve("template CSS")
 	if err != nil {
-		return Assets{}, err
+		if len(in.CSSLayers) == 0 {
+			return Assets{}, err
+		}
+		css = ""
+	}
+
+	layers := make([]CSSLayer, 0, len(in.CSSLayers))
+	for idx, layerInput := range in.CSSLayers {
+		layer, skipped, layerErr := layerInput.Resolve(idx)
+		if layerErr != nil {
+			return Assets{}, layerErr
+		}
+		if skipped {
+			continue
+		}
+		layers = append(layers, layer)
 	}
 
 	var flow Flow
@@ -178,6 +239,7 @@ func (in AssetInput) ResolveAssets() (Assets, error) {
 	assets := Assets{
 		HTML:       html,
 		CSS:        css,
+		CSSLayers:  layers,
 		Flow:       flow,
 		SourceData: sourceData,
 	}

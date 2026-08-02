@@ -161,6 +161,55 @@ func TestRender_UsesLoggerForNonFatalWarnings(t *testing.T) {
 	}
 }
 
+func TestRenderToBytes_SupportsLayeredCSSWithoutLegacyCSS(t *testing.T) {
+	assets := minimalAssets()
+	assets.CSS = ""
+	assets.CSSLayers = []CSSLayer{
+		{Name: "base", CSS: "@page { size: A4; margin: 24pt; }"},
+		{Name: "doc", CSS: "#body { color: #333; }"},
+	}
+
+	b, err := RenderToBytes(RenderInput{
+		Assets:              assets,
+		DefaultLocale:       "en",
+		DefaultCurrencyCode: "EUR",
+	})
+	if err != nil {
+		t.Fatalf("RenderToBytes returned error: %v", err)
+	}
+	if len(b) == 0 || !bytes.HasPrefix(b, []byte("%PDF")) {
+		t.Fatalf("expected PDF bytes from layered CSS input")
+	}
+}
+
+func TestRenderToBytes_WarnsWhenUsingCSSLayersAndLegacyCSS(t *testing.T) {
+	assets := minimalAssets()
+	assets.CSSLayers = []CSSLayer{{Name: "base", CSS: "@page { size: A4; margin: 25pt; }"}}
+	assets.CSS = "@page { margin: 20pt; }"
+
+	logger := &testLogger{}
+	_, err := RenderToBytes(RenderInput{
+		Assets:              assets,
+		DefaultLocale:       "en",
+		DefaultCurrencyCode: "EUR",
+		Logger:              logger,
+	})
+	if err != nil {
+		t.Fatalf("RenderToBytes returned error: %v", err)
+	}
+
+	found := false
+	for _, warning := range logger.warnings {
+		if strings.Contains(warning, "both CSSLayers and legacy CSS are set") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected mixed-mode CSS warning to be emitted")
+	}
+}
+
 func TestRender_UsesContextFuncFactoryNow(t *testing.T) {
 	assets := minimalAssets()
 	assets.HTML = `{{define "doc"}}<div>{{fmtNow}}</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`

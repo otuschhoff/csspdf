@@ -1,6 +1,52 @@
 package docflowpdf
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestComposeTemplateCSS_AppendsLegacyAfterLayers(t *testing.T) {
+	css, err := composeTemplateCSS(
+		[]CSSLayer{
+			{Name: "base", CSS: "#x { color: red; }"},
+			{Name: "doc", CSS: "#x { color: blue; }"},
+		},
+		"#x { color: green; }",
+	)
+	if err != nil {
+		t.Fatalf("composeTemplateCSS returned error: %v", err)
+	}
+	if !(containsInOrder(css, "color: red", "color: blue", "color: green")) {
+		t.Fatalf("expected layer and legacy css to be composed in deterministic order, got %q", css)
+	}
+}
+
+func TestAssetsValidate_AllowsLayeredCSSWithoutLegacy(t *testing.T) {
+	assets := Assets{
+		HTML: `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`,
+		CSSLayers: []CSSLayer{{Name: "base", CSS: "@page { size: A4; }"}},
+		Flow: Flow{
+			MainFlow:   []Section{{Template: "doc", Transformer: "generic"}},
+			PageNumber: Section{Template: "page-number", Transformer: "generic"},
+		},
+	}
+	if err := assets.Validate(); err != nil {
+		t.Fatalf("expected assets.Validate to accept layered css without legacy css: %v", err)
+	}
+}
+
+func containsInOrder(haystack string, needles ...string) bool {
+	start := 0
+	for _, needle := range needles {
+		rel := strings.Index(haystack[start:], needle)
+		if rel < 0 {
+			return false
+		}
+		idx := start + rel
+		start = idx + len(needle)
+	}
+	return true
+}
 
 func TestFlowValidate_RejectsUnsupportedTransformer(t *testing.T) {
 	flow := Flow{
