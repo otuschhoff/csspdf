@@ -2,6 +2,7 @@
 //
 // It renders PDF documents from:
 //   - HTML template fragments
+//   - optional layered HTML shells
 //   - CSS
 //   - flow JSON (section orchestration + payload transforms)
 //   - source data (JSON or native Go objects)

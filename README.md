@@ -208,6 +208,53 @@ The rollout script:
 - reports PDF sizes
 - prints a layered CSS duplication metric
 
+## Layered HTML Shell Usage
+
+You can compose HTML templates in ordered layers with `AssetInput.HTMLLayers`.
+Layers are parsed first, then legacy `AssetInput.HTML` is parsed last as an
+implicit final layer, so document templates can override shared block defaults.
+
+```go
+assetInput := docflowpdf.AssetInput{
+	HTML: docflowpdf.TextSource{FilePath: "templates/invoice.content.html"},
+	HTMLLayers: []docflowpdf.HTMLLayerInput{
+		{
+			Name: "shared-shell",
+			Source: docflowpdf.TextSource{FilePath: "templates/default.shell.html"},
+		},
+	},
+	CSS:        docflowpdf.TextSource{FilePath: "templates/doc.css"},
+	Flow:       docflowpdf.JSONSource{FilePath: "templates/flow.json"},
+	SourceData: docflowpdf.JSONSource{FilePath: "templates/data.json"},
+}
+```
+
+Shared shell example (`default.shell.html`):
+
+```gotemplate
+{{define "doc"}}
+<div id="page">
+	{{block "default-letterhead" .}}<div>ACME Corp</div>{{end}}
+	{{block "document-content" .}}<div>Default body</div>{{end}}
+	{{block "default-footer" .}}<div>Default footer</div>{{end}}
+</div>
+{{end}}
+
+{{define "page-number"}}<div>{{.page.pageNumber}} / {{.page.pageNumberTotal}}</div>{{end}}
+```
+
+Document content example (`invoice.content.html`):
+
+```gotemplate
+{{define "document-content"}}<div>Invoice {{.Source.Invoice.ID}}</div>{{end}}
+{{define "default-footer"}}<div>Invoice-specific footer</div>{{end}}
+```
+
+Notes:
+- `HTMLLayers` are optional; existing single-file HTML templates keep working unchanged.
+- If a wrapper references missing nested templates (for example `document-content`), render fails with a template error.
+- This composition model works with `CSSLayers`, so shared markup and shared styles can both be centralized.
+
 ## Flow JSON Validation
 
 Flow validation now checks:

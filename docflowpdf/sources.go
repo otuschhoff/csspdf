@@ -110,6 +110,37 @@ type CSSLayerInput struct {
 	Optional bool
 }
 
+type HTMLLayerInput struct {
+	Name     string
+	Source   TextSource
+	Optional bool
+}
+
+// Resolve resolves the layer source into a concrete HTMLLayer.
+func (l HTMLLayerInput) Resolve(index int) (HTMLLayer, bool, error) {
+	name := strings.TrimSpace(l.Name)
+	if name == "" {
+		name = fmt.Sprintf("layer-%d", index+1)
+	}
+
+	if !l.Source.IsSet() {
+		if l.Optional {
+			return HTMLLayer{}, true, nil
+		}
+		return HTMLLayer{}, false, fmt.Errorf("missing template HTML layer source for %q", name)
+	}
+
+	html, err := l.Source.Resolve(fmt.Sprintf("template HTML layer %q", name))
+	if err != nil {
+		if l.Optional && errors.Is(err, os.ErrNotExist) {
+			return HTMLLayer{}, true, nil
+		}
+		return HTMLLayer{}, false, err
+	}
+
+	return HTMLLayer{Name: name, HTML: html, Optional: l.Optional}, false, nil
+}
+
 // Resolve resolves the layer source into a concrete CSSLayer.
 func (l CSSLayerInput) Resolve(index int) (CSSLayer, bool, error) {
 	name := strings.TrimSpace(l.Name)
@@ -137,6 +168,7 @@ func (l CSSLayerInput) Resolve(index int) (CSSLayer, bool, error) {
 
 type AssetInput struct {
 	HTML       TextSource
+	HTMLLayers []HTMLLayerInput
 	CSS        TextSource
 	CSSLayers  []CSSLayerInput
 	Flow       JSONSource
@@ -160,6 +192,7 @@ func (in AssetInput) ResolveWithBaseDir(baseDir string) (Assets, error) {
 	}
 	merged := AssetInput{
 		HTML:       TextSource{FilePath: filepath.Join(baseDir, "doc.html")},
+		HTMLLayers: nil,
 		CSS:        TextSource{FilePath: filepath.Join(baseDir, "doc.css")},
 		CSSLayers:  nil,
 		Flow:       flowSource,
@@ -168,6 +201,9 @@ func (in AssetInput) ResolveWithBaseDir(baseDir string) (Assets, error) {
 
 	if in.HTML.IsSet() {
 		merged.HTML = in.HTML
+	}
+	if len(in.HTMLLayers) > 0 {
+		merged.HTMLLayers = append([]HTMLLayerInput(nil), in.HTMLLayers...)
 	}
 	if in.CSS.IsSet() {
 		merged.CSS = in.CSS
@@ -194,10 +230,36 @@ func (in AssetInput) ResolveWithBaseDir(baseDir string) (Assets, error) {
 }
 
 func (in AssetInput) ResolveAssets() (Assets, error) {
-	html, err := in.HTML.Resolve("template HTML")
+	html := ""
+	if in.HTML.IsSet() {
+		resolvedHTML, err := in.HTML.Resolve("template HTML")
+		if err != nil {
+			return Assets{}, err
+		}
+		html = resolvedHTML
+	} else if len(in.HTMLLayers) == 0 {
+		if _, err := in.HTML.Resolve("template HTML"); err != nil {
+			return Assets{}, err
+		}
+	}
+
+	htmlLayers := make([]HTMLLayer, 0, len(in.HTMLLayers))
+	for idx, layerInput := range in.HTMLLayers {
+		layer, skipped, layerErr := layerInput.Resolve(idx)
+		if layerErr != nil {
+			return Assets{}, layerErr
+		}
+		if skipped {
+			continue
+		}
+		htmlLayers = append(htmlLayers, layer)
+	}
+
+	composedHTML, err := composeTemplateHTML(htmlLayers, html)
 	if err != nil {
 		return Assets{}, err
 	}
+
 	css, err := in.CSS.Resolve("template CSS")
 	if err != nil {
 		if len(in.CSSLayers) == 0 {
@@ -224,7 +286,7 @@ func (in AssetInput) ResolveAssets() (Assets, error) {
 			return Assets{}, err
 		}
 	}
-	if err := applyFlowDefaults(&flow, html); err != nil {
+	if err := applyFlowDefaults(&flow, composedHTML); err != nil {
 		return Assets{}, err
 	}
 
@@ -238,6 +300,7 @@ func (in AssetInput) ResolveAssets() (Assets, error) {
 
 	assets := Assets{
 		HTML:       html,
+		HTMLLayers: htmlLayers,
 		CSS:        css,
 		CSSLayers:  layers,
 		Flow:       flow,

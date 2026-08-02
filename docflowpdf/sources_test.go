@@ -1,6 +1,7 @@
 package docflowpdf
 
 import (
+	htmltmpl "html/template"
 	"os"
 	"path/filepath"
 	"strings"
@@ -317,6 +318,167 @@ func TestAssetInputResolveAssets_CSSLayers_MixedSourceTypes(t *testing.T) {
 	}
 }
 
+func TestAssetInputResolveAssets_HTMLLayers_ComposesSharedWrapperAndContent(t *testing.T) {
+	input := AssetInput{
+		HTML: TextSource{Text: `
+{{define "document-content"}}<div id="doc">Hello {{.Source.Name}}</div>{{end}}`},
+		HTMLLayers: []HTMLLayerInput{
+			{Name: "wrapper", Source: TextSource{Text: `
+{{define "doc"}}<div>{{block "default-letterhead" .}}<div id="letterhead">ACME Corp</div>{{end}}{{block "document-content" .}}<div id="doc">Default Body</div>{{end}}{{block "default-footer" .}}<div id="footer">Default Footer</div>{{end}}</div>{{end}}
+{{define "page-number"}}<div id="pn">{{.page.pageNumber}}</div>{{end}}`}},
+		},
+		CSS: TextSource{Text: "@page { size: A4; }"},
+		Flow: JSONSource{Object: Flow{
+			MainFlow:   []Section{{Template: "doc", Transformer: "generic", Payload: PayloadConfig{IncludeSource: true}}},
+			PageNumber: Section{Template: "page-number", Transformer: "generic"},
+		}},
+		SourceData: JSONSource{Object: map[string]any{"Name": "Docflow"}},
+	}
+
+	assets, err := input.ResolveAssets()
+	if err != nil {
+		t.Fatalf("ResolveAssets returned error: %v", err)
+	}
+	if len(assets.HTMLLayers) != 1 {
+		t.Fatalf("expected one resolved html layer, got %d", len(assets.HTMLLayers))
+	}
+	out := executeTemplateSourcesForTest(t, templateSourcesInRenderOrder(assets), "doc", map[string]any{
+		"Source": map[string]any{"Name": "Docflow"},
+	})
+	if !strings.Contains(out, "ACME Corp") {
+		t.Fatalf("expected shared letterhead output, got %q", out)
+	}
+	if !strings.Contains(out, "Hello Docflow") {
+		t.Fatalf("expected document-specific content output, got %q", out)
+	}
+	if !strings.Contains(out, "Default Footer") {
+		t.Fatalf("expected shared footer output, got %q", out)
+	}
+}
+
+func TestAssetInputResolveAssets_HTMLLayers_DocumentOverridesWrapperBlocks(t *testing.T) {
+	input := AssetInput{
+		HTML: TextSource{Text: `
+{{define "document-content"}}<div id="doc">Body</div>{{end}}
+{{define "default-footer"}}<div id="footer">Document Footer</div>{{end}}
+{{define "page-number"}}<div id="pn">Doc Page {{.page.pageNumber}}</div>{{end}}`},
+		HTMLLayers: []HTMLLayerInput{
+			{Name: "wrapper", Source: TextSource{Text: `
+{{define "doc"}}<div>{{block "default-letterhead" .}}<div id="letterhead">Wrapper Letterhead</div>{{end}}{{block "document-content" .}}<div id="doc">Wrapper Body</div>{{end}}{{block "default-footer" .}}<div id="footer">Wrapper Footer</div>{{end}}</div>{{end}}
+{{define "page-number"}}<div id="pn">Wrapper Page</div>{{end}}`}},
+		},
+		CSS: TextSource{Text: "@page { size: A4; }"},
+		Flow: JSONSource{Object: Flow{
+			MainFlow:   []Section{{Template: "doc", Transformer: "generic"}},
+			PageNumber: Section{Template: "page-number", Transformer: "generic"},
+		}},
+	}
+
+	assets, err := input.ResolveAssets()
+	if err != nil {
+		t.Fatalf("ResolveAssets returned error: %v", err)
+	}
+	docOut := executeTemplateSourcesForTest(t, templateSourcesInRenderOrder(assets), "doc", map[string]any{})
+	if !strings.Contains(docOut, "Wrapper Letterhead") {
+		t.Fatalf("expected wrapper letterhead in output, got %q", docOut)
+	}
+	if !strings.Contains(docOut, "Document Footer") {
+		t.Fatalf("expected document footer override in output, got %q", docOut)
+	}
+	if strings.Contains(docOut, "Wrapper Footer") {
+		t.Fatalf("expected wrapper footer to be overridden, got %q", docOut)
+	}
+	pnOut := executeTemplateSourcesForTest(t, templateSourcesInRenderOrder(assets), "page-number", map[string]any{"page": map[string]any{"pageNumber": 2}})
+	if !strings.Contains(pnOut, "Doc Page 2") {
+		t.Fatalf("expected page-number override output, got %q", pnOut)
+	}
+}
+
+func TestAssetInputResolveAssets_HTMLLayers_RequiredMissingLayerFails(t *testing.T) {
+	input := AssetInput{
+		HTML: TextSource{Text: `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`},
+		HTMLLayers: []HTMLLayerInput{
+			{Name: "wrapper", Source: TextSource{FilePath: filepath.Join(t.TempDir(), "missing-wrapper.html")}},
+		},
+		CSS:  TextSource{Text: "@page { size: A4; }"},
+		Flow: JSONSource{Text: `{"mainFlow":[{"template":"doc","transformer":"generic"}],"pageNumber":{"template":"page-number","transformer":"generic"}}`},
+	}
+
+	_, err := input.ResolveAssets()
+	if err == nil {
+		t.Fatalf("expected ResolveAssets to fail for missing required html layer")
+	}
+}
+
+func TestAssetInputResolveAssets_HTMLLayers_OptionalMissingLayerIgnored(t *testing.T) {
+	input := AssetInput{
+		HTML: TextSource{Text: `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`},
+		HTMLLayers: []HTMLLayerInput{
+			{Name: "optional-missing", Optional: true, Source: TextSource{FilePath: filepath.Join(t.TempDir(), "missing-wrapper.html")}},
+			{Name: "wrapper", Source: TextSource{Text: `{{define "default-footer"}}<div>Footer</div>{{end}}`}},
+		},
+		CSS:  TextSource{Text: "@page { size: A4; }"},
+		Flow: JSONSource{Text: `{"mainFlow":[{"template":"doc","transformer":"generic"}],"pageNumber":{"template":"page-number","transformer":"generic"}}`},
+	}
+
+	assets, err := input.ResolveAssets()
+	if err != nil {
+		t.Fatalf("ResolveAssets returned error: %v", err)
+	}
+	if len(assets.HTMLLayers) != 1 {
+		t.Fatalf("expected only present html layer to resolve, got %d", len(assets.HTMLLayers))
+	}
+	if assets.HTMLLayers[0].Name != "wrapper" {
+		t.Fatalf("unexpected remaining html layer name: %q", assets.HTMLLayers[0].Name)
+	}
+}
+
+func TestAssetInputResolveAssets_HTMLLayers_SharedWrapperSupportsInvoiceAndQuoteContent(t *testing.T) {
+	sharedWrapper := `
+{{define "doc"}}<div id="page">{{block "default-letterhead" .}}<div id="letterhead">ACME</div>{{end}}{{block "sender-line" .}}<div id="sender">Sender</div>{{end}}{{block "recipient-block" .}}<div id="recipient">Recipient</div>{{end}}{{block "document-content" .}}<div id="content">Default Content</div>{{end}}{{block "default-footer" .}}<div id="footer">Footer</div>{{end}}</div>{{end}}
+{{define "page-number"}}<div id="pn">{{.page.pageNumber}}</div>{{end}}`
+
+	invoiceInput := AssetInput{
+		HTML: TextSource{Text: `
+{{define "document-content"}}<div id="invoice-content">Invoice {{.Source.Invoice.ID}}</div>{{end}}`},
+		HTMLLayers: []HTMLLayerInput{{Name: "shared-shell", Source: TextSource{Text: sharedWrapper}}},
+		CSS:        TextSource{Text: "@page { size: A4; }"},
+		Flow:       JSONSource{Object: Flow{MainFlow: []Section{{Template: "doc", Transformer: "generic", Payload: PayloadConfig{IncludeSource: true}}}, PageNumber: Section{Template: "page-number", Transformer: "generic"}}},
+		SourceData: JSONSource{Object: map[string]any{"Invoice": map[string]any{"ID": "INV-42"}}},
+	}
+
+	invoiceAssets, err := invoiceInput.ResolveAssets()
+	if err != nil {
+		t.Fatalf("ResolveAssets returned error for invoice wrapper composition: %v", err)
+	}
+	invoiceOut := executeTemplateSourcesForTest(t, templateSourcesInRenderOrder(invoiceAssets), "doc", map[string]any{
+		"Source": map[string]any{"Invoice": map[string]any{"ID": "INV-42"}},
+	})
+	if !strings.Contains(invoiceOut, "ACME") || !strings.Contains(invoiceOut, "Invoice INV-42") {
+		t.Fatalf("expected invoice output to include shared wrapper + invoice content, got %q", invoiceOut)
+	}
+
+	quoteInput := AssetInput{
+		HTML: TextSource{Text: `
+{{define "document-content"}}<div id="quote-content">Quote {{.Source.Quote.ID}}</div>{{end}}`},
+		HTMLLayers: []HTMLLayerInput{{Name: "shared-shell", Source: TextSource{Text: sharedWrapper}}},
+		CSS:        TextSource{Text: "@page { size: A4; }"},
+		Flow:       JSONSource{Object: Flow{MainFlow: []Section{{Template: "doc", Transformer: "generic", Payload: PayloadConfig{IncludeSource: true}}}, PageNumber: Section{Template: "page-number", Transformer: "generic"}}},
+		SourceData: JSONSource{Object: map[string]any{"Quote": map[string]any{"ID": "QT-9"}}},
+	}
+
+	quoteAssets, err := quoteInput.ResolveAssets()
+	if err != nil {
+		t.Fatalf("ResolveAssets returned error for quote wrapper composition: %v", err)
+	}
+	quoteOut := executeTemplateSourcesForTest(t, templateSourcesInRenderOrder(quoteAssets), "doc", map[string]any{
+		"Source": map[string]any{"Quote": map[string]any{"ID": "QT-9"}},
+	})
+	if !strings.Contains(quoteOut, "ACME") || !strings.Contains(quoteOut, "Quote QT-9") {
+		t.Fatalf("expected quote output to include shared wrapper + quote content, got %q", quoteOut)
+	}
+}
+
 func TestLegacyCSSSourceAsLayer_DefaultName(t *testing.T) {
 	layer := LegacyCSSSourceAsLayer(TextSource{FilePath: "/tmp/doc.css"}, "")
 	if layer.Name != "legacy-css" {
@@ -373,4 +535,21 @@ func writeFile(t *testing.T, path, content string) {
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("failed to write %s: %v", path, err)
 	}
+}
+
+func executeTemplateSourcesForTest(t *testing.T, templateSources []string, templateName string, data any) string {
+	t.Helper()
+	tpl := htmltmpl.New("doc")
+	for idx, source := range templateSources {
+		var err error
+		tpl, err = tpl.Parse(source)
+		if err != nil {
+			t.Fatalf("failed to parse template source[%d] for test execution: %v", idx, err)
+		}
+	}
+	var b strings.Builder
+	if err := tpl.ExecuteTemplate(&b, templateName, data); err != nil {
+		t.Fatalf("failed to execute template %q in test: %v", templateName, err)
+	}
+	return b.String()
 }

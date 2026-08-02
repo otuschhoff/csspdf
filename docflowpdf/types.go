@@ -57,8 +57,18 @@ type CSSLayer struct {
 	Optional bool
 }
 
+// HTMLLayer is a resolved template layer.
+// Layers are parsed in order and then legacy Assets.HTML is parsed last,
+// allowing legacy HTML to override shared block defaults.
+type HTMLLayer struct {
+	Name     string
+	HTML     string
+	Optional bool
+}
+
 type Assets struct {
 	HTML       string
+	HTMLLayers []HTMLLayer
 	CSS        string
 	CSSLayers  []CSSLayer
 	Flow       Flow
@@ -66,8 +76,8 @@ type Assets struct {
 }
 
 func (a Assets) Validate() error {
-	if a.HTML == "" {
-		return fmt.Errorf("template HTML must not be empty")
+	if _, err := effectiveTemplateHTML(a); err != nil {
+		return err
 	}
 	if _, err := effectiveTemplateCSS(a); err != nil {
 		return err
@@ -76,6 +86,39 @@ func (a Assets) Validate() error {
 		return err
 	}
 	return nil
+}
+
+func effectiveTemplateHTML(assets Assets) (string, error) {
+	return composeTemplateHTML(assets.HTMLLayers, assets.HTML)
+}
+
+func composeTemplateHTML(layers []HTMLLayer, legacyHTML string) (string, error) {
+	var b strings.Builder
+
+	appendPart := func(html string) {
+		trimmed := strings.TrimSpace(html)
+		if trimmed == "" {
+			return
+		}
+		if b.Len() > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(trimmed)
+		if !strings.HasSuffix(trimmed, "\n") {
+			b.WriteString("\n")
+		}
+	}
+
+	for _, layer := range layers {
+		appendPart(layer.HTML)
+	}
+	appendPart(legacyHTML)
+
+	composed := strings.TrimSpace(b.String())
+	if composed == "" {
+		return "", fmt.Errorf("template HTML must not be empty")
+	}
+	return composed, nil
 }
 
 func effectiveTemplateCSS(assets Assets) (string, error) {

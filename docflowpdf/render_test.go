@@ -162,6 +162,62 @@ func TestRender_UsesLoggerForNonFatalWarnings(t *testing.T) {
 	}
 }
 
+func TestRenderToBytes_HTMLLayers_MissingNestedContentTemplateFails(t *testing.T) {
+	assetInput := AssetInput{
+		HTML: TextSource{Text: `
+{{define "page-number"}}<div>{{.page.pageNumber}}</div>{{end}}`},
+		HTMLLayers: []HTMLLayerInput{{
+			Name: "wrapper",
+			Source: TextSource{Text: `
+{{define "doc"}}<div>{{template "default-letterhead" .}}{{template "document-content" .}}</div>{{end}}
+{{define "default-letterhead"}}<div>LH</div>{{end}}`},
+		}},
+		CSS:        TextSource{Text: "@page { size: A4; margin: 20pt; }"},
+		Flow:       JSONSource{Object: Flow{MainFlow: []Section{{Template: "doc", Transformer: "generic"}}, PageNumber: Section{Template: "page-number", Transformer: "generic"}}},
+		SourceData: JSONSource{Object: map[string]any{"Name": "Docflow"}},
+	}
+
+	_, err := RenderToBytes(RenderInput{
+		AssetInput:          &assetInput,
+		DefaultLocale:       "en",
+		DefaultCurrencyCode: "EUR",
+		FuncMapFactoryEx:    DefaultTemplateFuncMapWithContext,
+	})
+	if err == nil {
+		t.Fatalf("expected render to fail when wrapper references missing document-content template")
+	}
+	if !strings.Contains(err.Error(), `no such template "document-content"`) {
+		t.Fatalf("unexpected error for missing nested content template: %v", err)
+	}
+}
+
+func TestRenderToBytes_HTMLLayers_InvalidTemplateSyntaxFails(t *testing.T) {
+	assetInput := AssetInput{
+		HTML: TextSource{Text: `
+{{define "document-content"}}<div>Body</div>{{end}}
+{{define "page-number"}}<div>{{.page.pageNumber}}</div>{{end}}`},
+		HTMLLayers: []HTMLLayerInput{{
+			Name: "wrapper",
+			Source: TextSource{Text: `
+{{define "doc"}}<div>{{template "document-content" .}}</div>`},
+		}},
+		CSS:  TextSource{Text: "@page { size: A4; margin: 20pt; }"},
+		Flow: JSONSource{Object: Flow{MainFlow: []Section{{Template: "doc", Transformer: "generic"}}, PageNumber: Section{Template: "page-number", Transformer: "generic"}}},
+	}
+
+	_, err := RenderToBytes(RenderInput{
+		AssetInput:          &assetInput,
+		DefaultLocale:       "en",
+		DefaultCurrencyCode: "EUR",
+	})
+	if err == nil {
+		t.Fatalf("expected render to fail for invalid wrapper template syntax")
+	}
+	if !strings.Contains(err.Error(), "failed to parse template source") {
+		t.Fatalf("unexpected invalid-template error: %v", err)
+	}
+}
+
 func TestRenderToBytes_SupportsLayeredCSSWithoutLegacyCSS(t *testing.T) {
 	assets := minimalAssets()
 	assets.CSS = ""

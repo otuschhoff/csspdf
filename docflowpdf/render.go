@@ -163,10 +163,15 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 	if err != nil {
 		return nil, err
 	}
+	effectiveHTML, err := effectiveTemplateHTML(assets)
+	if err != nil {
+		return nil, err
+	}
 	effectiveCSS, err := effectiveTemplateCSS(assets)
 	if err != nil {
 		return nil, err
 	}
+	_ = effectiveHTML
 	if len(assets.CSSLayers) > 0 {
 		warnf("resolved CSS layer order (low->high): %s", formatResolvedCSSLayers(assets.CSSLayers, strings.TrimSpace(assets.CSS) != ""))
 	}
@@ -263,6 +268,9 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 		}
 		if errors.Is(err, errI18nMacroExpansion) {
 			return nil, err
+		}
+		if len(assets.HTMLLayers) > 0 {
+			return nil, fmt.Errorf("failed to render template flow with HTML layers: %w", err)
 		}
 		warnf("%v", err)
 	}
@@ -596,6 +604,7 @@ func renderMainFlow(layout *pdfrender.LayoutPDF, assets Assets, source map[strin
 		Source: source,
 		Input:  input,
 	}
+	templateSources := templateSourcesInRenderOrder(assets)
 	for _, section := range assets.Flow.MainFlow {
 		payload, err := transformSectionPayload(section, ctx)
 		if err != nil {
@@ -607,7 +616,7 @@ func renderMainFlow(layout *pdfrender.LayoutPDF, assets Assets, source map[strin
 		}
 		funcs := buildFuncMap(input, strings.TrimSpace(input.DefaultLocale), requiredString(jsonData, "locale"))
 
-		elements, err := flowrender.BuildFlowElementsWithFuncs(assets.HTML, section.Template, assets.CSS, jsonData, funcs)
+		elements, err := flowrender.BuildFlowElementsFromSourcesWithFuncs(templateSources, section.Template, assets.CSS, jsonData, funcs)
 		if err != nil {
 			return err
 		}
@@ -619,6 +628,7 @@ func renderMainFlow(layout *pdfrender.LayoutPDF, assets Assets, source map[strin
 }
 
 func pageNumberTemplateFlowElements(layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, page, total int, input RenderInput) ([]pdfdom.PDFElementNode, error) {
+	templateSources := templateSourcesInRenderOrder(assets)
 	payload, err := transformSectionPayload(assets.Flow.PageNumber, transformContext{Layout: layout, Source: source, Page: page, Total: total, Input: input})
 	if err != nil {
 		return nil, err
@@ -629,7 +639,21 @@ func pageNumberTemplateFlowElements(layout *pdfrender.LayoutPDF, assets Assets, 
 	}
 	funcs := buildFuncMap(input, layout.I18n.Locale(), requiredString(data, "locale"))
 
-	return flowrender.BuildFlowElementsWithFuncs(assets.HTML, assets.Flow.PageNumber.Template, assets.CSS, data, funcs)
+	return flowrender.BuildFlowElementsFromSourcesWithFuncs(templateSources, assets.Flow.PageNumber.Template, assets.CSS, data, funcs)
+}
+
+func templateSourcesInRenderOrder(assets Assets) []string {
+	sources := make([]string, 0, len(assets.HTMLLayers)+1)
+	for _, layer := range assets.HTMLLayers {
+		if strings.TrimSpace(layer.HTML) == "" {
+			continue
+		}
+		sources = append(sources, layer.HTML)
+	}
+	if strings.TrimSpace(assets.HTML) != "" {
+		sources = append(sources, assets.HTML)
+	}
+	return sources
 }
 
 func buildFuncMap(input RenderInput, defaultLocale, payloadLocale string) htmltmpl.FuncMap {
