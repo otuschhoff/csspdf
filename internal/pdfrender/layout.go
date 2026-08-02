@@ -108,6 +108,7 @@ func NewLayoutPDFWithOptions(defaultPage, firstPage templateload.PageSettings, i
 
 func (l *LayoutPDF) newTextEngine(pdf *gofpdf.Fpdf, i18n Translator) *PDFTextEngine {
 	engine := NewPDFTextEngine(pdf, i18n)
+	engine.SetValueFormatter(l.Formatter)
 	engine.SetImageSearchDirs(l.imageSearchDirs)
 	return engine
 }

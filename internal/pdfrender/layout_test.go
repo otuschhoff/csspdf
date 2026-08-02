@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/otuschhoff/csspdf/internal/format"
+	"github.com/otuschhoff/csspdf/internal/i18n"
 	"github.com/otuschhoff/csspdf/internal/pdfdom"
 	"github.com/otuschhoff/gofpdf"
 )
@@ -100,6 +102,32 @@ func TestH1MeasureInBox_IncludesDefaultBlockMargins(t *testing.T) {
 	}
 	if metrics.Height < 40 {
 		t.Fatalf("expected h1 height to include default block margins, got %f", metrics.Height)
+	}
+}
+
+func TestDivMeasureInBox_IncludesInlineCurrencyValue(t *testing.T) {
+	pdf := gofpdf.New("P", "pt", "A4", "")
+	pdf.AddPage()
+	i18nInst, err := i18n.New("de")
+	if err != nil {
+		t.Fatalf("failed to create i18n instance: %v", err)
+	}
+	engine := NewPDFTextEngine(pdf, i18nInst)
+	engine.SetValueFormatter(format.New(i18nInst, "EUR"))
+
+	div := pdfdom.NewElemDiv()
+	div.Add(&pdfdom.PDFTextNode{Text: "Total: "})
+	div.Add(pdfdom.NewElemCurrencyValue(22500))
+
+	metrics, err := engine.MeasureInBox(div, &pdfdom.PDFTextBox{X: 0, Y: 0, Width: 500, Fit: pdfdom.TextFitWrap})
+	if err != nil {
+		t.Fatalf("MeasureInBox returned error: %v", err)
+	}
+	if metrics.Width <= 0 {
+		t.Fatalf("expected inline currency value to contribute width, got %f", metrics.Width)
+	}
+	if metrics.LineCount == 0 {
+		t.Fatalf("expected inline currency value to contribute line content")
 	}
 }
 

@@ -89,6 +89,7 @@ func (g *FontGlyphRegistry) Snapshot() map[string][]rune {
 type PDFTextEngine struct {
 	pdf             *gofpdf.Fpdf
 	i18n            Translator
+	formatter       pdfdom.ValueFormatter
 	defaultStyle    PDFTextStyle
 	glyphs          *FontGlyphRegistry
 	imageSearchDirs []string
@@ -118,6 +119,10 @@ func (e *PDFTextEngine) SetImageSearchDirs(paths []string) {
 
 func (e *PDFTextEngine) SetDefaultStyle(style PDFTextStyle) {
 	e.defaultStyle = ensureTextStyleDefaults(style)
+}
+
+func (e *PDFTextEngine) SetValueFormatter(formatter pdfdom.ValueFormatter) {
+	e.formatter = formatter
 }
 
 func (e *PDFTextEngine) GlyphRegistry() *FontGlyphRegistry {
@@ -192,6 +197,14 @@ func (e *PDFTextEngine) layoutNode(node PDFNode, parentStyle PDFTextStyle, box P
 		}, PDFTextMetrics{}, nil
 	case *ElemImg:
 		return e.layoutImageNode(n, parentStyle, box)
+	case *pdfdom.ElemCurrencyValue:
+		return e.layoutValueNode(n.Format(e.formatter), n.ElementStyle(), parentStyle, box)
+	case *pdfdom.ElemDateValue:
+		return e.layoutValueNode(n.Format(e.formatter), n.ElementStyle(), parentStyle, box)
+	case *pdfdom.ElemDurationValue:
+		return e.layoutValueNode(n.Format(e.formatter), n.ElementStyle(), parentStyle, box)
+	case *pdfdom.ElemManDaysValue:
+		return e.layoutValueNode(n.Format(e.formatter), n.ElementStyle(), parentStyle, box)
 	case PDFElementNode:
 		if strings.TrimSpace(n.ElementType()) == "" {
 			return nil, PDFTextMetrics{}, fmt.Errorf("PDFElementNode type must be set")
@@ -202,6 +215,10 @@ func (e *PDFTextEngine) layoutNode(node PDFNode, parentStyle PDFTextStyle, box P
 	default:
 		return nil, PDFTextMetrics{}, fmt.Errorf("unsupported PDF node type")
 	}
+}
+
+func (e *PDFTextEngine) layoutValueNode(text string, nodeStyle *PDFTextStyle, parentStyle PDFTextStyle, box PDFTextBox) (*textPlan, PDFTextMetrics, error) {
+	return e.layoutTextNode(&PDFTextNode{Text: text, Style: nodeStyle}, parentStyle, box)
 }
 
 func (e *PDFTextEngine) layoutContainerNode(nodeStyle *PDFTextStyle, children []PDFNode, childLineBreaks []bool, parentStyle PDFTextStyle, box PDFTextBox) (*textPlan, PDFTextMetrics, error) {
