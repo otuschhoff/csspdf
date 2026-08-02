@@ -1,0 +1,200 @@
+# Multi-layer CSS Implementation Roadmap
+
+## Objective
+
+Enable ordered CSS layering so a reusable corporate identity style can be combined with document-specific styles, with deterministic override behavior.
+
+## Why this matters
+
+Current rendering accepts a single CSS text input and applies a simplified cascade to HTML nodes.
+That works for one profile, but scales poorly when multiple documents must share a base design system.
+
+Multi-layer CSS should let us:
+- share common brand styles across many document templates
+- keep document-level behavior local to each template
+- support customer or environment specific overrides without copying base CSS
+- maintain predictable output through explicit layer order
+
+## Current state summary
+
+Relevant current behavior:
+- Assets has a single CSS string field.
+- Rendering passes one CSS text blob into the style parser.
+- CSS is mapped into node attributes via a curated property list, not a full browser engine.
+- Inline attributes already have precedence and block later style writes for the same mapped attribute.
+
+Implication:
+- We can add multi-layer composition first, without changing the parser model.
+- Full browser-grade cascade is not required for first delivery.
+
+## Design principles from large CSS systems
+
+Patterns used by larger ecosystems that are applicable here:
+- strict layer ordering as a contract
+- low specificity in reusable foundation layers
+- targeted high-specificity selectors only in final override layers
+- stable folder conventions by responsibility
+- additive evolution: preserve backward compatibility while introducing layers
+
+Patterns that are less applicable right now:
+- full native CSS custom property resolution and advanced cascade semantics
+- full CSS @layer implementation and browser-accurate specificity tie breaks
+
+## Proposed model for this project
+
+### Layer order contract
+
+Layers are applied in array order from lowest to highest precedence.
+Later layers may override earlier ones.
+
+Recommended conceptual order:
+1. Reset or base
+2. Corporate tokens and primitives
+3. Corporate components
+4. Document template CSS
+5. Customer or runtime override CSS
+
+### API shape
+
+Introduce layered CSS while preserving current API:
+- keep existing Assets.CSS behavior unchanged
+- add optional Assets.CSSLayers []CSSLayer
+
+Proposed structures:
+- CSSLayer
+  - Name string
+  - Source TextSource
+  - Optional bool
+
+Resolution behavior:
+- if CSSLayers is empty, use existing CSS field exactly as today
+- if CSSLayers is set, resolve each layer source to text and concatenate in order
+- optionally append legacy CSS as final layer during migration if configured
+
+## Repository organization proposal
+
+Recommended style directories:
+- styles/corporate/base.css
+- styles/corporate/components.css
+- styles/documents/invoice.css
+- styles/overrides/customer-acme.css
+
+Recommended usage contract:
+- corporate layers never depend on document selectors
+- document layer can override corporate defaults
+- override layer is final and minimal
+
+## Implementation roadmap
+
+## Phase 0 - Discovery and constraints (short) - Completed 2026-08-02
+
+Status:
+- Completed. See phase deliverable note in [multi-layer-css-phase0-discovery.md](multi-layer-css-phase0-discovery.md).
+
+Phase outputs delivered:
+- parser property mapping limits are documented
+- CSS ingress call paths are documented
+- mixed-input first-release behavior is decided and locked
+
+Deliverables:
+- confirm property mapping limits in parser and document them: done
+- identify all call paths that inject CSS into rendering: done
+- decide whether to support mixed input (CSS + CSSLayers) in first release: done
+
+Locked Phase 0 decisions:
+- first release supports mixed input by composing explicit CSSLayers first and appending legacy CSS as implicit final layer
+- when both modes are used, emit one transition warning through logger
+- Phase 1 keeps existing parser and mapping semantics; only CSS composition input changes
+
+Acceptance criteria:
+- short design note added to docs: done
+- team agreement on ordering contract and compatibility behavior: done
+
+## Phase 1 - Data model and asset resolution
+
+Tasks:
+- add CSSLayer model and CSSLayers field in Assets
+- extend AssetInput to resolve ordered CSS layer sources
+- implement helper that builds effective CSS text from layers
+- preserve current single CSS behavior when no layers are provided
+
+Acceptance criteria:
+- all current tests still pass without changes to existing callers
+- new unit tests verify order-sensitive concatenation
+- missing optional layers are ignored, required layers fail clearly
+
+## Phase 2 - Render pipeline integration
+
+Tasks:
+- switch render paths to use effective CSS text builder
+- ensure both main flow and page number flow use identical resolved CSS
+- add diagnostics for resolved layer list when logger is enabled
+
+Acceptance criteria:
+- rendering output remains unchanged for legacy single CSS input
+- layered input produces deterministic overrides by order
+
+## Phase 3 - Testing strategy
+
+Add tests for:
+- strict order behavior with conflicting declarations
+- fallback to legacy CSS field
+- mixed source types (inline text, file path, fs path)
+- optional layer missing vs required layer missing
+- parser mapping behavior with layered overrides for mapped properties
+
+Acceptance criteria:
+- tests cover positive and negative paths
+- no flaky order-dependent behavior
+
+## Phase 4 - Documentation and examples
+
+Tasks:
+- add a concept doc for layer organization rules
+- add an example profile using corporate + document + override layers
+- update README usage snippets for layered CSS
+
+Acceptance criteria:
+- user can copy one example and run it end-to-end
+- docs explicitly state parser and cascade limitations
+
+## Phase 5 - Migration and rollout
+
+Migration strategy:
+- release with backward compatible defaults
+- recommend new projects adopt CSSLayers
+- provide migration helper that converts one CSS file path into one-layer config
+
+Rollout checks:
+- run focused render tests for representative templates
+- compare sample PDFs before and after enabling layers
+- measure whether duplicated CSS decreases in example profiles
+
+## Risks and mitigations
+
+Risk: users expect full browser cascade behavior.
+Mitigation: document the supported property mapping and precedence model clearly.
+
+Risk: layer ordering mistakes lead to silent style drift.
+Mitigation: add optional runtime warnings for duplicate selectors across adjacent layers.
+
+Risk: mixed legacy and layered modes become confusing.
+Mitigation: define one clear precedence rule and keep it stable across versions.
+
+## Suggested acceptance criteria for feature completion
+
+Feature is done when:
+- ordered multi-layer CSS is supported in API and asset loader
+- legacy single CSS usage remains fully compatible
+- tests cover ordering, fallback, and missing layer behavior
+- at least one example demonstrates corporate + document override layering
+- documentation provides clear usage and limitations
+
+## Estimated delivery slices
+
+A practical sequence for incremental delivery:
+1. PR 1: data model + resolver + unit tests
+2. PR 2: render integration + compatibility tests
+3. PR 3: examples + documentation + migration notes
+
+This keeps review scope manageable and lowers regression risk.
