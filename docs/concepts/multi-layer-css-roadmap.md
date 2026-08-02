@@ -140,16 +140,27 @@ Acceptance criteria:
 Verification snapshot:
 - go test ./docflowpdf ./internal/pdfrender ./internal/pdfdom: pass
 
-## Phase 2 - Render pipeline integration
+## Phase 2 - Render pipeline integration - Completed 2026-08-02
+
+Status:
+- Completed in code and tests.
+
+Phase outputs delivered:
+- render path now builds one effective CSS string from layers plus legacy CSS composition before downstream parsing/rendering
+- both main flow and page-number flow consume the same resolved CSS value
+- logger diagnostics now include resolved CSS layer order (and mixed-mode notice when legacy CSS is also provided)
 
 Tasks:
-- switch render paths to use effective CSS text builder
-- ensure both main flow and page number flow use identical resolved CSS
-- add diagnostics for resolved layer list when logger is enabled
+- switch render paths to use effective CSS text builder: done
+- ensure both main flow and page number flow use identical resolved CSS: done
+- add diagnostics for resolved layer list when logger is enabled: done
 
 Acceptance criteria:
-- rendering output remains unchanged for legacy single CSS input
-- layered input produces deterministic overrides by order
+- rendering output remains unchanged for legacy single CSS input: done
+- layered input produces deterministic overrides by order: done
+
+Verification snapshot:
+- go test ./docflowpdf ./internal/pdfrender ./internal/pdfdom: pass
 
 ## Phase 3 - Testing strategy
 

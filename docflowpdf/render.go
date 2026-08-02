@@ -150,6 +150,8 @@ func RenderToBytes(input RenderInput) ([]byte, error) {
 }
 
 func buildArtifact(input RenderInput) (*renderArtifact, error) {
+	warnf := warningFunc(input)
+
 	if input.PageWidth < 0 {
 		return nil, fmt.Errorf("pageWidth must be zero or greater")
 	}
@@ -165,8 +167,11 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(assets.CSSLayers) > 0 {
+		warnf("resolved CSS layer order (low->high): %s", formatResolvedCSSLayers(assets.CSSLayers, strings.TrimSpace(assets.CSS) != ""))
+	}
 	if len(assets.CSSLayers) > 0 && strings.TrimSpace(assets.CSS) != "" {
-		warningFunc(input)("both CSSLayers and legacy CSS are set; legacy CSS is applied as the final implicit layer")
+		warnf("both CSSLayers and legacy CSS are set; legacy CSS is applied as the final implicit layer")
 	}
 	assets.CSS = effectiveCSS
 	resolvedFontRegistrations, err := resolveFontRegistrations(input)
@@ -227,7 +232,6 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 		return nil, fmt.Errorf("failed to build source JSON payload: %w", err)
 	}
 
-	warnf := warningFunc(input)
 	l.SetWarningFunc(warnf)
 
 	var pageNumberRenderErr error
@@ -271,6 +275,27 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 		return nil, pageNumberRenderErr
 	}
 	return &renderArtifact{layout: l}, nil
+}
+
+func formatResolvedCSSLayers(layers []CSSLayer, hasLegacyCSS bool) string {
+	if len(layers) == 0 {
+		if hasLegacyCSS {
+			return "legacy-css"
+		}
+		return "none"
+	}
+	parts := make([]string, 0, len(layers)+1)
+	for idx, layer := range layers {
+		name := strings.TrimSpace(layer.Name)
+		if name == "" {
+			name = fmt.Sprintf("layer-%d", idx+1)
+		}
+		parts = append(parts, name)
+	}
+	if hasLegacyCSS {
+		parts = append(parts, "legacy-css")
+	}
+	return strings.Join(parts, " -> ")
 }
 
 func resolvePageDimensions(input RenderInput) (float64, float64, error) {

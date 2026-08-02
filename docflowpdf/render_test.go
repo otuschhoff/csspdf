@@ -210,6 +210,44 @@ func TestRenderToBytes_WarnsWhenUsingCSSLayersAndLegacyCSS(t *testing.T) {
 	}
 }
 
+func TestRenderToBytes_LogsResolvedCSSLayerOrderWhenLayersPresent(t *testing.T) {
+	assets := minimalAssets()
+	assets.CSS = ""
+	assets.CSSLayers = []CSSLayer{
+		{Name: "corporate-base", CSS: "@page { size: A4; margin: 21pt; }"},
+		{Name: "invoice-doc", CSS: "#body { color: #333; }"},
+	}
+
+	logger := &testLogger{}
+	_, err := RenderToBytes(RenderInput{
+		Assets:              assets,
+		DefaultLocale:       "en",
+		DefaultCurrencyCode: "EUR",
+		Logger:              logger,
+	})
+	if err != nil {
+		t.Fatalf("RenderToBytes returned error: %v", err)
+	}
+
+	found := false
+	for _, warning := range logger.warnings {
+		if strings.Contains(warning, "resolved CSS layer order") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected resolved CSS layer order diagnostic warning")
+	}
+}
+
+func TestFormatResolvedCSSLayers_IncludesLegacyWhenPresent(t *testing.T) {
+	got := formatResolvedCSSLayers([]CSSLayer{{Name: "base"}, {Name: "doc"}}, true)
+	if got != "base -> doc -> legacy-css" {
+		t.Fatalf("unexpected layer order format: %q", got)
+	}
+}
+
 func TestRender_UsesContextFuncFactoryNow(t *testing.T) {
 	assets := minimalAssets()
 	assets.HTML = `{{define "doc"}}<div>{{fmtNow}}</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`
