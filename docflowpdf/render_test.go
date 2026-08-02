@@ -10,9 +10,9 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/otuschhoff/csspdf/internal/pdfdom"
 	"github.com/otuschhoff/csspdf/internal/format"
 	"github.com/otuschhoff/csspdf/internal/i18n"
+	"github.com/otuschhoff/csspdf/internal/pdfdom"
 	"github.com/otuschhoff/csspdf/internal/pdfrender"
 	templateload "github.com/otuschhoff/csspdf/internal/templating"
 )

@@ -23,7 +23,7 @@ func TestComposeTemplateCSS_AppendsLegacyAfterLayers(t *testing.T) {
 
 func TestAssetsValidate_AllowsLayeredCSSWithoutLegacy(t *testing.T) {
 	assets := Assets{
-		HTML: `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`,
+		HTML:      `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`,
 		CSSLayers: []CSSLayer{{Name: "base", CSS: "@page { size: A4; }"}},
 		Flow: Flow{
 			MainFlow:   []Section{{Template: "doc", Transformer: "generic"}},

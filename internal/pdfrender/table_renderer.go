@@ -32,21 +32,21 @@ func NewTableRenderer(pdf *gofpdf.Fpdf, formatter CellFormatter) *TableRenderer 
 
 // TableDef defines a table structure.
 type TableDef struct {
-	Title        string
-	Width        float64
-	TableLayout  string
-	Padding      float64
-	RowHeightMin float64
-	MarginTop    float64
-	MarginBottom float64
-	MarginTopSet bool
+	Title           string
+	Width           float64
+	TableLayout     string
+	Padding         float64
+	RowHeightMin    float64
+	MarginTop       float64
+	MarginBottom    float64
+	MarginTopSet    bool
 	MarginBottomSet bool
-	Background   string
-	BorderColor  string
-	BorderStyle  string
-	BorderWidth  float64
-	Columns      []ColumnDef
-	Rows         []RowDef
+	Background      string
+	BorderColor     string
+	BorderStyle     string
+	BorderWidth     float64
+	Columns         []ColumnDef
+	Rows            []RowDef
 }
 
 // ColumnDef defines a column.

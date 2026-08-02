@@ -408,13 +408,29 @@ func resolveFontRegistrations(input RenderInput) ([]FontRegistration, error) {
 	if baseDir == "" {
 		return nil, nil
 	}
-	fontsDir := filepath.Join(baseDir, "fonts")
-	entries, err := os.ReadDir(fontsDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
+	fontDirs := []string{
+		filepath.Join(baseDir, "fonts"),
+		filepath.Join(baseDir, "..", "fonts"),
+		filepath.Join(baseDir, "..", "..", "fonts"),
+	}
+
+	var entries []os.DirEntry
+	selectedFontDir := ""
+	for _, candidate := range fontDirs {
+		candidate = filepath.Clean(candidate)
+		scanned, err := os.ReadDir(candidate)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to scan font directory %q: %w", candidate, err)
 		}
-		return nil, fmt.Errorf("failed to scan font directory %q: %w", fontsDir, err)
+		entries = scanned
+		selectedFontDir = candidate
+		break
+	}
+	if len(entries) == 0 {
+		return nil, nil
 	}
 
 	registrations := make([]FontRegistration, 0, len(entries))
@@ -434,7 +450,7 @@ func resolveFontRegistrations(input RenderInput) ([]FontRegistration, error) {
 		registrations = append(registrations, normalizeFontRegistration(FontRegistration{
 			Family:  family,
 			Style:   "",
-			Sources: []string{filepath.Join(fontsDir, name)},
+			Sources: []string{filepath.Join(selectedFontDir, name)},
 		}))
 	}
 	return dedupeFontRegistrations(registrations), nil

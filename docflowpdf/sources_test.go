@@ -192,7 +192,7 @@ func TestAssetInputResolveAssets_CSSLayers_OrderAndLegacyAppend(t *testing.T) {
 			{Name: "base", Source: TextSource{Text: "#a { color: red; }"}},
 			{Name: "doc", Source: TextSource{Text: "#a { color: blue; }"}},
 		},
-		CSS: TextSource{Text: "#a { color: green; }"},
+		CSS:  TextSource{Text: "#a { color: green; }"},
 		Flow: JSONSource{Text: `{"mainFlow":[{"template":"doc","transformer":"generic"}],"pageNumber":{"template":"page-number","transformer":"generic"}}`},
 	}
 
