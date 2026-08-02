@@ -268,3 +268,118 @@ func TestParseHTMLDocFlow_H1FontWeightNormalClearsDefaultBold(t *testing.T) {
 		t.Fatalf("expected CSS h1 font size 20, got %v", textNode.Style.FontSize)
 	}
 }
+
+func TestParseHTMLDocFlow_IncludesTopLevelParagraph(t *testing.T) {
+	elements, err := ParseHTMLDocFlow("<p id=\"lead\">Hello paragraph</p>", "")
+	if err != nil {
+		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
+	}
+	if len(elements) != 1 {
+		t.Fatalf("expected 1 top-level element, got %d", len(elements))
+	}
+	paragraph, ok := elements[0].(*ElemDiv)
+	if !ok {
+		t.Fatalf("expected paragraph to map to *ElemDiv, got %T", elements[0])
+	}
+	if got, ok := paragraph.Attribute("id"); !ok || got != "lead" {
+		t.Fatalf("expected paragraph id=lead, got %q (present=%v)", got, ok)
+	}
+	children := paragraph.ElementChildren()
+	if len(children) != 1 {
+		t.Fatalf("expected one paragraph child, got %d", len(children))
+	}
+	textNode, ok := children[0].(*PDFTextNode)
+	if !ok {
+		t.Fatalf("expected paragraph child to be *PDFTextNode, got %T", children[0])
+	}
+	if textNode.Text != "Hello paragraph" {
+		t.Fatalf("expected paragraph text Hello paragraph, got %q", textNode.Text)
+	}
+}
+
+func TestParseHTMLDocFlow_NestedHeadingAndParagraphInDiv(t *testing.T) {
+	html := `<div id="card"><h1>Title</h1><p>Body line</p></div>`
+	elements, err := ParseHTMLDocFlow(html, "")
+	if err != nil {
+		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
+	}
+	if len(elements) != 1 {
+		t.Fatalf("expected 1 top-level element, got %d", len(elements))
+	}
+	card, ok := elements[0].(*ElemDiv)
+	if !ok {
+		t.Fatalf("expected card to be *ElemDiv, got %T", elements[0])
+	}
+	children := card.ElementChildren()
+	if len(children) != 2 {
+		t.Fatalf("expected 2 nested children, got %d", len(children))
+	}
+	if _, ok := children[0].(*ElemH1); !ok {
+		t.Fatalf("expected first nested child to be *ElemH1, got %T", children[0])
+	}
+	paragraph, ok := children[1].(*ElemDiv)
+	if !ok {
+		t.Fatalf("expected second nested child to be *ElemDiv paragraph, got %T", children[1])
+	}
+	paraChildren := paragraph.ElementChildren()
+	if len(paraChildren) != 1 {
+		t.Fatalf("expected one paragraph child, got %d", len(paraChildren))
+	}
+	paraText, ok := paraChildren[0].(*PDFTextNode)
+	if !ok {
+		t.Fatalf("expected paragraph child to be *PDFTextNode, got %T", paraChildren[0])
+	}
+	if paraText.Text != "Body line" {
+		t.Fatalf("expected paragraph text Body line, got %q", paraText.Text)
+	}
+}
+
+func TestParseHTMLDocFlow_NestedParagraphInheritsParentStyle(t *testing.T) {
+	html := `<div id="card"><p id="body">Body line</p></div>`
+	css := `#card { color: #223; } #body { font-size: 11; }`
+
+	elements, err := ParseHTMLDocFlow(html, css)
+	if err != nil {
+		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
+	}
+	card := elements[0].(*ElemDiv)
+	paragraph := card.ElementChildren()[0].(*ElemDiv)
+	textNode, ok := paragraph.ElementChildren()[0].(*PDFTextNode)
+	if !ok {
+		t.Fatalf("expected paragraph child to be *PDFTextNode, got %T", paragraph.ElementChildren()[0])
+	}
+	if textNode.Style == nil {
+		t.Fatalf("expected inherited/merged paragraph text style to be set")
+	}
+	if textNode.Style.FontColor != "#223" {
+		t.Fatalf("expected inherited font color #223, got %q", textNode.Style.FontColor)
+	}
+	if textNode.Style.FontSize != 11 {
+		t.Fatalf("expected paragraph font size 11, got %v", textNode.Style.FontSize)
+	}
+}
+
+func TestParseHTMLDocFlow_NestedHeadingInheritsParentColor(t *testing.T) {
+	html := `<div id="card"><h2>Section Title</h2></div>`
+	css := `#card { color: #0f766e; }`
+
+	elements, err := ParseHTMLDocFlow(html, css)
+	if err != nil {
+		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
+	}
+	card := elements[0].(*ElemDiv)
+	heading, ok := card.ElementChildren()[0].(*ElemH2)
+	if !ok {
+		t.Fatalf("expected nested heading to be *ElemH2, got %T", card.ElementChildren()[0])
+	}
+	textNode, ok := heading.ElementChildren()[0].(*PDFTextNode)
+	if !ok {
+		t.Fatalf("expected heading child to be *PDFTextNode, got %T", heading.ElementChildren()[0])
+	}
+	if textNode.Style == nil {
+		t.Fatalf("expected heading text style to be set")
+	}
+	if textNode.Style.FontColor != "#0f766e" {
+		t.Fatalf("expected inherited heading color #0f766e, got %q", textNode.Style.FontColor)
+	}
+}
