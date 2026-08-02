@@ -23,18 +23,7 @@ func applyFlowDefaults(flow *Flow, htmlSource string) error {
 	}
 
 	if len(flow.MainFlow) == 0 {
-		for _, name := range names {
-			if name == pageTemplate {
-				continue
-			}
-			flow.MainFlow = append(flow.MainFlow, Section{
-				Template:    name,
-				Transformer: "generic",
-				Payload: PayloadConfig{
-					IncludeSource: true,
-				},
-			})
-		}
+		flow.MainFlow = inferDefaultMainFlow(names, pageTemplate)
 	}
 
 	if len(flow.MainFlow) == 0 {
@@ -48,6 +37,40 @@ func applyFlowDefaults(flow *Flow, htmlSource string) error {
 	}
 
 	return nil
+}
+
+func inferDefaultMainFlow(templateNames []string, pageTemplate string) []Section {
+	if hasTemplateName(templateNames, "doc") {
+		return []Section{defaultMainFlowSection("doc")}
+	}
+
+	sections := make([]Section, 0, len(templateNames))
+	for _, name := range templateNames {
+		if name == pageTemplate {
+			continue
+		}
+		sections = append(sections, defaultMainFlowSection(name))
+	}
+	return sections
+}
+
+func defaultMainFlowSection(templateName string) Section {
+	return Section{
+		Template:    templateName,
+		Transformer: "generic",
+		Payload: PayloadConfig{
+			IncludeSource: true,
+		},
+	}
+}
+
+func hasTemplateName(templateNames []string, want string) bool {
+	for _, name := range templateNames {
+		if name == want {
+			return true
+		}
+	}
+	return false
 }
 
 func extractDefinedTemplateNames(htmlSource string) []string {

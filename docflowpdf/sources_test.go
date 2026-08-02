@@ -150,10 +150,10 @@ func TestAssetInputResolveAssets_AppliesFlowDefaultsWhenEntriesOmitted(t *testin
 	if err != nil {
 		t.Fatalf("ResolveAssets returned error: %v", err)
 	}
-	if len(assets.Flow.MainFlow) != 2 {
-		t.Fatalf("expected 2 inferred mainFlow sections, got %d", len(assets.Flow.MainFlow))
+	if len(assets.Flow.MainFlow) != 1 {
+		t.Fatalf("expected 1 inferred mainFlow section, got %d", len(assets.Flow.MainFlow))
 	}
-	if assets.Flow.MainFlow[0].Template != "doc" || assets.Flow.MainFlow[1].Template != "timesheet" {
+	if assets.Flow.MainFlow[0].Template != "doc" {
 		t.Fatalf("unexpected inferred mainFlow ordering: %+v", assets.Flow.MainFlow)
 	}
 	if assets.Flow.PageNumber.Template != "page-number" {
@@ -178,11 +178,36 @@ func TestAssetInputResolveWithBaseDir_AllowsMissingFlowFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveWithBaseDir returned error with missing flow.json: %v", err)
 	}
-	if len(assets.Flow.MainFlow) != 2 {
-		t.Fatalf("expected inferred 2 mainFlow sections, got %d", len(assets.Flow.MainFlow))
+	if len(assets.Flow.MainFlow) != 1 {
+		t.Fatalf("expected inferred 1 mainFlow section, got %d", len(assets.Flow.MainFlow))
+	}
+	if assets.Flow.MainFlow[0].Template != "doc" {
+		t.Fatalf("expected inferred doc template, got %+v", assets.Flow.MainFlow)
 	}
 	if assets.Flow.PageNumber.Template != "page-number" {
 		t.Fatalf("expected inferred page-number template, got %q", assets.Flow.PageNumber.Template)
+	}
+}
+
+func TestAssetInputResolveAssets_FallsBackToLegacyInferenceWithoutDocTemplate(t *testing.T) {
+	input := AssetInput{
+		HTML: TextSource{Text: `
+{{define "summary"}}<div>summary</div>{{end}}
+{{define "appendix"}}<div>appendix</div>{{end}}
+{{define "page-number"}}<div>{{.page.pageNumber}}</div>{{end}}`},
+		CSS:  TextSource{Text: "@page { size: A4; }"},
+		Flow: JSONSource{Text: `{}`},
+	}
+
+	assets, err := input.ResolveAssets()
+	if err != nil {
+		t.Fatalf("ResolveAssets returned error: %v", err)
+	}
+	if len(assets.Flow.MainFlow) != 2 {
+		t.Fatalf("expected legacy fallback to infer 2 mainFlow sections, got %d", len(assets.Flow.MainFlow))
+	}
+	if assets.Flow.MainFlow[0].Template != "summary" || assets.Flow.MainFlow[1].Template != "appendix" {
+		t.Fatalf("unexpected legacy fallback ordering: %+v", assets.Flow.MainFlow)
 	}
 }
 
