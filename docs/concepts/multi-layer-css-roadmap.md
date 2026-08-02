@@ -188,16 +188,29 @@ Acceptance criteria:
 Verification snapshot:
 - go test ./docflowpdf ./internal/pdfrender ./internal/pdfdom: pass
 
-## Phase 4 - Documentation and examples
+## Phase 4 - Documentation and examples - Completed 2026-08-02
+
+Status:
+- Completed in documentation and runnable example assets.
+
+Phase outputs delivered:
+- added concept document for layer organization and operational rules
+- added end-to-end layered example profile with corporate/document/override CSS layers
+- updated README with layered CSS usage snippet and runnable command
+- documented parser/cascade limitations explicitly in docs and README
 
 Tasks:
-- add a concept doc for layer organization rules
-- add an example profile using corporate + document + override layers
-- update README usage snippets for layered CSS
+- add a concept doc for layer organization rules: done
+- add an example profile using corporate + document + override layers: done
+- update README usage snippets for layered CSS: done
 
 Acceptance criteria:
-- user can copy one example and run it end-to-end
-- docs explicitly state parser and cascade limitations
+- user can copy one example and run it end-to-end: done
+- docs explicitly state parser and cascade limitations: done
+
+Verification snapshot:
+- `go run ./cmd/gen-example layered -o output/layered.pdf`: pass
+- `go test ./cmd/gen-example ./docflowpdf ./internal/pdfrender ./internal/pdfdom`: pass
 
 ## Phase 5 - Migration and rollout
 

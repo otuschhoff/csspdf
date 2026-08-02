@@ -1,0 +1,11 @@
+{{define "doc"}}
+<div id="card">
+  <h1>{{.Source.Document.Title}}</h1>
+  <p id="subtitle">{{.Source.Document.Subtitle}}</p>
+  <p id="body">{{.Source.Document.Body}}</p>
+</div>
+{{end}}
+
+{{define "page-number"}}
+<div id="pn">{{.Page}} / {{.Total}}</div>
+{{end}}

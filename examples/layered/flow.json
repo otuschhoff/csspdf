@@ -1,0 +1,19 @@
+{
+  "mainFlow": [
+    {
+      "template": "doc",
+      "transformer": "generic",
+      "payload": { "includeSource": true }
+    }
+  ],
+  "pageNumber": {
+    "template": "page-number",
+    "transformer": "generic",
+    "payload": {
+      "runtime": {
+        "Page": "page.number",
+        "Total": "page.total"
+      }
+    }
+  }
+}

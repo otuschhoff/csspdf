@@ -1,0 +1,30 @@
+@page {
+  size: A4;
+  margin: 30pt 42pt 36pt 42pt;
+}
+
+#card {
+  border: 1pt solid #1f2a44;
+  padding: 16pt;
+}
+
+#card h1 {
+  font-size: 18;
+  color: #1f2a44;
+}
+
+#subtitle {
+  font-size: 11;
+  color: #42526e;
+}
+
+#body {
+  font-size: 10;
+  color: #223;
+}
+
+#pn {
+  font-size: 9;
+  color: #6b7280;
+  text-align: right;
+}

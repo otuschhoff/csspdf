@@ -146,6 +146,44 @@ JSONSource supports:
 
 This avoids mandatory caller-side JSON serde when using the library in Go apps.
 
+## Layered CSS Usage
+
+You can compose CSS in ordered layers with `AssetInput.CSSLayers`.
+Later layers override earlier mapped declarations.
+
+```go
+assetInput := docflowpdf.AssetInput{
+	HTML:       docflowpdf.TextSource{FilePath: "examples/layered/doc.html"},
+	Flow:       docflowpdf.JSONSource{FilePath: "examples/layered/flow.json"},
+	SourceData: docflowpdf.JSONSource{FilePath: "examples/layered/data.json"},
+	CSSLayers: []docflowpdf.CSSLayerInput{
+		{Name: "corporate-base", Source: docflowpdf.TextSource{FilePath: "examples/layered/styles/corporate/base.css"}},
+		{Name: "document", Source: docflowpdf.TextSource{FilePath: "examples/layered/styles/document/doc.css"}},
+		{Name: "customer-override", Source: docflowpdf.TextSource{FilePath: "examples/layered/styles/overrides/customer.css"}, Optional: true},
+	},
+}
+
+err := docflowpdf.Render("output/layered.pdf",
+	docflowpdf.WithAssetInput(assetInput),
+	docflowpdf.WithDefaultLocale("en"),
+	docflowpdf.WithDefaultCurrencyCode("EUR"),
+	docflowpdf.WithFuncMapFactoryEx(docflowpdf.DefaultTemplateFuncMapWithContext),
+)
+if err != nil {
+	log.Fatal(err)
+}
+```
+
+Run the included end-to-end layered profile example:
+
+```bash
+go run ./cmd/gen-example layered -o output/layered.pdf
+```
+
+Notes:
+- If both `CSSLayers` and legacy `Assets.CSS` are set, legacy CSS is applied as an implicit final layer.
+- csspdf uses mapped-property style application, not full browser cascade semantics.
+
 ## Flow JSON Validation
 
 Flow validation now checks:
@@ -178,6 +216,9 @@ When FuncMapFactoryEx is used, the function context receives Now, enabling deter
 
 Invoice assets and helper functions live in:
 - examples/invoice
+
+Layered CSS concept/example assets live in:
+- examples/layered
 
 This keeps docflowpdf generic while preserving an invoice profile implementation.
 

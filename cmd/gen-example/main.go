@@ -38,6 +38,8 @@ func Run(programName string, args []string) int {
 	switch args[0] {
 	case "invoice":
 		return runInvoice(programName, args[1:])
+	case "layered":
+		return runLayered(programName, args[1:])
 	case "dump-pdf":
 		return runDumpPDF(programName, args[1:])
 	case "version", "-version", "--version":
@@ -54,6 +56,49 @@ func Run(programName string, args []string) int {
 		printUsage(os.Stderr, programName)
 		return 2
 	}
+}
+
+func renderLayeredPDF(outputPath string) error {
+	baseDir, err := resolveLayeredTemplateBaseDir()
+	if err != nil {
+		return err
+	}
+
+	assetInput := docflowpdf.AssetInput{
+		HTML:       docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "doc.html")},
+		Flow:       docflowpdf.JSONSource{FilePath: filepath.Join(baseDir, "flow.json")},
+		SourceData: docflowpdf.JSONSource{FilePath: filepath.Join(baseDir, "data.json")},
+		CSSLayers: []docflowpdf.CSSLayerInput{
+			{Name: "corporate-base", Source: docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "styles", "corporate", "base.css")}},
+			{Name: "document", Source: docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "styles", "document", "doc.css")}},
+			{Name: "customer-override", Source: docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "styles", "overrides", "customer.css")}, Optional: true},
+		},
+	}
+
+	return docflowpdf.Render(
+		outputPath,
+		docflowpdf.WithAssetInput(assetInput),
+		docflowpdf.WithDefaultLocale("en"),
+		docflowpdf.WithDefaultCurrencyCode(defaultCurrencyCode),
+		docflowpdf.WithFuncMapFactoryEx(docflowpdf.DefaultTemplateFuncMapWithContext),
+	)
+}
+
+func resolveLayeredTemplateBaseDir() (string, error) {
+	candidates := []string{
+		filepath.Join("examples", "layered"),
+		filepath.Join("..", "examples", "layered"),
+		filepath.Join("..", "..", "examples", "layered"),
+	}
+
+	for _, candidate := range candidates {
+		dir := filepath.Clean(candidate)
+		if stat, err := os.Stat(dir); err == nil && stat.IsDir() {
+			return dir, nil
+		}
+	}
+
+	return "", os.ErrNotExist
 }
 
 // RenderInvoice generates the invoice PDF and writes it to opts.OutputPath.
@@ -112,6 +157,7 @@ func printUsage(w io.Writer, programName string) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Subcommands:")
 	fmt.Fprintln(w, "  invoice     Generate intro layout plus table with service line items")
+	fmt.Fprintln(w, "  layered     Generate layered-css concept example")
 	fmt.Fprintln(w, "  dump-pdf    Display PDF structure with binary streams hidden")
 	fmt.Fprintln(w, "  version     Print version and exit")
 	fmt.Fprintln(w, "")
@@ -184,6 +230,38 @@ func runDumpPDF(programName string, args []string) int {
 		return 1
 	}
 
+	return 0
+}
+
+func runLayered(programName string, args []string) int {
+	cmd := flag.NewFlagSet("layered", flag.ContinueOnError)
+	cmd.SetOutput(os.Stderr)
+
+	outputPath := cmd.String("o", "output/layered.pdf", "Output PDF path")
+
+	cmd.Usage = func() {
+		fmt.Fprintln(os.Stderr, "Usage:")
+		fmt.Fprintf(os.Stderr, "  %s layered [options]\n", programName)
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Options:")
+		cmd.PrintDefaults()
+	}
+
+	if err := cmd.Parse(args); err != nil {
+		return 2
+	}
+
+	if err := os.MkdirAll(filepath.Dir(*outputPath), 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		return 1
+	}
+
+	if err := renderLayeredPDF(*outputPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error rendering layered example PDF: %v\n", err)
+		return 1
+	}
+
+	fmt.Printf("✓ Layered example PDF generated successfully: %s\n", *outputPath)
 	return 0
 }
 
