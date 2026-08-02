@@ -408,6 +408,53 @@ func TestResolveFontRegistrations_PrefersExplicitOverrides(t *testing.T) {
 	}
 }
 
+func TestResolveFontRegistrations_DerivesStyleFromFilenameSuffix(t *testing.T) {
+	baseDir := t.TempDir()
+	fontsDir := filepath.Join(baseDir, "fonts")
+	if err := os.MkdirAll(fontsDir, 0755); err != nil {
+		t.Fatalf("failed to create fonts dir: %v", err)
+	}
+	fixtures := []string{"Helvetica-Bold.ttf", "Helvetica-Italic.ttf", "Helvetica-BoldItalic.ttf", "Futura-Medium.ttf"}
+	for _, fixture := range fixtures {
+		if err := os.WriteFile(filepath.Join(fontsDir, fixture), []byte("dummy"), 0644); err != nil {
+			t.Fatalf("failed to write fixture %q: %v", fixture, err)
+		}
+	}
+
+	regs, err := resolveFontRegistrations(RenderInput{AssetBaseDir: baseDir})
+	if err != nil {
+		t.Fatalf("resolveFontRegistrations returned error: %v", err)
+	}
+
+	got := map[string]bool{}
+	for _, reg := range regs {
+		got[reg.Family+"|"+reg.Style] = true
+	}
+
+	if !got["Helvetica|B"] {
+		t.Fatalf("expected Helvetica-Bold.ttf to normalize to Helvetica/B")
+	}
+	if !got["Helvetica|I"] {
+		t.Fatalf("expected Helvetica-Italic.ttf to normalize to Helvetica/I")
+	}
+	if !got["Helvetica|BI"] {
+		t.Fatalf("expected Helvetica-BoldItalic.ttf to normalize to Helvetica/BI")
+	}
+	if !got["Futura-Medium|"] {
+		t.Fatalf("expected Futura-Medium.ttf to remain regular style")
+	}
+}
+
+func TestNormalizeFontRegistration_NormalizesTextualStyleCodes(t *testing.T) {
+	reg := normalizeFontRegistration(FontRegistration{Family: "Body", Style: "bold italic", Sources: []string{"/tmp/body.ttf"}})
+	if reg.Family != "Body" {
+		t.Fatalf("unexpected family normalization: %q", reg.Family)
+	}
+	if reg.Style != "BI" {
+		t.Fatalf("expected style BI, got %q", reg.Style)
+	}
+}
+
 func TestResolveImageSearchDirs_UsesBaseDirImages(t *testing.T) {
 	baseDir := filepath.Join("/tmp", "profile")
 	dirs := resolveImageSearchDirs(RenderInput{AssetBaseDir: baseDir})

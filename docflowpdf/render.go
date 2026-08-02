@@ -365,7 +365,11 @@ func resolveI18nInput(locale string, input RenderInput) (*i18n.I18n, error) {
 
 func resolveFontRegistrations(input RenderInput) ([]FontRegistration, error) {
 	if len(input.FontRegistrations) > 0 {
-		return input.FontRegistrations, nil
+		out := make([]FontRegistration, 0, len(input.FontRegistrations))
+		for _, registration := range input.FontRegistrations {
+			out = append(out, normalizeFontRegistration(registration))
+		}
+		return dedupeFontRegistrations(out), nil
 	}
 	baseDir := strings.TrimSpace(input.AssetBaseDir)
 	if baseDir == "" {
@@ -394,13 +398,119 @@ func resolveFontRegistrations(input RenderInput) ([]FontRegistration, error) {
 		if family == "" {
 			continue
 		}
-		registrations = append(registrations, FontRegistration{
+		registrations = append(registrations, normalizeFontRegistration(FontRegistration{
 			Family:  family,
 			Style:   "",
 			Sources: []string{filepath.Join(fontsDir, name)},
-		})
+		}))
 	}
-	return registrations, nil
+	return dedupeFontRegistrations(registrations), nil
+}
+
+func normalizeFontRegistration(reg FontRegistration) FontRegistration {
+	family := strings.TrimSpace(reg.Family)
+	style := normalizeFontStyleCode(reg.Style)
+	if style == "" {
+		family, style = splitFamilyAndStyleSuffix(family)
+	}
+	out := reg
+	out.Family = family
+	out.Style = style
+	return out
+}
+
+func dedupeFontRegistrations(registrations []FontRegistration) []FontRegistration {
+	if len(registrations) == 0 {
+		return nil
+	}
+	out := make([]FontRegistration, 0, len(registrations))
+	seen := make(map[string]struct{}, len(registrations))
+	for _, registration := range registrations {
+		key := strings.ToLower(strings.TrimSpace(registration.Family)) + "|" + strings.ToUpper(strings.TrimSpace(registration.Style))
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, registration)
+	}
+	return out
+}
+
+func splitFamilyAndStyleSuffix(family string) (string, string) {
+	f := strings.TrimSpace(family)
+	if f == "" {
+		return "", ""
+	}
+	lower := strings.ToLower(f)
+	type suffixStyle struct {
+		suffix string
+		style  string
+	}
+	replacements := []suffixStyle{
+		{"-bold-italic", "BI"},
+		{"_bold_italic", "BI"},
+		{" bold italic", "BI"},
+		{"-bold-oblique", "BI"},
+		{"_bold_oblique", "BI"},
+		{" bold oblique", "BI"},
+		{"-bolditalic", "BI"},
+		{"_bolditalic", "BI"},
+		{" bolditalic", "BI"},
+		{"-boldoblique", "BI"},
+		{"_boldoblique", "BI"},
+		{" boldoblique", "BI"},
+		{"-italic", "I"},
+		{"_italic", "I"},
+		{" italic", "I"},
+		{"-oblique", "I"},
+		{"_oblique", "I"},
+		{" oblique", "I"},
+		{"-bold", "B"},
+		{"_bold", "B"},
+		{" bold", "B"},
+		{"-regular", ""},
+		{"_regular", ""},
+		{" regular", ""},
+		{"-normal", ""},
+		{"_normal", ""},
+		{" normal", ""},
+		{"-roman", ""},
+		{"_roman", ""},
+		{" roman", ""},
+	}
+	for _, replacement := range replacements {
+		suffix := replacement.suffix
+		style := replacement.style
+		if strings.HasSuffix(lower, suffix) {
+			base := strings.TrimSpace(f[:len(f)-len(suffix)])
+			if base == "" {
+				return f, ""
+			}
+			return base, style
+		}
+	}
+	return f, ""
+}
+
+func normalizeFontStyleCode(style string) string {
+	s := strings.ToUpper(strings.TrimSpace(style))
+	s = strings.ReplaceAll(s, "-", "")
+	s = strings.ReplaceAll(s, "_", "")
+	s = strings.ReplaceAll(s, " ", "")
+	switch s {
+	case "IB":
+		return "BI"
+	case "", "B", "I", "BI":
+		return s
+	case "BOLD":
+		return "B"
+	case "ITALIC", "OBLIQUE":
+		return "I"
+	case "BOLDITALIC", "ITALICBOLD", "BOLDOBLIQUE", "OBLIQUEBOLD":
+		return "BI"
+	default:
+		return s
+	}
 }
 
 func resolveImageSearchDirs(input RenderInput) []string {

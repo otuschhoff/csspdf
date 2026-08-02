@@ -511,12 +511,12 @@ func (tr *TableRenderer) measureNoWrapCellRequiredWidth(cell *CellDef, defaultPa
 }
 
 func (tr *TableRenderer) maxLineWidthNoWrap(text string) float64 {
-	encoded := tableEncodePDFTextLatin1(text)
-	if encoded == "" {
+	normalized := tr.normalizeTableTextForCurrentFont(text)
+	if normalized == "" {
 		return 0
 	}
 	maxWidth := 0.0
-	for _, line := range strings.Split(encoded, "\n") {
+	for _, line := range strings.Split(normalized, "\n") {
 		if w := tr.pdf.GetStringWidth(line); w > maxWidth {
 			maxWidth = w
 		}
@@ -598,14 +598,14 @@ func (tr *TableRenderer) measureCellHeight(cell *CellDef, width, padding float64
 }
 
 func (tr *TableRenderer) wrapTextLines(text string, width float64, noWrap bool) []string {
-	encoded := tableEncodePDFTextLatin1(text)
-	if encoded == "" {
+	normalized := tr.normalizeTableTextForCurrentFont(text)
+	if normalized == "" {
 		return nil
 	}
 	if width <= 0 {
-		return []string{encoded}
+		return []string{normalized}
 	}
-	segments := strings.Split(encoded, "\n")
+	segments := strings.Split(normalized, "\n")
 	out := make([]string, 0, len(segments))
 	for _, seg := range segments {
 		if seg == "" {
@@ -614,6 +614,15 @@ func (tr *TableRenderer) wrapTextLines(text string, width float64, noWrap bool) 
 		}
 		if noWrap {
 			out = append(out, seg)
+			continue
+		}
+		if tr.pdf.CurrentFontIsUTF8() {
+			wrapped := tr.pdf.SplitText(seg, width)
+			if len(wrapped) == 0 {
+				out = append(out, "")
+				continue
+			}
+			out = append(out, wrapped...)
 			continue
 		}
 		wrapped := tr.pdf.SplitLines([]byte(seg), width)
@@ -626,6 +635,16 @@ func (tr *TableRenderer) wrapTextLines(text string, width float64, noWrap bool) 
 		}
 	}
 	return out
+}
+
+func (tr *TableRenderer) normalizeTableTextForCurrentFont(text string) string {
+	if text == "" {
+		return ""
+	}
+	if tr.pdf.CurrentFontIsUTF8() {
+		return text
+	}
+	return tableEncodePDFTextLatin1(text)
 }
 
 func (tr *TableRenderer) renderCell(cell *CellDef, x, y, width, height, padding float64) {

@@ -5,14 +5,16 @@ go 1.25.0
 require (
 	github.com/andybalholm/cascadia v1.3.3
 	github.com/aymerick/douceur v0.2.0
+	github.com/goodsign/monday v1.0.2
 	github.com/otuschhoff/gofpdf v1.4.2
 	golang.org/x/net v0.52.0
 )
 
 require (
-	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
+	github.com/jedib0t/go-pretty/v6 v6.7.8 // indirect
 	github.com/phpdave11/gofpdf v1.4.3 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 )
 
 require (
@@ -25,8 +27,8 @@ require (
 	github.com/pdfcpu/pdfcpu v0.11.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	golang.org/x/crypto v0.49.0 // indirect
-	golang.org/x/image v0.32.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/image v0.43.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 

@@ -377,12 +377,14 @@ func (e *PDFTextEngine) layoutElementNode(node PDFElementNode, parentStyle PDFTe
 
 func (e *PDFTextEngine) layoutTextNode(node *PDFTextNode, parentStyle PDFTextStyle, box PDFTextBox) (*textPlan, PDFTextMetrics, error) {
 	style := parentStyle.Merge(node.Style)
+	e.applyStyle(style)
 
 	resolvedText := e.resolveText(node)
-	encodedText := encodePDFTextLatin1(resolvedText)
+	encodedText := resolvedText
+	if !e.pdf.CurrentFontIsUTF8() {
+		encodedText = encodePDFTextLatin1(resolvedText)
+	}
 	e.glyphs.Record(style.FontFace, encodedText)
-
-	e.applyStyle(style)
 
 	lines, textWidth, wasClipped := e.layoutTextLines(encodedText, style, box)
 	lineHeight := style.FontSize * style.LineHeight
@@ -590,6 +592,16 @@ func (e *PDFTextEngine) layoutTextLines(text string, style PDFTextStyle, box PDF
 		}
 
 		if box.Width > 0 && box.Fit == TextFitWrap {
+			if e.pdf.CurrentFontIsUTF8() {
+				wrapped := e.pdf.SplitText(seg, box.Width)
+				if len(wrapped) == 0 {
+					lines = append(lines, "")
+					continue
+				}
+				lines = append(lines, wrapped...)
+				continue
+			}
+
 			wrapped := e.pdf.SplitLines([]byte(seg), box.Width)
 			if len(wrapped) == 0 {
 				lines = append(lines, "")
