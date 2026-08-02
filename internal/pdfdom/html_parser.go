@@ -626,7 +626,13 @@ func mergeDeclaredTextStyles(base, override *PDFTextStyle) *PDFTextStyle {
 
 	merged := PDFTextStyle{}
 	if base != nil {
-		merged = *base
+		merged.FontFace = base.FontFace
+		merged.FontStyle = base.FontStyle
+		merged.FontStyleSet = base.FontStyleSet
+		merged.FontSize = base.FontSize
+		merged.FontColor = base.FontColor
+		merged.Align = base.Align
+		merged.LineHeight = base.LineHeight
 	}
 	if override != nil {
 		if override.FontFace != "" {

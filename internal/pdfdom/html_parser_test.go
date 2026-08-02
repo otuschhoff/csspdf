@@ -336,7 +336,7 @@ func TestParseHTMLDocFlow_NestedHeadingAndParagraphInDiv(t *testing.T) {
 
 func TestParseHTMLDocFlow_NestedParagraphInheritsParentStyle(t *testing.T) {
 	html := `<div id="card"><p id="body">Body line</p></div>`
-	css := `#card { color: #223; } #body { font-size: 11; }`
+	css := `#card { color: #223; background-color: #f3f3f3; border: 1px solid #c5c5c5; } #body { font-size: 11; }`
 
 	elements, err := ParseHTMLDocFlow(html, css)
 	if err != nil {
@@ -344,6 +344,15 @@ func TestParseHTMLDocFlow_NestedParagraphInheritsParentStyle(t *testing.T) {
 	}
 	card := elements[0].(*ElemDiv)
 	paragraph := card.ElementChildren()[0].(*ElemDiv)
+	paragraphStyle := paragraph.ElementStyle()
+	if paragraphStyle != nil {
+		if paragraphStyle.BorderStyle != "" || paragraphStyle.BorderWidth != 0 || paragraphStyle.BorderColor != "" {
+			t.Fatalf("expected paragraph to not inherit border decoration, got style=%+v", paragraphStyle)
+		}
+		if paragraphStyle.BackgroundColor != "" {
+			t.Fatalf("expected paragraph to not inherit background decoration, got style=%+v", paragraphStyle)
+		}
+	}
 	textNode, ok := paragraph.ElementChildren()[0].(*PDFTextNode)
 	if !ok {
 		t.Fatalf("expected paragraph child to be *PDFTextNode, got %T", paragraph.ElementChildren()[0])
@@ -356,6 +365,12 @@ func TestParseHTMLDocFlow_NestedParagraphInheritsParentStyle(t *testing.T) {
 	}
 	if textNode.Style.FontSize != 11 {
 		t.Fatalf("expected paragraph font size 11, got %v", textNode.Style.FontSize)
+	}
+	if textNode.Style.BorderStyle != "" || textNode.Style.BorderWidth != 0 || textNode.Style.BorderColor != "" {
+		t.Fatalf("expected text node to not inherit border decoration, got style=%+v", textNode.Style)
+	}
+	if textNode.Style.BackgroundColor != "" {
+		t.Fatalf("expected text node to not inherit background decoration, got style=%+v", textNode.Style)
 	}
 }
 
