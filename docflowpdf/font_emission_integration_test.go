@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/example/pdfa3-go/pkg/pdfa3"
+	"github.com/otuschhoff/pdfa3-go/pkg/pdfa3"
 )
 
 func testUTF8FontAssets() Assets {
