@@ -276,6 +276,47 @@ func TestAssetInputResolveWithBaseDir_CSSLayersDoNotRequireDocCSS(t *testing.T) 
 	}
 }
 
+func TestAssetInputResolveAssets_CSSLayers_MixedSourceTypes(t *testing.T) {
+	tempDir := t.TempDir()
+	fileLayerPath := filepath.Join(tempDir, "file-layer.css")
+	writeFile(t, fileLayerPath, "#x { font-size: 11; }")
+
+	fsys := fstest.MapFS{
+		"fs-layer.css": &fstest.MapFile{Data: []byte("#x { font-size: 12; }")},
+	}
+
+	input := AssetInput{
+		HTML: TextSource{Text: `{{define "doc"}}<div id="x">ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`},
+		CSSLayers: []CSSLayerInput{
+			{Name: "inline", Source: TextSource{Text: "#x { font-size: 10; }"}},
+			{Name: "file", Source: TextSource{FilePath: fileLayerPath}},
+			{Name: "fs", Source: TextSource{FS: fsys, FSPath: "fs-layer.css"}},
+		},
+		Flow: JSONSource{Text: `{"mainFlow":[{"template":"doc","transformer":"generic"}],"pageNumber":{"template":"page-number","transformer":"generic"}}`},
+	}
+
+	assets, err := input.ResolveAssets()
+	if err != nil {
+		t.Fatalf("ResolveAssets returned error: %v", err)
+	}
+	if len(assets.CSSLayers) != 3 {
+		t.Fatalf("expected three resolved layers, got %d", len(assets.CSSLayers))
+	}
+	css, err := effectiveTemplateCSS(assets)
+	if err != nil {
+		t.Fatalf("effectiveTemplateCSS returned error: %v", err)
+	}
+	idx10 := strings.Index(css, "font-size: 10")
+	idx11 := strings.Index(css, "font-size: 11")
+	idx12 := strings.Index(css, "font-size: 12")
+	if idx10 < 0 || idx11 < 0 || idx12 < 0 {
+		t.Fatalf("expected composed css to include all mixed-source declarations")
+	}
+	if !(idx10 < idx11 && idx11 < idx12) {
+		t.Fatalf("expected composed css order inline -> file -> fs; got %q", css)
+	}
+}
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {

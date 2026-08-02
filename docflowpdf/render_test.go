@@ -10,6 +10,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/otuschhoff/csspdf/internal/pdfdom"
 	"github.com/otuschhoff/csspdf/internal/format"
 	"github.com/otuschhoff/csspdf/internal/i18n"
 	"github.com/otuschhoff/csspdf/internal/pdfrender"
@@ -245,6 +246,48 @@ func TestFormatResolvedCSSLayers_IncludesLegacyWhenPresent(t *testing.T) {
 	got := formatResolvedCSSLayers([]CSSLayer{{Name: "base"}, {Name: "doc"}}, true)
 	if got != "base -> doc -> legacy-css" {
 		t.Fatalf("unexpected layer order format: %q", got)
+	}
+}
+
+func TestLayeredCSS_ParserMappedPropertyOverrideOrder(t *testing.T) {
+	assets := Assets{
+		HTML: `{{define "doc"}}<div id="x">Hello</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`,
+		CSSLayers: []CSSLayer{
+			{Name: "base", CSS: "#x { font-size: 10; color: #111111; }"},
+			{Name: "doc", CSS: "#x { font-size: 12; color: #222222; }"},
+		},
+		CSS: "#x { font-size: 14; color: #333333; }",
+		Flow: Flow{
+			MainFlow:   []Section{{Template: "doc", Transformer: "generic"}},
+			PageNumber: Section{Template: "page-number", Transformer: "generic"},
+		},
+	}
+
+	effectiveCSS, err := effectiveTemplateCSS(assets)
+	if err != nil {
+		t.Fatalf("effectiveTemplateCSS returned error: %v", err)
+	}
+
+	elements, err := pdfdom.ParseHTMLDocFlow(`<div id="x">Hello</div>`, effectiveCSS)
+	if err != nil {
+		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
+	}
+	if len(elements) != 1 {
+		t.Fatalf("expected one root element, got %d", len(elements))
+	}
+	fontSize, ok := elements[0].Attribute("font-size")
+	if !ok {
+		t.Fatalf("expected font-size attribute to be mapped")
+	}
+	fontColor, ok := elements[0].Attribute("font-color")
+	if !ok {
+		t.Fatalf("expected font-color attribute to be mapped")
+	}
+	if fontSize != "14" {
+		t.Fatalf("expected final font-size override to be 14, got %q", fontSize)
+	}
+	if fontColor != "#333333" {
+		t.Fatalf("expected final font-color override to be #333333, got %q", fontColor)
 	}
 }
 

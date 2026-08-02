@@ -162,18 +162,31 @@ Acceptance criteria:
 Verification snapshot:
 - go test ./docflowpdf ./internal/pdfrender ./internal/pdfdom: pass
 
-## Phase 3 - Testing strategy
+## Phase 3 - Testing strategy - Completed 2026-08-02
+
+Status:
+- Completed in code and tests.
+
+Phase outputs delivered:
+- strict order behavior with conflicting declarations is covered
+- explicit fallback to legacy CSS field is covered
+- mixed source types for layer input (inline text, file path, fs path) are covered
+- optional vs required missing layer behavior is covered
+- parser mapping behavior under layered overrides is covered for mapped properties
 
 Add tests for:
-- strict order behavior with conflicting declarations
-- fallback to legacy CSS field
-- mixed source types (inline text, file path, fs path)
-- optional layer missing vs required layer missing
-- parser mapping behavior with layered overrides for mapped properties
+- strict order behavior with conflicting declarations: done
+- fallback to legacy CSS field: done
+- mixed source types (inline text, file path, fs path): done
+- optional layer missing vs required layer missing: done
+- parser mapping behavior with layered overrides for mapped properties: done
 
 Acceptance criteria:
-- tests cover positive and negative paths
-- no flaky order-dependent behavior
+- tests cover positive and negative paths: done
+- no flaky order-dependent behavior: done
+
+Verification snapshot:
+- go test ./docflowpdf ./internal/pdfrender ./internal/pdfdom: pass
 
 ## Phase 4 - Documentation and examples
 

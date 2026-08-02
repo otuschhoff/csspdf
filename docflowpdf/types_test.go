@@ -35,6 +35,17 @@ func TestAssetsValidate_AllowsLayeredCSSWithoutLegacy(t *testing.T) {
 	}
 }
 
+func TestEffectiveTemplateCSS_FallsBackToLegacyCSSWhenNoLayers(t *testing.T) {
+	assets := Assets{CSS: "@page { size: A4; margin: 20pt; }"}
+	css, err := effectiveTemplateCSS(assets)
+	if err != nil {
+		t.Fatalf("effectiveTemplateCSS returned error: %v", err)
+	}
+	if !strings.Contains(css, "@page") {
+		t.Fatalf("expected effective css to contain legacy css content")
+	}
+}
+
 func containsInOrder(haystack string, needles ...string) bool {
 	start := 0
 	for _, needle := range needles {
