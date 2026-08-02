@@ -567,7 +567,10 @@ func resolveImageSearchDirs(input RenderInput) []string {
 	if baseDir == "" {
 		return nil
 	}
-	return []string{filepath.Join(baseDir, "images")}
+	return []string{
+		filepath.Join(baseDir, "images"),
+		filepath.Join(baseDir, "..", "images"),
+	}
 }
 
 func toLayoutFontRegistrations(registrations []FontRegistration) []pdfrender.FontRegistration {

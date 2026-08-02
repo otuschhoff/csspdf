@@ -588,12 +588,17 @@ func TestNormalizeFontRegistration_NormalizesTextualStyleCodes(t *testing.T) {
 func TestResolveImageSearchDirs_UsesBaseDirImages(t *testing.T) {
 	baseDir := filepath.Join("/tmp", "profile")
 	dirs := resolveImageSearchDirs(RenderInput{AssetBaseDir: baseDir})
-	if len(dirs) != 1 {
-		t.Fatalf("expected one image search dir, got %d", len(dirs))
+	if len(dirs) != 2 {
+		t.Fatalf("expected two image search dirs, got %d", len(dirs))
 	}
-	want := filepath.Join(baseDir, "images")
-	if dirs[0] != want {
-		t.Fatalf("unexpected image search dir: got %q want %q", dirs[0], want)
+	want := []string{
+		filepath.Join(baseDir, "images"),
+		filepath.Join(baseDir, "..", "images"),
+	}
+	for idx, got := range dirs {
+		if got != want[idx] {
+			t.Fatalf("unexpected image search dir at index %d: got %q want %q", idx, got, want[idx])
+		}
 	}
 }
 
