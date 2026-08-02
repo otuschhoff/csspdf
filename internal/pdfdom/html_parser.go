@@ -1,6 +1,7 @@
 package pdfdom
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -68,7 +69,7 @@ func ParseHTMLSectionElem(htmlStr, cssStyle string) (*ElemDiv, error) {
 		return nil, fmt.Errorf("no <div id=\"intro\"> element found in HTML fragment")
 	}
 
-	return htmlBuildSectionDiv(introNode), nil
+	return htmlBuildSectionDiv(introNode)
 }
 
 // ParseHTMLIntroElem parses an HTML fragment containing a
@@ -99,11 +100,23 @@ func ParseHTMLDocFlow(htmlStr, cssStyle string) ([]PDFElementNode, error) {
 	for _, child := range tmpl.ElemChildren(body) {
 		switch child.Data {
 		case "div":
-			out = append(out, htmlBuildSectionDiv(child))
+			div, err := htmlBuildSectionDiv(child)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, div)
 		case "footer":
-			out = append(out, htmlBuildSectionDiv(child))
+			div, err := htmlBuildSectionDiv(child)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, div)
 		case "p":
-			out = append(out, htmlBuildParagraph(child, nil))
+			paragraph, err := htmlBuildParagraph(child, nil)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, paragraph)
 		case "h1", "h2", "h3":
 			heading, err := htmlBuildHeadingWithInherited(child, nil)
 			if err != nil {
@@ -180,11 +193,11 @@ func htmlNormaliseAttrKey(key string) string {
 	return key
 }
 
-func htmlBuildSectionDiv(n *html.Node) *ElemDiv {
+func htmlBuildSectionDiv(n *html.Node) (*ElemDiv, error) {
 	return htmlBuildSectionDivWithInherited(n, nil)
 }
 
-func htmlBuildSectionDivWithInherited(n *html.Node, inherited *PDFTextStyle) *ElemDiv {
+func htmlBuildSectionDivWithInherited(n *html.Node, inherited *PDFTextStyle) (*ElemDiv, error) {
 	div := NewElemDiv()
 	htmlSetAttrs(div, n.Attr)
 	baseStyle := mergeDeclaredTextStyles(inherited, htmlBuildSpan(n).Style)
@@ -204,32 +217,66 @@ func htmlBuildSectionDivWithInherited(n *html.Node, inherited *PDFTextStyle) *El
 		switch child.Data {
 		case "span":
 			div.Add(htmlBuildSpanWithInherited(child, baseStyle))
+		case "currency-value":
+			elem, err := htmlBuildCurrencyValue(child)
+			if err != nil {
+				return nil, wrapHTMLNodeError(child, err)
+			}
+			div.Add(elem)
+		case "date-value":
+			elem, err := htmlBuildDateValue(child)
+			if err != nil {
+				return nil, wrapHTMLNodeError(child, err)
+			}
+			div.Add(elem)
+		case "duration-value":
+			elem, err := htmlBuildDurationValue(child)
+			if err != nil {
+				return nil, wrapHTMLNodeError(child, err)
+			}
+			div.Add(elem)
+		case "man-days-value":
+			elem, err := htmlBuildManDaysValue(child)
+			if err != nil {
+				return nil, wrapHTMLNodeError(child, err)
+			}
+			div.Add(elem)
 		case "img":
 			div.Add(htmlBuildImage(child))
 		case "use-template":
 			div.Add(htmlBuildUseTemplate(child))
 		case "div":
-			div.AddLine(htmlBuildSectionDivWithInherited(child, baseStyle))
+			nested, err := htmlBuildSectionDivWithInherited(child, baseStyle)
+			if err != nil {
+				return nil, err
+			}
+			div.AddLine(nested)
 		case "p":
-			div.AddLine(htmlBuildParagraph(child, baseStyle))
+			paragraph, err := htmlBuildParagraph(child, baseStyle)
+			if err != nil {
+				return nil, err
+			}
+			div.AddLine(paragraph)
 		case "h1", "h2", "h3":
 			heading, err := htmlBuildHeadingWithInherited(child, baseStyle)
-			if err == nil {
-				div.AddLine(heading)
+			if err != nil {
+				return nil, err
 			}
+			div.AddLine(heading)
 		case "br":
 			div.Add(NewElemBr())
 		}
 	}
 
-	return div
+	return div, nil
 }
 
 // htmlBuildIntroDiv builds a generic section div from an HTML node.
 //
 // Deprecated: use htmlBuildSectionDiv.
 func htmlBuildIntroDiv(n *html.Node) *ElemDiv {
-	return htmlBuildSectionDiv(n)
+	div, _ := htmlBuildSectionDiv(n)
+	return div
 }
 
 func htmlBuildImage(n *html.Node) *ElemImg {
@@ -252,11 +299,20 @@ func htmlBuildCreateTemplate(n *html.Node) *ElemCreateTemplate {
 	for _, child := range tmpl.ElemChildren(n) {
 		switch child.Data {
 		case "div":
-			elem.Add(htmlBuildSectionDiv(child))
+			div, err := htmlBuildSectionDiv(child)
+			if err == nil {
+				elem.Add(div)
+			}
 		case "footer":
-			elem.Add(htmlBuildSectionDiv(child))
+			div, err := htmlBuildSectionDiv(child)
+			if err == nil {
+				elem.Add(div)
+			}
 		case "p":
-			elem.Add(htmlBuildParagraph(child, nil))
+			paragraph, err := htmlBuildParagraph(child, nil)
+			if err == nil {
+				elem.Add(paragraph)
+			}
 		case "h1", "h2", "h3":
 			if heading, err := htmlBuildHeadingWithInherited(child, nil); err == nil {
 				elem.Add(heading)
@@ -309,6 +365,34 @@ func htmlBuildHeadingWithInherited(n *html.Node, inherited *PDFTextStyle) (PDFEl
 			case "span":
 				heading.Add(htmlBuildSpanWithInherited(child, baseStyle))
 				hasInline = true
+			case "currency-value":
+				elem, err := htmlBuildCurrencyValue(child)
+				if err != nil {
+					return nil, err
+				}
+				heading.Add(elem)
+				hasInline = true
+			case "date-value":
+				elem, err := htmlBuildDateValue(child)
+				if err != nil {
+					return nil, err
+				}
+				heading.Add(elem)
+				hasInline = true
+			case "duration-value":
+				elem, err := htmlBuildDurationValue(child)
+				if err != nil {
+					return nil, err
+				}
+				heading.Add(elem)
+				hasInline = true
+			case "man-days-value":
+				elem, err := htmlBuildManDaysValue(child)
+				if err != nil {
+					return nil, err
+				}
+				heading.Add(elem)
+				hasInline = true
 			case "img":
 				heading.Add(htmlBuildImage(child))
 				hasInline = true
@@ -328,7 +412,7 @@ func htmlBuildHeadingWithInherited(n *html.Node, inherited *PDFTextStyle) (PDFEl
 	return heading, nil
 }
 
-func htmlBuildParagraph(n *html.Node, inherited *PDFTextStyle) *ElemDiv {
+func htmlBuildParagraph(n *html.Node, inherited *PDFTextStyle) (*ElemDiv, error) {
 	paragraph := NewElemDiv()
 	htmlSetAttrs(paragraph, n.Attr)
 
@@ -344,6 +428,30 @@ func htmlBuildParagraph(n *html.Node, inherited *PDFTextStyle) *ElemDiv {
 			switch child.Data {
 			case "span":
 				paragraph.Add(htmlBuildSpanWithInherited(child, baseStyle))
+			case "currency-value":
+				elem, err := htmlBuildCurrencyValue(child)
+				if err != nil {
+					return nil, wrapHTMLNodeError(child, err)
+				}
+				paragraph.Add(elem)
+			case "date-value":
+				elem, err := htmlBuildDateValue(child)
+				if err != nil {
+					return nil, wrapHTMLNodeError(child, err)
+				}
+				paragraph.Add(elem)
+			case "duration-value":
+				elem, err := htmlBuildDurationValue(child)
+				if err != nil {
+					return nil, wrapHTMLNodeError(child, err)
+				}
+				paragraph.Add(elem)
+			case "man-days-value":
+				elem, err := htmlBuildManDaysValue(child)
+				if err != nil {
+					return nil, wrapHTMLNodeError(child, err)
+				}
+				paragraph.Add(elem)
 			case "img":
 				paragraph.Add(htmlBuildImage(child))
 			case "br":
@@ -361,7 +469,26 @@ func htmlBuildParagraph(n *html.Node, inherited *PDFTextStyle) *ElemDiv {
 		}
 	}
 
-	return paragraph
+	return paragraph, nil
+}
+
+func wrapHTMLNodeError(n *html.Node, err error) error {
+	return fmt.Errorf("%w in %s", err, htmlNodeSnippet(n))
+}
+
+func htmlNodeSnippet(n *html.Node) string {
+	if n == nil {
+		return "<unknown-node>"
+	}
+	var buf bytes.Buffer
+	if err := html.Render(&buf, n); err != nil {
+		return fmt.Sprintf("<%s>", n.Data)
+	}
+	snippet := strings.TrimSpace(buf.String())
+	if len(snippet) > 160 {
+		snippet = snippet[:157] + "..."
+	}
+	return snippet
 }
 
 // ─── table ───────────────────────────────────────────────────────────────────

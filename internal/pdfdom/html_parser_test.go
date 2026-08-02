@@ -1,6 +1,7 @@
 package pdfdom
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -396,5 +397,48 @@ func TestParseHTMLDocFlow_NestedHeadingInheritsParentColor(t *testing.T) {
 	}
 	if textNode.Style.FontColor != "#0f766e" {
 		t.Fatalf("expected inherited heading color #0f766e, got %q", textNode.Style.FontColor)
+	}
+}
+
+func TestParseHTMLDocFlow_IncludesInlineCurrencyValueInDiv(t *testing.T) {
+	html := `<div><span>Total:</span> <currency-value v="22500"></currency-value></div>`
+	elements, err := ParseHTMLDocFlow(html, "")
+	if err != nil {
+		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
+	}
+	if len(elements) != 1 {
+		t.Fatalf("expected 1 top-level element, got %d", len(elements))
+	}
+	div, ok := elements[0].(*ElemDiv)
+	if !ok {
+		t.Fatalf("expected first element to be *ElemDiv, got %T", elements[0])
+	}
+	children := div.ElementChildren()
+	if len(children) != 2 {
+		t.Fatalf("expected 2 nested children, got %d", len(children))
+	}
+	if _, ok := children[0].(*PDFTextNode); !ok {
+		t.Fatalf("expected first child to be *PDFTextNode, got %T", children[0])
+	}
+	currency, ok := children[1].(*ElemCurrencyValue)
+	if !ok {
+		t.Fatalf("expected second child to be *ElemCurrencyValue, got %T", children[1])
+	}
+	if currency.Value != 22500 {
+		t.Fatalf("expected currency value 22500, got %v", currency.Value)
+	}
+}
+
+func TestParseHTMLDocFlow_InlineCurrencyValueErrorIncludesSnippet(t *testing.T) {
+	_, err := ParseHTMLDocFlow(`<div>Total: <currency-value v="abc"></currency-value></div>`, "")
+	if err == nil {
+		t.Fatalf("expected parse error for invalid inline currency-value")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, `<currency-value> invalid v="abc"`) {
+		t.Fatalf("expected error to include invalid currency-value details, got %q", msg)
+	}
+	if !strings.Contains(msg, `<currency-value v="abc"></currency-value>`) {
+		t.Fatalf("expected error to include offending HTML snippet, got %q", msg)
 	}
 }
