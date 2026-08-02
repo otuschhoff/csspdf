@@ -8,4 +8,9 @@
 //   - optional Go template functions
 //
 // The package supports file, writer, and in-memory byte outputs.
+//
+// For migration from legacy single-CSS inputs to layered CSS, helper
+// functions are provided:
+//   - LegacyCSSSourceAsLayer
+//   - MigrateAssetInputLegacyCSSToSingleLayer
 package docflowpdf

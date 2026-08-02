@@ -317,6 +317,57 @@ func TestAssetInputResolveAssets_CSSLayers_MixedSourceTypes(t *testing.T) {
 	}
 }
 
+func TestLegacyCSSSourceAsLayer_DefaultName(t *testing.T) {
+	layer := LegacyCSSSourceAsLayer(TextSource{FilePath: "/tmp/doc.css"}, "")
+	if layer.Name != "legacy-css" {
+		t.Fatalf("expected default layer name legacy-css, got %q", layer.Name)
+	}
+	if layer.Source.FilePath != "/tmp/doc.css" {
+		t.Fatalf("expected source filepath to be preserved")
+	}
+}
+
+func TestMigrateAssetInputLegacyCSSToSingleLayer_ConvertsAndPreservesOrder(t *testing.T) {
+	input := AssetInput{
+		HTML: TextSource{Text: `{{define "doc"}}<div id="x">ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`},
+		CSS:  TextSource{Text: "#x { color: green; }"},
+		CSSLayers: []CSSLayerInput{
+			{Name: "base", Source: TextSource{Text: "#x { color: red; }"}},
+			{Name: "doc", Source: TextSource{Text: "#x { color: blue; }"}},
+		},
+		Flow: JSONSource{Text: `{"mainFlow":[{"template":"doc","transformer":"generic"}],"pageNumber":{"template":"page-number","transformer":"generic"}}`},
+	}
+
+	migrated := MigrateAssetInputLegacyCSSToSingleLayer(input, "legacy")
+	if migrated.CSS.IsSet() {
+		t.Fatalf("expected legacy CSS field to be cleared after migration")
+	}
+	if len(migrated.CSSLayers) != 3 {
+		t.Fatalf("expected 3 layers after migration, got %d", len(migrated.CSSLayers))
+	}
+	if migrated.CSSLayers[0].Name != "legacy" {
+		t.Fatalf("expected migrated layer to be prepended, got first layer %q", migrated.CSSLayers[0].Name)
+	}
+
+	assets, err := migrated.ResolveAssets()
+	if err != nil {
+		t.Fatalf("ResolveAssets returned error after migration: %v", err)
+	}
+	css, err := effectiveTemplateCSS(assets)
+	if err != nil {
+		t.Fatalf("effectiveTemplateCSS returned error after migration: %v", err)
+	}
+	idxLegacy := strings.Index(css, "color: green")
+	idxBase := strings.Index(css, "color: red")
+	idxDoc := strings.Index(css, "color: blue")
+	if idxLegacy < 0 || idxBase < 0 || idxDoc < 0 {
+		t.Fatalf("expected migrated composed css to contain all declarations")
+	}
+	if !(idxLegacy < idxBase && idxBase < idxDoc) {
+		t.Fatalf("expected prepended legacy layer then base then doc; got %q", css)
+	}
+}
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {

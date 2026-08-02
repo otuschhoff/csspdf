@@ -184,6 +184,30 @@ Notes:
 - If both `CSSLayers` and legacy `Assets.CSS` are set, legacy CSS is applied as an implicit final layer.
 - csspdf uses mapped-property style application, not full browser cascade semantics.
 
+Migration helper example:
+
+```go
+legacyInput := docflowpdf.AssetInput{
+	HTML: docflowpdf.TextSource{FilePath: "templates/doc.html"},
+	CSS:  docflowpdf.TextSource{FilePath: "templates/doc.css"},
+	Flow: docflowpdf.JSONSource{FilePath: "templates/flow.json"},
+}
+
+layeredInput := docflowpdf.MigrateAssetInputLegacyCSSToSingleLayer(legacyInput, "legacy")
+```
+
+Rollout checks:
+
+```bash
+./scripts/check-layered-rollout.sh
+```
+
+The rollout script:
+- runs focused tests
+- renders legacy and layered examples
+- reports PDF sizes
+- prints a layered CSS duplication metric
+
 ## Flow JSON Validation
 
 Flow validation now checks:

@@ -212,17 +212,37 @@ Verification snapshot:
 - `go run ./cmd/gen-example layered -o output/layered.pdf`: pass
 - `go test ./cmd/gen-example ./docflowpdf ./internal/pdfrender ./internal/pdfdom`: pass
 
-## Phase 5 - Migration and rollout
+## Phase 5 - Migration and rollout - Completed 2026-08-02
+
+Status:
+- Completed with migration helpers, rollout scripts, and documented migration/verification flow.
+
+Phase outputs delivered:
+- backward compatibility remains default: legacy single CSS inputs still render unchanged
+- migration helper APIs added:
+  - LegacyCSSSourceAsLayer
+  - MigrateAssetInputLegacyCSSToSingleLayer
+- rollout scripts added:
+  - scripts/check-layered-rollout.sh
+  - scripts/measure-layered-duplication.sh
+- README updated with migration helper usage and rollout command
 
 Migration strategy:
-- release with backward compatible defaults
-- recommend new projects adopt CSSLayers
-- provide migration helper that converts one CSS file path into one-layer config
+- release with backward compatible defaults: done
+- recommend new projects adopt CSSLayers: done
+- provide migration helper that converts one CSS file path into one-layer config: done
 
 Rollout checks:
-- run focused render tests for representative templates
-- compare sample PDFs before and after enabling layers
-- measure whether duplicated CSS decreases in example profiles
+- run focused render tests for representative templates: done
+- compare sample PDFs before and after enabling layers: done
+- measure whether duplicated CSS decreases in example profiles: done
+
+Verification snapshot:
+- `go test ./docflowpdf ./internal/pdfrender ./internal/pdfdom`: pass
+- `./scripts/check-layered-rollout.sh`: pass
+- generated outputs:
+  - `output/phase5/invoice-legacy.pdf`
+  - `output/phase5/layered.pdf`
 
 ## Risks and mitigations
 
