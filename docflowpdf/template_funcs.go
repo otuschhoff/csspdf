@@ -210,7 +210,7 @@ func mondayLocale(locale string) monday.Locale {
 func formatTemplateDate(t time.Time, locale string) string {
 	loc := mondayLocale(locale)
 	if locale == "de" {
-		return monday.Format(t, "02. January 2006", loc)
+		return monday.Format(t, "2. January 2006", loc)
 	}
 	return monday.Format(t, "01/02/2006", loc)
 }
