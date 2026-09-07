@@ -5,9 +5,9 @@ that are enforced by `scripts/check-maintainability.sh`.
 
 ## Package Responsibilities
 
-- `internal/domain`
-- Pure business/domain data structures only.
-- No rendering, orchestration, or template parsing logic.
+- `docflowpdf`
+- Public API, input normalization, and render orchestration.
+- May compose internal packages; internal packages must not import it.
 
 - `internal/templating`
 - Template execution/parsing and CSS/page/docflow parsing only.
@@ -17,30 +17,34 @@ that are enforced by `scripts/check-maintainability.sh`.
 - Adapter layer: named template + CSS => PDFDOM element flow.
 - No business orchestration imports.
 
-- `internal/invoice`
-- Use-case orchestration and data preparation.
-- Chooses template sections and drives rendering flow.
+- `internal/pdfdom`
+- PDF-oriented document node model and HTML-to-node conversion.
+- No public API or orchestration dependencies.
 
 - `internal/pdfrender`
 - Low-level PDF/layout rendering primitives.
 
+- `internal/format` and `internal/i18n`
+- Generic formatting and translation support.
+- No dependency on rendering orchestration.
+
+- `internal/pdfdump`
+- Diagnostic PDF inspection used by repository commands.
+
+- `third_party/gofpdf`
+- Repository-owned external backend source with a separately documented patch
+	set and nested module tests.
+- Excluded from csspdf maintainability budgets; changes require both nested and
+	root quality gates.
+
 ## Enforced Import Rules
 
-- `internal/domain` must not import:
-- `internal/invoice`
-- `internal/pdfrender`
-- `internal/flowrender`
-- `internal/app`
-- `internal/templating`
-
 - `internal/templating` must not import:
-- `internal/invoice`
 - `internal/pdfrender`
-- `internal/app`
+- `docflowpdf`
 
 - `internal/flowrender` must not import:
-- `internal/invoice`
-- `internal/app`
+- `docflowpdf`
 
 ## Maintainability Budgets
 
@@ -53,12 +57,17 @@ Default thresholds (can be overridden by env vars):
 ## Local Usage
 
 ```sh
-chmod +x scripts/check-maintainability.sh
+go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
 scripts/check-maintainability.sh
 ```
 
-If `gocyclo` is missing:
+The default `worktree` scope checks modified and untracked project Go files.
+CI uses `CHECK_SCOPE=changed` with an explicit base revision. Use
+`CHECK_SCOPE=all` to inspect all owned Go files; existing debt above the ratchet
+will be reported.
+
+Run the complete build/test/security gate separately:
 
 ```sh
-go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+scripts/check-quality.sh
 ```

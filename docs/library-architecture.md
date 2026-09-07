@@ -12,7 +12,13 @@ Provide a reusable Go library that renders PDFs from declarative assets:
 
 - Public engine: docflowpdf
 - Rendering internals: internal/pdfrender, internal/pdfdom, internal/templating, internal/flowrender
-- Example profile package: examples/invoice
+- Reference profiles and assets: examples/invoice and examples/layered
+- Repository-owned PDF backend: third_party/gofpdf
+
+The root module has no sibling-checkout dependency. The backend source is kept
+as a nested module because required fork APIs and UTF-8 fixes are not all
+available from an externally published revision. See its `PATCHES.md` for
+provenance and update requirements.
 
 ## Public API
 
@@ -52,5 +58,5 @@ Flow validation enforces:
 
 Profile-specific defaults and template function maps should live outside the core engine.
 
-For invoice profile in this repository:
-- examples/invoice provides a reference profile package
+The example directories contain assets consumed by `cmd/gen-example`; they are
+not Go packages or stable library APIs.

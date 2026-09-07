@@ -10,6 +10,18 @@ A Go library for generating PDF files from:
 The reusable public package is:
 - github.com/otuschhoff/csspdf/docflowpdf
 
+## Requirements and Dependency Policy
+
+- Go 1.25.13 or newer
+- No sibling repositories or local Go workspace are required
+- Dependencies are pinned in `go.mod` and `go.sum`
+
+The PDF backend is maintained as repository-owned source in
+`third_party/gofpdf` because csspdf depends on fork APIs and UTF-8 fixes that
+are not all available from the fork's published branch. Its exact source
+revision, local patch set, and retained test scope are documented in
+`third_party/gofpdf/PATCHES.md`.
+
 ## Status
 
 This repository now separates:
@@ -183,6 +195,8 @@ go run ./cmd/gen-example layered -o output/layered.pdf
 Notes:
 - If both `CSSLayers` and legacy `Assets.CSS` are set, legacy CSS is applied as an implicit final layer.
 - csspdf uses mapped-property style application, not full browser cascade semantics.
+- HTML and CSS support a deliberate document-rendering subset. Do not assume
+	browser-equivalent selector, cascade, layout, scripting, or network behavior.
 
 Migration helper example:
 
@@ -277,6 +291,20 @@ RenderInput supports warning sinks via:
 
 Non-fatal render issues (for example, page-number template render failures) are emitted as warnings while rendering continues.
 
+## Security and Trust Model
+
+The current release is intended for trusted local authoring. Treat HTML/CSS
+templates, flow definitions, asset paths, font registrations, and custom Go
+template functions as trusted configuration. They are not sandboxed.
+
+Do not expose the renderer directly to tenant- or user-supplied templates or
+asset paths. File sources and image/font lookup can access the host filesystem,
+including configured absolute paths and compatibility search locations. The
+renderer does not currently enforce input-size, page-count, image-size, or
+execution-time limits. Use process isolation and application-level limits when
+rendering data from less-trusted sources. See `SECURITY.md` for the complete
+current boundary.
+
 ## Deterministic Rendering Support
 
 RenderInput.Now can inject a custom clock.
@@ -295,10 +323,23 @@ This keeps docflowpdf generic while preserving an invoice profile implementation
 
 ## Testing
 
-Focused package tests:
+Run the complete local quality gate:
 
 ```bash
-go test ./docflowpdf ./examples/invoice ./cmd/gen-example ./internal/pdfrender
+./scripts/check-quality.sh
+```
+
+The gate checks module tidiness, dependency checksums, formatting, builds,
+static analysis, all root and backend tests, and reachable vulnerabilities.
+The vulnerability tool is pinned; set `RUN_VULN_CHECK=false` only for a fast
+local iteration after an unchanged successful scan. The initial scan and
+clean-checkout evidence are recorded in `docs/phase0-baseline.md`.
+
+Run the changed-code maintainability ratchet with:
+
+```bash
+go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
+./scripts/check-maintainability.sh
 ```
 
 ## Tasks
@@ -325,13 +366,19 @@ go build -o bin/gen-example ./cmd/gen-example
 
 ### test
 
-Run focused tests used during the library refactor.
+Run the same test suites used by CI.
 
 ```sh
-go test ./docflowpdf ./examples/invoice ./cmd/gen-example ./internal/pdfrender ./internal/i18n
+go test ./... -count=1
+(cd third_party/gofpdf && go test ./... -count=1)
 ```
 
-## Notes
+## Supported Components
 
-- Some legacy repository commands/packages are still present for historical tooling.
-- If you only want to consume the library, use the docflowpdf package and treat invoice profile code as optional profile/example material.
+- `docflowpdf` is the supported library API.
+- `cmd/gen-example` and `cmd/dom-parse` are supported repository tools.
+- `examples/invoice` and `examples/layered` are reference assets, not stable Go APIs.
+- Root JavaScript files (`genXml.js`, `mkDoc.js`, and `mkQuote.js`) are legacy,
+	unsupported utilities. They have no maintained package manifest or CI gate.
+- Generated binaries and output files are unsupported artifacts and are ignored
+	by version control.

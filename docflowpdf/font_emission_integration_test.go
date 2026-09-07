@@ -2,13 +2,19 @@ package docflowpdf
 
 import (
 	"bytes"
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+	"regexp"
 	"testing"
+	"unicode/utf16"
 
-	"github.com/otuschhoff/pdfa3-go/pkg/pdfa3"
+	"golang.org/x/image/font/gofont/goregular"
 )
+
+var toUnicodeMappingPattern = regexp.MustCompile(`<([0-9A-Fa-f]{4})>\s+<([0-9A-Fa-f]{4,8})>`)
 
 func testUTF8FontAssets() Assets {
 	return Assets{
@@ -17,7 +23,7 @@ func testUTF8FontAssets() Assets {
 {{define "page-number"}}<div>{{.Page}}/{{.Total}}</div>{{end}}`,
 		CSS: `
 @page { size: A4; margin: 30pt; }
-#body { font-family: Futura-Medium; font-size: 12; }
+#body { font-family: GoSans; font-size: 12; }
 `,
 		Flow: Flow{
 			MainFlow: []Section{{
@@ -38,9 +44,14 @@ func testUTF8FontAssets() Assets {
 }
 
 func TestUTF8Type0Font_ToUnicodeIsExplicitAndParsable(t *testing.T) {
-	fontPath := filepath.Clean(filepath.Join("..", "examples", "invoice", "fonts", "Futura-Medium.ttf"))
-	if _, err := os.Stat(fontPath); err != nil {
-		t.Fatalf("required font fixture missing: %v", err)
+	fixtureDir, err := os.MkdirTemp(".", ".font-fixture-")
+	if err != nil {
+		t.Fatalf("create font fixture directory: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(fixtureDir) })
+	fontPath := filepath.Join(fixtureDir, "Go-Regular.ttf")
+	if err := os.WriteFile(fontPath, goregular.TTF, 0600); err != nil {
+		t.Fatalf("write font fixture: %v", err)
 	}
 
 	pdfBytes, err := RenderToBytes(RenderInput{
@@ -48,7 +59,7 @@ func TestUTF8Type0Font_ToUnicodeIsExplicitAndParsable(t *testing.T) {
 		DefaultLocale:       "de",
 		DefaultCurrencyCode: "EUR",
 		FontRegistrations: []FontRegistration{{
-			Family:  "Futura-Medium",
+			Family:  "GoSans",
 			Style:   "",
 			Sources: []string{fontPath},
 		}},
@@ -70,45 +81,12 @@ func TestUTF8Type0Font_ToUnicodeIsExplicitAndParsable(t *testing.T) {
 		t.Fatalf("expected explicit bfchar mappings in ToUnicode CMap")
 	}
 
-	tmpDir := t.TempDir()
-	inputPDF := filepath.Join(tmpDir, "input.pdf")
-	if err := os.WriteFile(inputPDF, pdfBytes, 0644); err != nil {
-		t.Fatalf("failed to write temp PDF: %v", err)
-	}
-
-	converter := pdfa3.NewConverter()
-	fonts, err := converter.ExtractFontsFromPDF(inputPDF)
+	usedChars, err := extractToUnicodeRunes(pdfBytes)
 	if err != nil {
-		t.Fatalf("ExtractFontsFromPDF returned error: %v", err)
-	}
-
-	var type0FontName string
-	for _, font := range fonts {
-		if font == nil {
-			continue
-		}
-		if strings.EqualFold(font.SubType, "Type0") && strings.Contains(strings.ToLower(font.Name), "utf8futura-medium") {
-			type0FontName = font.Name
-			if font.CMaps == 0 {
-				t.Fatalf("expected ToUnicode mappings for %s, got 0", font.Name)
-			}
-			break
-		}
-	}
-	if type0FontName == "" {
-		t.Fatalf("expected utf8futura-medium Type0 font in extracted font list")
-	}
-
-	usedChars, err := converter.ExtractUnicodesForFont(inputPDF, type0FontName)
-	if err != nil {
-		t.Fatalf("ExtractUnicodesForFont returned error: %v", err)
+		t.Fatalf("parse ToUnicode CMap: %v", err)
 	}
 	if len(usedChars) == 0 {
-		t.Fatalf("expected downstream extractor to recover used chars for %s", type0FontName)
-	}
-	var extracted []rune
-	for r := range usedChars {
-		extracted = append(extracted, r)
+		t.Fatalf("expected explicit ToUnicode mappings")
 	}
 
 	var missing []rune
@@ -120,4 +98,38 @@ func TestUTF8Type0Font_ToUnicodeIsExplicitAndParsable(t *testing.T) {
 	if len(missing) > 0 {
 		t.Fatalf("expected extracted chars to include umlauts, missing: %q", string(missing))
 	}
+}
+
+func extractToUnicodeRunes(pdfBytes []byte) (map[rune]bool, error) {
+	streamStart := bytes.Index(pdfBytes, []byte("begincmap"))
+	if streamStart < 0 {
+		return nil, fmt.Errorf("begincmap marker not found")
+	}
+	streamEnd := bytes.Index(pdfBytes[streamStart:], []byte("endcmap"))
+	if streamEnd < 0 {
+		return nil, fmt.Errorf("endcmap marker not found")
+	}
+
+	matches := toUnicodeMappingPattern.FindAllSubmatch(pdfBytes[streamStart:streamStart+streamEnd], -1)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no bfchar mappings found")
+	}
+
+	runes := make(map[rune]bool, len(matches))
+	for _, match := range matches {
+		encoded, err := hex.DecodeString(string(match[2]))
+		if err != nil || len(encoded)%2 != 0 {
+			return nil, fmt.Errorf("invalid UTF-16 mapping %q", match[2])
+		}
+		units := make([]uint16, len(encoded)/2)
+		for index := range units {
+			units[index] = binary.BigEndian.Uint16(encoded[index*2 : index*2+2])
+		}
+		decoded := utf16.Decode(units)
+		if len(decoded) != 1 {
+			return nil, fmt.Errorf("mapping %q decoded to %d runes", match[2], len(decoded))
+		}
+		runes[decoded[0]] = true
+	}
+	return runes, nil
 }

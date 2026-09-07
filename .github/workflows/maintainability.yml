@@ -1,4 +1,4 @@
-name: maintainability
+name: quality
 
 on:
   pull_request:
@@ -7,26 +7,56 @@ on:
       - main
 
 jobs:
-  maintainability:
-    runs-on: ubuntu-latest
+  quality:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.25.13'
+          cache-dependency-path: |
+            go.sum
+            third_party/gofpdf/go.sum
+
+      - name: Run quality gates
+        env:
+          GOTOOLCHAIN: local
+          RUN_VULN_CHECK: ${{ matrix.os == 'ubuntu-latest' }}
+        run: scripts/check-quality.sh
+
+  maintainability:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version: '1.25.x'
+          go-version: '1.25.13'
+          cache-dependency-path: go.sum
 
       - name: Install gocyclo
-        run: go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+        env:
+          GOTOOLCHAIN: local
+        run: go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
 
       - name: Enforce maintainability budgets
         env:
+          GOTOOLCHAIN: local
           CHECK_SCOPE: changed
           BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          chmod +x scripts/check-maintainability.sh
-          scripts/check-maintainability.sh
+        run: scripts/check-maintainability.sh

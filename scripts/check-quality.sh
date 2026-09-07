@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+GOVULNCHECK_VERSION="${GOVULNCHECK_VERSION:-v1.7.0}"
+RUN_VULN_CHECK="${RUN_VULN_CHECK:-true}"
+
+cd "$ROOT_DIR"
+
+check_formatting() {
+  local unformatted
+  unformatted="$(find . \
+    -path './.git' -prune -o \
+    -type f -name '*.go' -print \
+    | sort \
+    | xargs gofmt -l)"
+  if [[ -n "$unformatted" ]]; then
+    echo "ERROR: gofmt is required for:" >&2
+    echo "$unformatted" >&2
+    return 1
+  fi
+}
+
+echo "[quality] Checking module manifests..."
+go mod tidy -diff
+go mod verify
+(
+  cd third_party/gofpdf
+  go mod tidy -diff
+  go mod verify
+)
+
+echo "[quality] Checking formatting..."
+check_formatting
+
+echo "[quality] Building all root-module packages..."
+go build ./...
+
+echo "[quality] Running static analysis..."
+go vet ./...
+(
+  cd third_party/gofpdf
+  go vet ./...
+)
+
+echo "[quality] Running all tests..."
+go test ./... -count=1
+(
+  cd third_party/gofpdf
+  go test ./... -count=1
+)
+
+if [[ "$RUN_VULN_CHECK" == "true" ]]; then
+  echo "[quality] Scanning reachable dependencies with govulncheck ${GOVULNCHECK_VERSION}..."
+  go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...
+fi
+
+echo "[quality] OK"
