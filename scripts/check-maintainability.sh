@@ -24,6 +24,17 @@ if [[ -z "$GOCYCLO_BIN" ]]; then
 fi
 
 status=0
+comparison_ref=""
+
+if [[ "$CHECK_SCOPE" == "worktree" ]] && git rev-parse HEAD >/dev/null 2>&1; then
+  comparison_ref="HEAD"
+elif [[ "$CHECK_SCOPE" == "changed" ]]; then
+  if [[ -n "$BASE_REF" ]] && git cat-file -e "${BASE_REF}^{commit}" >/dev/null 2>&1; then
+    comparison_ref="$(git merge-base "$BASE_REF" HEAD)"
+  elif git rev-parse HEAD~1 >/dev/null 2>&1; then
+    comparison_ref="HEAD~1"
+  fi
+fi
 
 collect_go_files() {
   if [[ "$CHECK_SCOPE" == "all" ]]; then
@@ -42,15 +53,8 @@ collect_go_files() {
     return
   fi
 
-  local range=""
-  if [[ -n "$BASE_REF" ]] && git cat-file -e "${BASE_REF}^{commit}" >/dev/null 2>&1; then
-    range="${BASE_REF}...HEAD"
-  elif git rev-parse HEAD~1 >/dev/null 2>&1; then
-    range="HEAD~1...HEAD"
-  fi
-
-  if [[ -n "$range" ]]; then
-    git diff --name-only --diff-filter=ACMRTUXB "$range" -- '*.go' ':!third_party/**' \
+  if [[ -n "$comparison_ref" ]]; then
+    git diff --name-only --diff-filter=ACMRTUXB "${comparison_ref}...HEAD" -- '*.go' ':!third_party/**' \
       | sort
     return
   fi
@@ -83,29 +87,68 @@ if (( go_file_count == 0 )); then
   echo "[maintainability] No Go files in selected scope (${CHECK_SCOPE}); checking architecture boundaries only."
 fi
 
+baseline_dir=""
+cleanup() {
+  if [[ -n "$baseline_dir" && -d "$baseline_dir" ]]; then
+    rm -rf "$baseline_dir"
+  fi
+}
+trap cleanup EXIT
+
+baseline_files=()
+if [[ -n "$comparison_ref" ]] && (( non_test_go_file_count > 0 )); then
+  baseline_dir="$(mktemp -d "${TMPDIR:-/tmp}/csspdf-maintainability.XXXXXX")"
+  for file in "${NON_TEST_GO_FILES[@]}"; do
+    if git cat-file -e "${comparison_ref}:${file}" >/dev/null 2>&1; then
+      mkdir -p "$baseline_dir/$(dirname "$file")"
+      git show "${comparison_ref}:${file}" > "$baseline_dir/$file"
+      baseline_files[${#baseline_files[@]}]="$baseline_dir/$file"
+    fi
+  done
+fi
+
 echo "[maintainability] Checking cyclomatic complexity (max=${MAX_CYCLO})..."
 if (( non_test_go_file_count > 0 )); then
   cyclo_out="$($GOCYCLO_BIN -over "$MAX_CYCLO" "${NON_TEST_GO_FILES[@]}" || true)"
-  if [[ -n "$cyclo_out" ]]; then
-    echo "$cyclo_out"
-    status=1
+  baseline_cyclo_out=""
+  if [[ -n "$cyclo_out" ]] && (( ${#baseline_files[@]} > 0 )); then
+    baseline_cyclo_out="$($GOCYCLO_BIN -over "$MAX_CYCLO" "${baseline_files[@]}" || true)"
   fi
+  while IFS= read -r violation; do
+    [[ -z "$violation" ]] && continue
+    complexity="${violation%% *}"
+    remainder="${violation#* }"
+    package_name="${remainder%% *}"
+    remainder="${remainder#* }"
+    function_name="${remainder%% *}"
+    baseline_complexity="$(printf '%s\n' "$baseline_cyclo_out" | awk -v package_name="$package_name" -v function_name="$function_name" '$2 == package_name && $3 == function_name { print $1; exit }')"
+    if [[ -z "$comparison_ref" || -z "$baseline_complexity" ]] || (( complexity > baseline_complexity )); then
+      echo "$violation"
+      status=1
+    fi
+  done <<< "$cyclo_out"
 fi
 
 echo "[maintainability] Checking file length budget (max=${MAX_FILE_LINES})..."
-if (( go_file_count > 0 )); then
-  for file in "${GO_FILES[@]}"; do
+if (( non_test_go_file_count > 0 )); then
+  for file in "${NON_TEST_GO_FILES[@]}"; do
     line_count="$(wc -l < "$file" | tr -d ' ')"
     if (( line_count > MAX_FILE_LINES )); then
-      echo "${file}: file too long (${line_count} > ${MAX_FILE_LINES})"
-      status=1
+      baseline_line_count=""
+      if [[ -n "$comparison_ref" ]] && git cat-file -e "${comparison_ref}:${file}" >/dev/null 2>&1; then
+        baseline_line_count="$(git show "${comparison_ref}:${file}" | wc -l | tr -d ' ')"
+      fi
+      if [[ -z "$baseline_line_count" ]] || (( line_count > baseline_line_count )); then
+        echo "${file}: file too long (${line_count} > ${MAX_FILE_LINES}; baseline=${baseline_line_count:-new})"
+        status=1
+      fi
     fi
   done
 fi
 
 echo "[maintainability] Checking function length budget (max=${MAX_FUNC_LINES})..."
 if (( non_test_go_file_count > 0 )); then
-  func_out="$(awk -v max="$MAX_FUNC_LINES" '
+  function_length_program='
 function count_char(s, c,    i, n) {
   n = 0
   for (i = 1; i <= length(s); i++) {
@@ -116,7 +159,7 @@ function count_char(s, c,    i, n) {
 {
   if (!infunc && $0 ~ /^func[[:space:]]/) {
     infunc = 1
-    start_line = NR
+    start_line = FNR
     signature = $0
     depth = 0
     started = 0
@@ -132,7 +175,7 @@ function count_char(s, c,    i, n) {
 
     if (started && depth <= 0) {
       if (lines > max) {
-        printf "%s:%d: function too long (%d > %d): %s\n", FILENAME, start_line, lines, max, signature
+    printf "%s\t%d\t%s:%d\n", signature, lines, FILENAME, start_line
       }
       infunc = 0
       depth = 0
@@ -141,11 +184,20 @@ function count_char(s, c,    i, n) {
     }
   }
 }
-' "${NON_TEST_GO_FILES[@]}" || true)"
-  if [[ -n "$func_out" ]]; then
-    echo "$func_out"
-    status=1
+'
+  func_out="$(awk -v max="$MAX_FUNC_LINES" "$function_length_program" "${NON_TEST_GO_FILES[@]}" || true)"
+  baseline_func_out=""
+  if [[ -n "$func_out" && -n "${baseline_dir:-}" ]] && (( ${#baseline_files[@]} > 0 )); then
+    baseline_func_out="$(awk -v max="$MAX_FUNC_LINES" "$function_length_program" "${baseline_files[@]}" || true)"
   fi
+  while IFS=$'\t' read -r signature function_lines location; do
+    [[ -z "$signature" ]] && continue
+    baseline_function_lines="$(printf '%s\n' "$baseline_func_out" | awk -F '\t' -v signature="$signature" '$1 == signature { print $2; exit }')"
+    if [[ -z "$comparison_ref" || -z "$baseline_function_lines" ]] || (( function_lines > baseline_function_lines )); then
+      echo "${location}: function too long (${function_lines} > ${MAX_FUNC_LINES}): ${signature}"
+		status=1
+    fi
+  done <<< "$func_out"
 fi
 
 echo "[maintainability] Checking architecture boundaries..."

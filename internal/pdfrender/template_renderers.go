@@ -48,162 +48,188 @@ func ExtractRunningFooterElement(elements []pdfdom.PDFElementNode, name string) 
 // Elements with CSS position:running(name) are extracted, registered as
 // running footer templates, and stamped on every page via BeginPage.
 func RenderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode) error {
-	// Extract and register any running-positioned footer element.
 	if name, footerElem, remaining := ExtractRunningFooterElement(elements, ""); footerElem != nil {
 		elements = remaining
 		if err := l.SetRunningFooterTemplateFromElement(name, footerElem); err != nil {
-			l.warnf("failed to register running footer %q: %v", name, err)
+			if err := l.recoverableRenderError("failed to register running footer %q", err, name); err != nil {
+				return err
+			}
 		}
 	}
 
-	x, y, maxW := l.CurrentFlowBox()
-	engine := l.newTextEngine(l.PDF, l.I18n)
-
-	currentY := y
-	pendingBottomMargin := 0.0
+	state := newDocFlowState(l)
 	for _, elem := range elements {
 		if ShouldBreakPageBefore(elem) {
-			l.NextFlowPage()
-			x, y, maxW = l.CurrentFlowBox()
-			currentY = y
-			pendingBottomMargin = 0
+			state.nextPage()
 		}
-
-		switch n := elem.(type) {
-		case *pdfdom.ElemDiv, *pdfdom.ElemH1, *pdfdom.ElemH2, *pdfdom.ElemH3:
-			topMargin, bottomMargin := flowBlockMargins(n, nil)
-			collapseMargins := isVerticalMarginCollapsible(n)
-			xPos, yPos, w, absolute := l.ResolveFlowPlacement(n, x, currentY, maxW)
-			if !absolute {
-				contentTop := currentY + interElementSpacing(pendingBottomMargin, topMargin, collapseMargins)
-				yPos = contentTop - topMargin
-				metrics, err := engine.MeasureInBox(n, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: w, Fit: pdfdom.TextFitWrap})
-				if err != nil {
-					l.warnf("failed to measure doc flow element: %v", err)
-					continue
-				}
-				contentHeight := metrics.Height - topMargin - bottomMargin
-				if contentHeight < 0 {
-					contentHeight = 0
-				}
-				if currentY > y && contentTop+contentHeight+bottomMargin > l.CurrentFlowBottom() {
-					l.NextFlowPage()
-					x, y, maxW = l.CurrentFlowBox()
-					currentY = y
-					pendingBottomMargin = 0
-					xPos, yPos, w, absolute = l.ResolveFlowPlacement(n, x, currentY, maxW)
-					contentTop = currentY + interElementSpacing(pendingBottomMargin, topMargin, collapseMargins)
-					yPos = contentTop - topMargin
-				}
-			}
-			metrics, err := engine.RenderInBox(n, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: w, Fit: pdfdom.TextFitWrap})
-			if err != nil {
-				l.warnf("failed to render doc flow element: %v", err)
-				continue
-			}
-			if !absolute {
-				contentHeight := metrics.Height - topMargin - bottomMargin
-				if contentHeight < 0 {
-					contentHeight = 0
-				}
-				currentY = yPos + topMargin + contentHeight
-				pendingBottomMargin = bottomMargin
-			}
-		case *pdfdom.ElemTable:
-			xPos, yPos, w, absolute := l.ResolveFlowPlacement(n, x, currentY, maxW)
-			tableDef, err := l.TableDefFromElement(n, w)
-			if err != nil {
-				return fmt.Errorf("failed to build table definition from doc flow: %w", err)
-			}
-			tableMarginTop, tableMarginBottom := tableBlockMargins(tableDef)
-			collapseMargins := isVerticalMarginCollapsible(n)
-			if !absolute {
-				tableHeight, err := l.tableRenderer.MeasureTableHeight(tableDef)
-				if err != nil {
-					return fmt.Errorf("failed to measure table from doc flow: %w", err)
-				}
-				yPos = currentY + interElementSpacing(pendingBottomMargin, tableMarginTop, collapseMargins)
-				if currentY > y && yPos+tableHeight+tableMarginBottom > l.CurrentFlowBottom() {
-					l.NextFlowPage()
-					x, y, maxW = l.CurrentFlowBox()
-					currentY = y
-					pendingBottomMargin = 0
-					xPos, yPos, w, absolute = l.ResolveFlowPlacement(n, x, currentY, maxW)
-					yPos = currentY + interElementSpacing(pendingBottomMargin, tableMarginTop, collapseMargins)
-					tableDef, err = l.TableDefFromElement(n, w)
-					if err != nil {
-						return fmt.Errorf("failed to rebuild table definition after page break: %w", err)
-					}
-				}
-			}
-			l.PDF.SetXY(xPos, yPos)
-			if err := l.tableRenderer.RenderTable(tableDef); err != nil {
-				return fmt.Errorf("failed to render table from doc flow: %w", err)
-			}
-			if !absolute {
-				currentY = l.PDF.GetY()
-				pendingBottomMargin = tableMarginBottom
-			}
-		case *pdfdom.ElemImg:
-			topMargin, bottomMargin := flowBlockMargins(n, nil)
-			collapseMargins := isVerticalMarginCollapsible(n)
-			xPos, yPos, w, absolute := l.ResolveFlowPlacement(n, x, currentY, maxW)
-			if !absolute {
-				contentTop := currentY + interElementSpacing(pendingBottomMargin, topMargin, collapseMargins)
-				yPos = contentTop - topMargin
-				metrics, err := engine.MeasureInBox(n, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: w, Fit: pdfdom.TextFitWrap})
-				if err != nil {
-					l.warnf("failed to measure doc image: %v", err)
-					continue
-				}
-				contentHeight := metrics.Height - topMargin - bottomMargin
-				if contentHeight < 0 {
-					contentHeight = 0
-				}
-				if currentY > y && contentTop+contentHeight+bottomMargin > l.CurrentFlowBottom() {
-					l.NextFlowPage()
-					x, y, maxW = l.CurrentFlowBox()
-					currentY = y
-					pendingBottomMargin = 0
-					xPos, yPos, w, absolute = l.ResolveFlowPlacement(n, x, currentY, maxW)
-					contentTop = currentY + interElementSpacing(pendingBottomMargin, topMargin, collapseMargins)
-					yPos = contentTop - topMargin
-				}
-			}
-			metrics, err := engine.RenderInBox(n, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: w, Fit: pdfdom.TextFitWrap})
-			if err != nil {
-				l.warnf("failed to render doc image: %v", err)
-				continue
-			}
-			if !absolute {
-				contentHeight := metrics.Height - topMargin - bottomMargin
-				if contentHeight < 0 {
-					contentHeight = 0
-				}
-				currentY = yPos + topMargin + contentHeight
-				pendingBottomMargin = bottomMargin
-			}
-		case *pdfdom.ElemUseTemplate:
-			xPos, yPos, _, absolute := l.ResolveFlowPlacement(n, x, currentY, maxW)
-			h, _, uerr := l.RenderUseTemplateElement(n, xPos, yPos)
-			if uerr != nil {
-				l.warnf("failed to render use-template element: %v", uerr)
-			} else if !absolute {
-				currentY += h
-				pendingBottomMargin = 0
-			}
-		case *pdfdom.ElemCreateTemplate:
-			if cerr := l.RenderCreateTemplateElement(n); cerr != nil {
-				l.warnf("failed to create template: %v", cerr)
-			}
+		skipPageAfter, err := state.renderElement(elem)
+		if err != nil {
+			return err
+		}
+		if skipPageAfter {
+			continue
 		}
 
 		if ShouldBreakPageAfter(elem) {
-			l.NextFlowPage()
-			x, y, maxW = l.CurrentFlowBox()
-			currentY = y
-			pendingBottomMargin = 0
+			state.nextPage()
 		}
+	}
+	return nil
+}
+
+type docFlowState struct {
+	layout              *LayoutPDF
+	engine              *PDFTextEngine
+	x, y, maxWidth      float64
+	currentY            float64
+	pendingBottomMargin float64
+}
+
+func newDocFlowState(layout *LayoutPDF) *docFlowState {
+	x, y, maxWidth := layout.CurrentFlowBox()
+	return &docFlowState{
+		layout:   layout,
+		engine:   layout.newTextEngine(layout.PDF, layout.I18n),
+		x:        x,
+		y:        y,
+		maxWidth: maxWidth,
+		currentY: y,
+	}
+}
+
+func (state *docFlowState) nextPage() {
+	state.layout.NextFlowPage()
+	state.x, state.y, state.maxWidth = state.layout.CurrentFlowBox()
+	state.currentY = state.y
+	state.pendingBottomMargin = 0
+}
+
+func (state *docFlowState) renderElement(elem pdfdom.PDFElementNode) (bool, error) {
+	switch node := elem.(type) {
+	case *pdfdom.ElemDiv, *pdfdom.ElemH1, *pdfdom.ElemH2, *pdfdom.ElemH3:
+		return state.renderBlock(node)
+	case *pdfdom.ElemTable:
+		return false, state.renderTable(node)
+	case *pdfdom.ElemImg:
+		return state.renderImage(node)
+	case *pdfdom.ElemUseTemplate:
+		return false, state.renderUseTemplate(node)
+	case *pdfdom.ElemCreateTemplate:
+		return false, state.renderCreateTemplate(node)
+	default:
+		return false, nil
+	}
+}
+
+func (state *docFlowState) renderBlock(node pdfdom.PDFElementNode) (bool, error) {
+	topMargin, bottomMargin := flowBlockMargins(node, nil)
+	collapseMargins := isVerticalMarginCollapsible(node)
+	xPos, yPos, width, absolute := state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
+	if !absolute {
+		contentTop := state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, collapseMargins)
+		yPos = contentTop - topMargin
+		metrics, err := state.engine.MeasureInBox(node, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: width, Fit: pdfdom.TextFitWrap})
+		if err != nil {
+			return true, state.layout.recoverableRenderError("failed to measure doc flow element", err)
+		}
+		contentHeight := max(0, metrics.Height-topMargin-bottomMargin)
+		if state.currentY > state.y && contentTop+contentHeight+bottomMargin > state.layout.CurrentFlowBottom() {
+			state.nextPage()
+			xPos, yPos, width, absolute = state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
+			contentTop = state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, collapseMargins)
+			yPos = contentTop - topMargin
+		}
+	}
+	metrics, err := state.engine.RenderInBox(node, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: width, Fit: pdfdom.TextFitWrap})
+	if err != nil {
+		return true, state.layout.recoverableRenderError("failed to render doc flow element", err)
+	}
+	if !absolute {
+		state.currentY = yPos + topMargin + max(0, metrics.Height-topMargin-bottomMargin)
+		state.pendingBottomMargin = bottomMargin
+	}
+	return false, nil
+}
+
+func (state *docFlowState) renderImage(node *pdfdom.ElemImg) (bool, error) {
+	topMargin, bottomMargin := flowBlockMargins(node, nil)
+	xPos, yPos, width, absolute := state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
+	if !absolute {
+		contentTop := state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, false)
+		yPos = contentTop - topMargin
+		metrics, err := state.engine.MeasureInBox(node, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: width, Fit: pdfdom.TextFitWrap})
+		if err != nil {
+			return true, state.layout.recoverableRenderError("failed to measure doc image", err)
+		}
+		contentHeight := max(0, metrics.Height-topMargin-bottomMargin)
+		if state.currentY > state.y && contentTop+contentHeight+bottomMargin > state.layout.CurrentFlowBottom() {
+			state.nextPage()
+			xPos, yPos, width, absolute = state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
+			contentTop = state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, false)
+			yPos = contentTop - topMargin
+		}
+	}
+	metrics, err := state.engine.RenderInBox(node, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: width, Fit: pdfdom.TextFitWrap})
+	if err != nil {
+		return true, state.layout.recoverableRenderError("failed to render doc image", err)
+	}
+	if !absolute {
+		state.currentY = yPos + topMargin + max(0, metrics.Height-topMargin-bottomMargin)
+		state.pendingBottomMargin = bottomMargin
+	}
+	return false, nil
+}
+
+func (state *docFlowState) renderTable(node *pdfdom.ElemTable) error {
+	xPos, yPos, width, absolute := state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
+	tableDef, err := state.layout.TableDefFromElement(node, width)
+	if err != nil {
+		return fmt.Errorf("failed to build table definition from doc flow: %w", err)
+	}
+	topMargin, bottomMargin := tableBlockMargins(tableDef)
+	if !absolute {
+		tableHeight, err := state.layout.tableRenderer.MeasureTableHeight(tableDef)
+		if err != nil {
+			return fmt.Errorf("failed to measure table from doc flow: %w", err)
+		}
+		yPos = state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, isVerticalMarginCollapsible(node))
+		if state.currentY > state.y && yPos+tableHeight+bottomMargin > state.layout.CurrentFlowBottom() {
+			state.nextPage()
+			xPos, yPos, width, absolute = state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
+			yPos = state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, isVerticalMarginCollapsible(node))
+			tableDef, err = state.layout.TableDefFromElement(node, width)
+			if err != nil {
+				return fmt.Errorf("failed to rebuild table definition after page break: %w", err)
+			}
+		}
+	}
+	state.layout.PDF.SetXY(xPos, yPos)
+	if err := state.layout.tableRenderer.RenderTable(tableDef); err != nil {
+		return fmt.Errorf("failed to render table from doc flow: %w", err)
+	}
+	if !absolute {
+		state.currentY = state.layout.PDF.GetY()
+		state.pendingBottomMargin = bottomMargin
+	}
+	return nil
+}
+
+func (state *docFlowState) renderUseTemplate(node *pdfdom.ElemUseTemplate) error {
+	xPos, yPos, _, absolute := state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
+	height, _, err := state.layout.RenderUseTemplateElement(node, xPos, yPos)
+	if err != nil {
+		return state.layout.recoverableRenderError("failed to render use-template element", err)
+	}
+	if !absolute {
+		state.currentY += height
+		state.pendingBottomMargin = 0
+	}
+	return nil
+}
+
+func (state *docFlowState) renderCreateTemplate(node *pdfdom.ElemCreateTemplate) error {
+	if err := state.layout.RenderCreateTemplateElement(node); err != nil {
+		return state.layout.recoverableRenderError("failed to create template", err)
 	}
 	return nil
 }
@@ -240,10 +266,8 @@ func flowBlockMargins(node pdfdom.PDFElementNode, table *TableDef) (top, bottom 
 			bottom = htmlLengthToFloat(n, "marginBottom", "margin-bottom")
 		}
 	case *pdfdom.ElemH2, *pdfdom.ElemH3:
-		if elem, ok := n.(pdfdom.PDFElementNode); ok {
-			top = htmlLengthToFloat(elem, "marginTop", "margin-top")
-			bottom = htmlLengthToFloat(elem, "marginBottom", "margin-bottom")
-		}
+		top = htmlLengthToFloat(n, "marginTop", "margin-top")
+		bottom = htmlLengthToFloat(n, "marginBottom", "margin-bottom")
 	case *pdfdom.ElemImg:
 		top = htmlLengthToFloat(n, "marginTop", "margin-top")
 		bottom = htmlLengthToFloat(n, "marginBottom", "margin-bottom")

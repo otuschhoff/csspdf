@@ -1,9 +1,11 @@
 package docflowpdf
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -64,12 +66,16 @@ func (s JSONSource) IsSet() bool {
 }
 
 func (s JSONSource) DecodeInto(target any, label string) error {
+	return s.decodeInto(target, label, false)
+}
+
+func (s JSONSource) decodeInto(target any, label string, disallowUnknownFields bool) error {
 	if s.Object != nil {
 		buf, err := json.Marshal(s.Object)
 		if err != nil {
 			return fmt.Errorf("failed to marshal %s object: %w", label, err)
 		}
-		if err := json.Unmarshal(buf, target); err != nil {
+		if err := decodeJSON(buf, target, disallowUnknownFields); err != nil {
 			return fmt.Errorf("failed to decode %s object: %w", label, err)
 		}
 		return nil
@@ -97,8 +103,27 @@ func (s JSONSource) DecodeInto(target any, label string) error {
 		return fmt.Errorf("missing %s source", label)
 	}
 
-	if err := json.Unmarshal(buf, target); err != nil {
+	if err := decodeJSON(buf, target, disallowUnknownFields); err != nil {
 		return fmt.Errorf("failed to parse %s JSON: %w", label, err)
+	}
+	return nil
+}
+
+func decodeJSON(data []byte, target any, disallowUnknownFields bool) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if disallowUnknownFields {
+		decoder.DisallowUnknownFields()
+	}
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return fmt.Errorf("multiple JSON values")
+		}
+		return err
 	}
 	return nil
 }
@@ -255,17 +280,13 @@ func (in AssetInput) ResolveAssets() (Assets, error) {
 		htmlLayers = append(htmlLayers, layer)
 	}
 
-	composedHTML, err := composeTemplateHTML(htmlLayers, html)
-	if err != nil {
+	if _, err := composeTemplateHTML(htmlLayers, html); err != nil {
 		return Assets{}, err
 	}
 
-	css, err := in.CSS.Resolve("template CSS")
+	css, err := resolveLegacyCSS(in.CSS, len(in.CSSLayers) > 0)
 	if err != nil {
-		if len(in.CSSLayers) == 0 {
-			return Assets{}, err
-		}
-		css = ""
+		return Assets{}, err
 	}
 
 	layers := make([]CSSLayer, 0, len(in.CSSLayers))
@@ -282,11 +303,12 @@ func (in AssetInput) ResolveAssets() (Assets, error) {
 
 	var flow Flow
 	if in.Flow.IsSet() {
-		if err := in.Flow.DecodeInto(&flow, "flow"); err != nil {
+		if err := in.Flow.decodeInto(&flow, "flow", true); err != nil {
 			return Assets{}, err
 		}
 	}
-	if err := applyFlowDefaults(&flow, composedHTML); err != nil {
+	assetsForDefaults := Assets{HTML: html, HTMLLayers: htmlLayers}
+	if err := applyFlowDefaults(&flow, templateSourcesInRenderOrder(assetsForDefaults)); err != nil {
 		return Assets{}, err
 	}
 
@@ -310,4 +332,14 @@ func (in AssetInput) ResolveAssets() (Assets, error) {
 		return Assets{}, err
 	}
 	return assets, nil
+}
+
+func resolveLegacyCSS(source TextSource, hasLayers bool) (string, error) {
+	if source.IsSet() {
+		return source.Resolve("template CSS")
+	}
+	if hasLayers {
+		return "", nil
+	}
+	return source.Resolve("template CSS")
 }

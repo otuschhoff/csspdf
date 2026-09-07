@@ -3,6 +3,7 @@ package docflowpdf
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -156,6 +157,14 @@ func composeTemplateCSS(layers []CSSLayer, legacyCSS string) (string, error) {
 
 var payloadPathPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$`)
 
+var reservedPayloadRoots = map[string]struct{}{
+	"Payload": {},
+	"Source":  {},
+	"i18n":    {},
+	"locale":  {},
+	"page":    {},
+}
+
 func (f Flow) Validate() error {
 	if len(f.MainFlow) == 0 {
 		return fmt.Errorf("flow must include at least one mainFlow section")
@@ -194,6 +203,9 @@ func (s Section) Validate() error {
 			return fmt.Errorf("invalid static target path %q", path)
 		}
 	}
+	if err := validatePayloadTargetPaths(s.Payload.Runtime, s.Payload.Static); err != nil {
+		return err
+	}
 	for name, path := range s.Payload.I18nVars {
 		if !payloadPathPattern.MatchString(path) {
 			return fmt.Errorf("invalid i18n var path %q for key %q", path, name)
@@ -208,6 +220,94 @@ func (s Section) Validate() error {
 		}
 	}
 	return nil
+}
+
+func validatePayloadTargetPaths(runtime map[string]string, static map[string]any) error {
+	paths := make([]string, 0, len(runtime)+len(static))
+	owners := make(map[string]string, len(runtime)+len(static))
+	for path := range runtime {
+		paths = append(paths, path)
+		owners[path] = "runtime"
+	}
+	for path := range static {
+		if owner, exists := owners[path]; exists {
+			return fmt.Errorf("payload target path %q is defined by both %s and static values", path, owner)
+		}
+		paths = append(paths, path)
+		owners[path] = "static"
+	}
+	sort.Strings(paths)
+	for index, path := range paths {
+		root := strings.SplitN(path, ".", 2)[0]
+		if _, reserved := reservedPayloadRoots[root]; reserved {
+			return fmt.Errorf("payload target path %q uses reserved root %q", path, root)
+		}
+		if index > 0 && strings.HasPrefix(path, paths[index-1]+".") {
+			return fmt.Errorf("payload target paths %q and %q conflict", paths[index-1], path)
+		}
+	}
+	return nil
+}
+
+func cloneFlow(flow Flow) Flow {
+	return Flow{
+		MainFlow:   cloneSections(flow.MainFlow),
+		PageNumber: cloneSection(flow.PageNumber),
+	}
+}
+
+func cloneSections(sections []Section) []Section {
+	if sections == nil {
+		return nil
+	}
+	out := make([]Section, len(sections))
+	for index, section := range sections {
+		out[index] = cloneSection(section)
+	}
+	return out
+}
+
+func cloneSection(section Section) Section {
+	section.Payload.Runtime = cloneStringMap(section.Payload.Runtime)
+	section.Payload.I18nVars = cloneStringMap(section.Payload.I18nVars)
+	static := section.Payload.Static
+	if static != nil {
+		section.Payload.Static = make(map[string]any, len(static))
+		for key, value := range static {
+			section.Payload.Static[key] = cloneJSONValue(value)
+		}
+	}
+	return section
+}
+
+func cloneStringMap(source map[string]string) map[string]string {
+	if source == nil {
+		return nil
+	}
+	out := make(map[string]string, len(source))
+	for key, value := range source {
+		out[key] = value
+	}
+	return out
+}
+
+func cloneJSONValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, child := range typed {
+			out[key] = cloneJSONValue(child)
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		for index, child := range typed {
+			out[index] = cloneJSONValue(child)
+		}
+		return out
+	default:
+		return value
+	}
 }
 
 func validateRuntimeExpression(expr string) error {

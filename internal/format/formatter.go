@@ -5,6 +5,7 @@ package format
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,6 +31,12 @@ var currencySymbolByCode = map[string]string{
 	"USD": "$",
 }
 
+var currencyMinorUnitsByCode = map[string]int{
+	"BHD": 3,
+	"JPY": 0,
+	"KWD": 3,
+}
+
 // New creates a new Formatter with the given i18n instance and currency code.
 func New(i *i18n.I18n, currency string) *Formatter {
 	return &Formatter{
@@ -40,24 +47,16 @@ func New(i *i18n.I18n, currency string) *Formatter {
 
 // FormatCurrency formats a float as currency with proper separators.
 func (f *Formatter) FormatCurrency(value float64) string {
-	intPart := int64(math.Abs(value))
-	fracPart := int64(math.Round((math.Abs(value) - float64(intPart)) * 100))
-
-	intStr := f.formatIntWithSeparator(intPart)
-
-	sign := ""
-	if value < 0 {
-		sign = "-"
+	currencyCode := strings.ToUpper(strings.TrimSpace(f.currency))
+	if currencyCode == "" {
+		currencyCode = "EUR"
 	}
-
-	result := fmt.Sprintf("%s%s%s%02d",
-		sign,
-		intStr,
-		f.i18n.FloatSeparator(),
-		fracPart,
-	)
-
-	currency := displayCurrency(strings.TrimSpace(f.currency))
+	decimals := 2
+	if configured, ok := currencyMinorUnitsByCode[currencyCode]; ok {
+		decimals = configured
+	}
+	result := f.FormatFloat(value, decimals)
+	currency := displayCurrency(currencyCode)
 	if currency == "" {
 		currency = displayCurrency("EUR")
 	}
@@ -80,33 +79,36 @@ func displayCurrency(currency string) string {
 
 // FormatFloat formats a float with the specified number of decimal places.
 func (f *Formatter) FormatFloat(value float64, decimals int) string {
-	intPart := int64(math.Abs(value))
-
-	multiplier := math.Pow(10, float64(decimals))
-	fracPart := int64(math.Round((math.Abs(value) - float64(intPart)) * multiplier))
-
-	intStr := f.formatIntWithSeparator(intPart)
-
-	sign := ""
-	if value < 0 {
-		sign = "-"
+	if math.IsNaN(value) {
+		return "NaN"
+	}
+	if math.IsInf(value, 1) {
+		return "+Inf"
+	}
+	if math.IsInf(value, -1) {
+		return "-Inf"
+	}
+	if decimals < 0 {
+		decimals = 0
 	}
 
-	if decimals == 0 {
-		return sign + intStr
+	rounded := strconv.FormatFloat(math.Abs(value), 'f', decimals, 64)
+	parts := strings.SplitN(rounded, ".", 2)
+	result := f.formatDigitsWithSeparator(parts[0])
+	if len(parts) == 2 {
+		result += f.i18n.FloatSeparator() + parts[1]
 	}
-
-	formatStr := fmt.Sprintf("%%s%%s%%s%%0%dd", decimals)
-	return fmt.Sprintf(formatStr,
-		sign,
-		intStr,
-		f.i18n.FloatSeparator(),
-		fracPart,
-	)
+	if value < 0 && !isFormattedZero(parts) {
+		result = "-" + result
+	}
+	return result
 }
 
 func (f *Formatter) formatIntWithSeparator(value int64) string {
-	str := fmt.Sprintf("%d", value)
+	return f.formatDigitsWithSeparator(fmt.Sprintf("%d", value))
+}
+
+func (f *Formatter) formatDigitsWithSeparator(str string) string {
 
 	sep := f.i18n.KiloSeparator()
 	length := len(str)
@@ -124,6 +126,15 @@ func (f *Formatter) formatIntWithSeparator(value int64) string {
 	}
 
 	return result.String()
+}
+
+func isFormattedZero(parts []string) bool {
+	for _, part := range parts {
+		if strings.Trim(part, "0") != "" {
+			return false
+		}
+	}
+	return true
 }
 
 // FormatDate formats an ISO date string to a localized format.

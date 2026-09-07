@@ -1,9 +1,13 @@
 package docflowpdf
 
 import (
+	"encoding/json"
+	"errors"
 	htmltmpl "html/template"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -62,6 +66,43 @@ func TestAssetInputResolveAssets_FromFS(t *testing.T) {
 	}
 	if _, ok := assets.SourceData["Invoice"]; !ok {
 		t.Fatalf("expected source data to include Invoice")
+	}
+}
+
+func TestJSONSourceDecodeInto_PreservesLargeIntegerAcrossInputModes(t *testing.T) {
+	const largeInteger = "9007199254740993"
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "data.json")
+	writeFile(t, filePath, `{"id":`+largeInteger+`}`)
+	fsys := fstest.MapFS{
+		"data.json": &fstest.MapFile{Data: []byte(`{"id":` + largeInteger + `}`)},
+	}
+
+	testCases := []struct {
+		name   string
+		source JSONSource
+	}{
+		{name: "object", source: JSONSource{Object: map[string]any{"id": int64(9007199254740993)}}},
+		{name: "raw", source: JSONSource{Raw: []byte(`{"id":` + largeInteger + `}`)}},
+		{name: "text", source: JSONSource{Text: `{"id":` + largeInteger + `}`}},
+		{name: "file", source: JSONSource{FilePath: filePath}},
+		{name: "fs", source: JSONSource{FS: fsys, FSPath: "data.json"}},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			var decoded map[string]any
+			if err := testCase.source.DecodeInto(&decoded, "source data"); err != nil {
+				t.Fatalf("DecodeInto returned error: %v", err)
+			}
+			number, ok := decoded["id"].(json.Number)
+			if !ok {
+				t.Fatalf("decoded id type = %T, want json.Number", decoded["id"])
+			}
+			if number.String() != largeInteger {
+				t.Fatalf("decoded id = %q, want %q", number, largeInteger)
+			}
+		})
 	}
 }
 
@@ -161,6 +202,52 @@ func TestAssetInputResolveAssets_AppliesFlowDefaultsWhenEntriesOmitted(t *testin
 	}
 	if assets.Flow.PageNumber.Transformer != "generic" {
 		t.Fatalf("expected inferred pageNumber transformer generic, got %q", assets.Flow.PageNumber.Transformer)
+	}
+}
+
+func TestAssetInputResolveAssets_RejectsUnknownFlowFields(t *testing.T) {
+	input := AssetInput{
+		HTML: TextSource{Text: `{{define "doc"}}<div>doc</div>{{end}}{{define "page-number"}}<div>1</div>{{end}}`},
+		CSS:  TextSource{Text: "@page { size: A4; }"},
+		Flow: JSONSource{Text: `{
+			"mainFlow":[{"template":"doc","transformer":"generic","unexpected":true}],
+			"pageNumber":{"template":"page-number","transformer":"generic"}
+		}`},
+	}
+
+	_, err := input.ResolveAssets()
+	if err == nil || !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("expected unknown flow field error, got %v", err)
+	}
+}
+
+func TestAssetInputResolveAssets_HTMLLayersInferSameFlowAsLegacyHTML(t *testing.T) {
+	html := `
+{{/* {{define "phantom"}} */}}
+{{define "doc"}}<div>doc</div>{{end}}
+{{define "page-number"}}<div>{{.page.pageNumber}}</div>{{end}}`
+	base := AssetInput{
+		CSS:  TextSource{Text: "@page { size: A4; }"},
+		Flow: JSONSource{Text: `{}`},
+	}
+	legacy := base
+	legacy.HTML = TextSource{Text: html}
+	layered := base
+	layered.HTMLLayers = []HTMLLayerInput{{Name: "document", Source: TextSource{Text: html}}}
+
+	legacyAssets, err := legacy.ResolveAssets()
+	if err != nil {
+		t.Fatalf("resolve legacy assets: %v", err)
+	}
+	layeredAssets, err := layered.ResolveAssets()
+	if err != nil {
+		t.Fatalf("resolve layered assets: %v", err)
+	}
+	if len(legacyAssets.Flow.MainFlow) != 1 || legacyAssets.Flow.MainFlow[0].Template != "doc" {
+		t.Fatalf("unexpected legacy inferred flow: %+v", legacyAssets.Flow.MainFlow)
+	}
+	if !reflect.DeepEqual(layeredAssets.Flow, legacyAssets.Flow) {
+		t.Fatalf("layered inferred flow differs: got %+v want %+v", layeredAssets.Flow, legacyAssets.Flow)
 	}
 }
 
@@ -278,6 +365,59 @@ func TestAssetInputResolveAssets_CSSLayers_RequiredMissingLayerFails(t *testing.
 	_, err := input.ResolveAssets()
 	if err == nil {
 		t.Fatalf("expected ResolveAssets to fail for missing required css layer")
+	}
+}
+
+func TestAssetInputResolveAssets_CSSLayers_ExplicitMissingLegacyCSSFails(t *testing.T) {
+	missingPath := filepath.Join(t.TempDir(), "missing.css")
+	input := AssetInput{
+		HTML:      TextSource{Text: `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`},
+		CSS:       TextSource{FilePath: missingPath},
+		CSSLayers: []CSSLayerInput{{Name: "base", Source: TextSource{Text: "@page { size: A4; }"}}},
+		Flow:      JSONSource{Text: `{"mainFlow":[{"template":"doc","transformer":"generic"}],"pageNumber":{"template":"page-number","transformer":"generic"}}`},
+	}
+
+	_, err := input.ResolveAssets()
+	if err == nil || !strings.Contains(err.Error(), missingPath) {
+		t.Fatalf("expected explicit legacy CSS read failure, got %v", err)
+	}
+}
+
+func TestAssetInputResolveAssets_CSSLayers_UnsetLegacyCSSRemainsOptional(t *testing.T) {
+	input := AssetInput{
+		HTML:      TextSource{Text: `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`},
+		CSSLayers: []CSSLayerInput{{Name: "base", Source: TextSource{Text: "@page { size: A4; }"}}},
+		Flow:      JSONSource{Text: `{"mainFlow":[{"template":"doc","transformer":"generic"}],"pageNumber":{"template":"page-number","transformer":"generic"}}`},
+	}
+
+	assets, err := input.ResolveAssets()
+	if err != nil {
+		t.Fatalf("expected unset legacy CSS to remain optional: %v", err)
+	}
+	if assets.CSS != "" {
+		t.Fatalf("legacy CSS = %q, want empty", assets.CSS)
+	}
+}
+
+type errorFS struct {
+	err error
+}
+
+func (f errorFS) Open(string) (fs.File, error) {
+	return nil, f.err
+}
+
+func TestAssetInputResolveAssets_CSSLayers_ExplicitUnreadableLegacyCSSFails(t *testing.T) {
+	input := AssetInput{
+		HTML:      TextSource{Text: `{{define "doc"}}<div>ok</div>{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`},
+		CSS:       TextSource{FS: errorFS{err: fs.ErrPermission}, FSPath: "doc.css"},
+		CSSLayers: []CSSLayerInput{{Name: "base", Source: TextSource{Text: "@page { size: A4; }"}}},
+		Flow:      JSONSource{Text: `{"mainFlow":[{"template":"doc","transformer":"generic"}],"pageNumber":{"template":"page-number","transformer":"generic"}}`},
+	}
+
+	_, err := input.ResolveAssets()
+	if !errors.Is(err, fs.ErrPermission) {
+		t.Fatalf("expected explicit legacy CSS permission error, got %v", err)
 	}
 }
 

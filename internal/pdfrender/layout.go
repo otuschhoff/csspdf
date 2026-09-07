@@ -25,6 +25,7 @@ type LayoutPDF struct {
 	Formatter             *format.Formatter
 	I18n                  *i18n.I18n
 	imageSearchDirs       []string
+	strictRenderErrors    bool
 	tableRenderer         *TableRenderer
 	warningf              func(format string, args ...any)
 	pageNumRenderer       func(l *LayoutPDF, page, pageCount int)
@@ -59,8 +60,9 @@ type FontRegistration struct {
 
 // LayoutOptions controls optional renderer initialization behavior.
 type LayoutOptions struct {
-	FontRegistrations []FontRegistration
-	ImageSearchDirs   []string
+	FontRegistrations  []FontRegistration
+	ImageSearchDirs    []string
+	StrictRenderErrors bool
 }
 
 // NewLayoutPDF creates a LayoutPDF from page settings and locale/format helpers.
@@ -87,11 +89,12 @@ func NewLayoutPDFWithOptions(defaultPage, firstPage templateload.PageSettings, i
 	tableRenderer := NewTableRenderer(pdf, formatter)
 
 	return &LayoutPDF{
-		PDF:             pdf,
-		Formatter:       formatter,
-		I18n:            i18nInst,
-		imageSearchDirs: append([]string(nil), options.ImageSearchDirs...),
-		tableRenderer:   tableRenderer,
+		PDF:                pdf,
+		Formatter:          formatter,
+		I18n:               i18nInst,
+		imageSearchDirs:    append([]string(nil), options.ImageSearchDirs...),
+		strictRenderErrors: options.StrictRenderErrors,
+		tableRenderer:      tableRenderer,
 		warningf: func(format string, args ...any) {
 			fmt.Fprintf(os.Stderr, "Warning: "+format+"\n", args...)
 		},
@@ -196,19 +199,9 @@ func (l *LayoutPDF) SetRunningFooterTemplateFromElement(name string, footerElem 
 	}
 
 	// Read template dimensions from CSS-baked attributes.
-	tplWidth := l.pageWidth
-	if raw, ok := footerElem.Attribute("width"); ok {
-		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil && v > 0 {
-			tplWidth = v
-		}
-	}
+	tplWidth := floatAttributeOrDefault(footerElem, "width", l.pageWidth, true)
 	const defaultFooterHeight = 52.0
-	tplHeight := defaultFooterHeight
-	if raw, ok := footerElem.Attribute("height"); ok {
-		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil && v > 0 {
-			tplHeight = v
-		}
-	}
+	tplHeight := floatAttributeOrDefault(footerElem, "height", defaultFooterHeight, true)
 
 	safeName := strings.ToUpper(strings.TrimSpace(name))
 	if safeName == "" {
@@ -219,6 +212,7 @@ func (l *LayoutPDF) SetRunningFooterTemplateFromElement(name string, footerElem 
 
 	children := footerElem.ElementChildren()
 	i18nInst := l.I18n
+	var templateErr error
 
 	tpl := l.PDF.CreateTemplateCustomNamed(
 		gofpdf.PointType{X: 0, Y: 0},
@@ -228,6 +222,9 @@ func (l *LayoutPDF) SetRunningFooterTemplateFromElement(name string, footerElem 
 			engine := l.newTextEngine(&t.Fpdf, i18nInst)
 			currentY := 0.0
 			for _, child := range children {
+				if templateErr != nil {
+					return
+				}
 				childElem, ok := child.(pdfdom.PDFElementNode)
 				if !ok {
 					continue
@@ -241,6 +238,10 @@ func (l *LayoutPDF) SetRunningFooterTemplateFromElement(name string, footerElem 
 					}
 					childTpl, err := l.TemplateByName(tplName)
 					if err != nil {
+						if l.strictRenderErrors {
+							templateErr = fmt.Errorf("running footer %q: %w", name, err)
+							return
+						}
 						l.warnf("running footer %q: %v", name, err)
 						continue
 					}
@@ -272,6 +273,10 @@ func (l *LayoutPDF) SetRunningFooterTemplateFromElement(name string, footerElem 
 						X: x, Y: y, Width: w, Fit: pdfdom.TextFitWrap,
 					})
 					if err != nil {
+						if l.strictRenderErrors {
+							templateErr = fmt.Errorf("running footer %q: failed to render child: %w", name, err)
+							return
+						}
 						l.warnf("running footer %q: failed to render child: %v", name, err)
 						continue
 					}
@@ -282,6 +287,9 @@ func (l *LayoutPDF) SetRunningFooterTemplateFromElement(name string, footerElem 
 			}
 		},
 	)
+	if templateErr != nil {
+		return templateErr
+	}
 
 	l.runningFooterTemplate = tpl
 	l.runningFooterSize = gofpdf.SizeType{Wd: tplWidth, Ht: tplHeight}
@@ -1042,76 +1050,6 @@ func (l *LayoutPDF) TemplateByName(name string) (gofpdf.Template, error) {
 	default:
 		return nil, fmt.Errorf("unknown template name %q", name)
 	}
-}
-
-// RenderCreateTemplateElement captures the child elements of an
-// ElemCreateTemplate into a named gofpdf template via CreateTemplateCustomNamed.
-// The template is stored in l.userTemplates and can be referenced by name from
-// any subsequent <use-template name="..."> element.
-func (l *LayoutPDF) RenderCreateTemplateElement(elem *pdfdom.ElemCreateTemplate) error {
-	if elem == nil {
-		return fmt.Errorf("create-template element is nil")
-	}
-	name, ok := elem.Attribute("name")
-	if !ok || strings.TrimSpace(name) == "" {
-		return fmt.Errorf("create-template missing name attribute")
-	}
-
-	x, y := 0.0, 0.0
-	if raw, ok := elem.Attribute("x"); ok {
-		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
-			x = v
-		}
-	}
-	if raw, ok := elem.Attribute("y"); ok {
-		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
-			y = v
-		}
-	}
-	var width, height float64
-	if raw, ok := elem.Attribute("width"); ok {
-		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
-			width = v
-		}
-	}
-	if raw, ok := elem.Attribute("height"); ok {
-		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
-			height = v
-		}
-	}
-
-	children := elem.ElementChildren()
-	i18nInst := l.I18n
-
-	tpl := l.PDF.CreateTemplateCustomNamed(
-		gofpdf.PointType{X: x, Y: y},
-		gofpdf.SizeType{Wd: width, Ht: height},
-		name,
-		func(t *gofpdf.Tpl) {
-			engine := l.newTextEngine(&t.Fpdf, i18nInst)
-			currentY := y
-			for _, child := range children {
-				childElem, ok := child.(pdfdom.PDFElementNode)
-				if !ok {
-					continue
-				}
-				metrics, err := engine.RenderInBox(childElem, &pdfdom.PDFTextBox{
-					X: x, Y: currentY, Width: width, Fit: pdfdom.TextFitWrap,
-				})
-				if err != nil {
-					l.warnf("create-template %q: failed to render child: %v", name, err)
-					continue
-				}
-				currentY += metrics.Height
-			}
-		},
-	)
-
-	if l.userTemplates == nil {
-		l.userTemplates = make(map[string]gofpdf.Template)
-	}
-	l.userTemplates[name] = tpl
-	return nil
 }
 
 // RenderUseTemplateElement renders a <use-template> element using the named template.

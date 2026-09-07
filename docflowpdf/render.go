@@ -89,6 +89,9 @@ type RenderInput struct {
 	FuncMapFactoryEx         FuncMapFactoryWithContext
 	FuncMapFactory           FuncMapFactory
 	Logger                   Logger
+	// AllowPartialRender preserves the legacy behavior of logging recoverable
+	// template and element errors while emitting a potentially incomplete PDF.
+	AllowPartialRender bool
 	// Deprecated: use Logger.
 	WarningWriter io.Writer
 }
@@ -107,22 +110,6 @@ func RenderWithInput(input RenderInput) error {
 		return fmt.Errorf("output path is required")
 	}
 	return RenderToFile(input, input.OutputPath)
-}
-
-// RenderToFile renders and writes a PDF to the given file path.
-func RenderToFile(input RenderInput, outputPath string) error {
-	if strings.TrimSpace(outputPath) == "" {
-		return fmt.Errorf("output path is required")
-	}
-	file, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("failed to create output file %q: %w", outputPath, err)
-	}
-	defer file.Close()
-	if err := RenderToWriter(input, file); err != nil {
-		return fmt.Errorf("failed to write PDF to %s: %w", outputPath, err)
-	}
-	return nil
 }
 
 // RenderToWriter renders and writes a PDF to an io.Writer.
@@ -218,8 +205,9 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 	}
 	formatter := format.New(i18nInst, currencyCode)
 	l, err := pdfrender.NewLayoutPDFWithOptions(defaultPage, firstPage, i18nInst, formatter, pdfrender.LayoutOptions{
-		FontRegistrations: toLayoutFontRegistrations(resolvedFontRegistrations),
-		ImageSearchDirs:   resolveImageSearchDirs(input),
+		FontRegistrations:  toLayoutFontRegistrations(resolvedFontRegistrations),
+		ImageSearchDirs:    resolveImageSearchDirs(input),
+		StrictRenderErrors: !input.AllowPartialRender,
 	})
 	if err != nil {
 		return nil, err
@@ -239,48 +227,23 @@ func buildArtifact(input RenderInput) (*renderArtifact, error) {
 
 	l.SetWarningFunc(warnf)
 
-	var pageNumberRenderErr error
-
 	l.StartFlow()
 	l.SetDeferFlowPageNum(true)
-	l.SetPageNumRenderer(func(layout *pdfrender.LayoutPDF, page, pageCount int) {
-		if page <= 1 {
-			return
-		}
-		elements, e := pageNumberTemplateFlowElements(layout, assets, sourceData, page, pageCount, input)
-		if e != nil {
-			if errors.Is(e, errI18nMacroExpansion) && pageNumberRenderErr == nil {
-				pageNumberRenderErr = fmt.Errorf("page-number template render failed on page %d/%d: %w", page, pageCount, e)
-			}
-			warnf("failed to render page-number template: %v", e)
-			return
-		}
-		if e = pdfrender.RenderDocTemplateFlow(layout, elements); e != nil {
-			warnf("failed to render page-number template flow on page %d/%d: %v", page, pageCount, e)
-		}
-	})
+	pageNumberRenderError := configurePageNumberRenderer(l, assets, sourceData, input, warnf)
 
 	l.BeginPage(1)
 	if err := renderMainFlow(l, assets, sourceData, input); err != nil {
-		var fatalErr *fatalFlowRenderError
-		if errors.As(err, &fatalErr) {
-			return nil, fatalErr
+		if policyErr := handleMainFlowError(err, input, warnf); policyErr != nil {
+			return nil, policyErr
 		}
-		if errors.Is(err, errI18nMacroExpansion) {
-			return nil, err
-		}
-		if len(assets.HTMLLayers) > 0 {
-			return nil, fmt.Errorf("failed to render template flow with HTML layers: %w", err)
-		}
-		warnf("%v", err)
 	}
 
 	if l.TotalPages() < l.PDF.PageNo() {
 		l.EnsureTotalPagesAtLeast(l.PDF.PageNo())
 	}
 	l.RenderFinalFlowPageNums()
-	if pageNumberRenderErr != nil {
-		return nil, pageNumberRenderErr
+	if err := pageNumberRenderError(); err != nil {
+		return nil, err
 	}
 	return &renderArtifact{layout: l}, nil
 }
@@ -372,7 +335,11 @@ func resolveRenderAssets(input RenderInput) (Assets, error) {
 		return input.AssetInput.ResolveAssets()
 	}
 	assets := input.Assets
-	if err := applyFlowDefaults(&assets.Flow, assets.HTML); err != nil {
+	assets.Flow = cloneFlow(input.Assets.Flow)
+	if _, err := effectiveTemplateHTML(assets); err != nil {
+		return Assets{}, err
+	}
+	if err := applyFlowDefaults(&assets.Flow, templateSourcesInRenderOrder(assets)); err != nil {
 		return Assets{}, err
 	}
 	if err := assets.Validate(); err != nil {
@@ -723,10 +690,14 @@ func transformGenericSection(section Section, ctx transformContext) (map[string]
 		vars := extractStringVarsFromSourcePaths(ctx.Source, section.Payload.I18nVars)
 		i18nData := ctx.Layout.I18n.TemplateData(vars)
 		if ctx.Input.EnableI18nTemplateMacros {
+			macroPayload, err := asJSONObject(payload)
+			if err != nil {
+				return nil, fmt.Errorf("failed to normalize macro payload: %w", err)
+			}
 			funcs := buildFuncMap(ctx.Input, strings.TrimSpace(ctx.Input.DefaultLocale), locale)
 			rendered, err := renderI18nTemplateNode(i18nData, funcs, map[string]any{
 				"Source":  ctx.Source,
-				"Payload": payload,
+				"Payload": macroPayload,
 				"locale":  locale,
 			})
 			if err != nil {
@@ -1117,7 +1088,7 @@ func asJSONObject(data any) (map[string]any, error) {
 		return nil, fmt.Errorf("failed to marshal data to JSON: %w", err)
 	}
 	out := make(map[string]any)
-	if err := json.Unmarshal(buf, &out); err != nil {
+	if err := decodeJSON(buf, &out, false); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal data from JSON: %w", err)
 	}
 	return out, nil

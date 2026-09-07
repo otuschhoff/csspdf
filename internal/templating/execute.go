@@ -23,7 +23,7 @@ func ExecuteNamedFromSourcesWithFuncs(templateSources []string, templateName str
 		return "", fmt.Errorf("failed to parse template source: no template sources provided")
 	}
 
-	tmpl := template.New("doc")
+	tmpl := template.New("doc").Option("missingkey=error")
 	if len(funcs) > 0 {
 		tmpl = tmpl.Funcs(funcs)
 	}

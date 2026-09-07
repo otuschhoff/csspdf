@@ -1,6 +1,7 @@
 package docflowpdf
 
 import (
+	"encoding/json"
 	htmltmpl "html/template"
 	"testing"
 	"time"
@@ -56,6 +57,19 @@ func TestDefaultTemplateFuncMap_ContainsGenericHelpers(t *testing.T) {
 	}
 
 	_ = htmltmpl.FuncMap(funcs)
+}
+
+func TestDefaultTemplateFuncMap_SumNumbersAcceptsJSONAndNativeNumbers(t *testing.T) {
+	funcs := DefaultTemplateFuncMap("en", "en")
+	sumFn := funcs["sumNumbers"].(func(any, string) float64)
+	rows := []any{
+		map[string]any{"Amount": json.Number("1.25")},
+		map[string]any{"Amount": int64(2)},
+		map[string]any{"Amount": uint64(3)},
+	}
+	if got := sumFn(rows, "Amount"); got != 6.25 {
+		t.Fatalf("sumNumbers returned %v, want 6.25", got)
+	}
 }
 
 func TestDefaultTemplateFuncMapWithContext_CurrencyHelpers(t *testing.T) {

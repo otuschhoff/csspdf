@@ -4,15 +4,19 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"text/template/parse"
 )
 
 var templateDefinePattern = regexp.MustCompile(`\{\{\-?\s*define\s+"([^"]+)"\s*\-?\}\}`)
 
-func applyFlowDefaults(flow *Flow, htmlSource string) error {
+func applyFlowDefaults(flow *Flow, htmlSources []string) error {
 	if flow == nil {
 		return fmt.Errorf("flow is nil")
 	}
-	names := extractDefinedTemplateNames(htmlSource)
+	names, err := extractDefinedTemplateNames(htmlSources)
+	if err != nil {
+		return fmt.Errorf("failed to inspect HTML templates for flow defaults: %w", err)
+	}
 	pageTemplate := strings.TrimSpace(flow.PageNumber.Template)
 	if pageTemplate == "" {
 		pageTemplate = defaultPageNumberTemplateName(names)
@@ -73,19 +77,34 @@ func hasTemplateName(templateNames []string, want string) bool {
 	return false
 }
 
-func extractDefinedTemplateNames(htmlSource string) []string {
-	matches := templateDefinePattern.FindAllStringSubmatch(htmlSource, -1)
-	if len(matches) == 0 {
-		return nil
+func extractDefinedTemplateNames(htmlSources []string) ([]string, error) {
+	parsedNames := make(map[string]struct{})
+	orderedCandidates := make([]string, 0)
+	for index, htmlSource := range htmlSources {
+		tree := parse.New(fmt.Sprintf("source-%d", index))
+		tree.Mode = parse.SkipFuncCheck
+		parsed := make(map[string]*parse.Tree)
+		if _, err := tree.Parse(htmlSource, "{{", "}}", parsed); err != nil {
+			return nil, fmt.Errorf("failed to parse template source[%d]: %w", index, err)
+		}
+		for name := range parsed {
+			parsedNames[name] = struct{}{}
+		}
+		for _, match := range templateDefinePattern.FindAllStringSubmatch(htmlSource, -1) {
+			if len(match) == 2 {
+				orderedCandidates = append(orderedCandidates, match[1])
+			}
+		}
 	}
-	seen := make(map[string]struct{}, len(matches))
-	out := make([]string, 0, len(matches))
-	for _, m := range matches {
-		if len(m) != 2 {
+
+	seen := make(map[string]struct{}, len(orderedCandidates))
+	out := make([]string, 0, len(orderedCandidates))
+	for _, candidate := range orderedCandidates {
+		name := strings.TrimSpace(candidate)
+		if name == "" {
 			continue
 		}
-		name := strings.TrimSpace(m[1])
-		if name == "" {
+		if _, ok := parsedNames[name]; !ok {
 			continue
 		}
 		if _, ok := seen[name]; ok {
@@ -94,7 +113,7 @@ func extractDefinedTemplateNames(htmlSource string) []string {
 		seen[name] = struct{}{}
 		out = append(out, name)
 	}
-	return out
+	return out, nil
 }
 
 func defaultPageNumberTemplateName(templateNames []string) string {

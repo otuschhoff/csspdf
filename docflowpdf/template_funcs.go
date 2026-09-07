@@ -1,6 +1,7 @@
 package docflowpdf
 
 import (
+	"encoding/json"
 	htmltmpl "html/template"
 	"strconv"
 	"strings"
@@ -281,6 +282,18 @@ func asFloat64(v any) float64 {
 		return float64(typed)
 	case int64:
 		return float64(typed)
+	case uint:
+		return float64(typed)
+	case uint32:
+		return float64(typed)
+	case uint64:
+		return float64(typed)
+	case json.Number:
+		value, err := typed.Float64()
+		if err == nil {
+			return value
+		}
+		return 0
 	default:
 		return 0
 	}

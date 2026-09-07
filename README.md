@@ -289,7 +289,41 @@ RenderInput supports warning sinks via:
 - Logger (preferred)
 - WarningWriter (deprecated compatibility path)
 
-Non-fatal render issues (for example, page-number template render failures) are emitted as warnings while rendering continues.
+Rendering is strict by default. Missing templates, missing map values, missing
+images, and element-rendering failures return errors instead of producing an
+incomplete PDF. Applications that temporarily require the previous behavior
+can set `RenderInput.AllowPartialRender` or use
+`WithLegacyPartialRendering(true)`; recoverable failures are then sent to the
+warning sink while rendering continues.
+
+`RenderToFile` renders before touching the destination and replaces it through
+a temporary file in the destination directory. Existing file permissions are
+preserved; new files are owner-only (`0600`). `RenderToWriter` cannot roll back
+bytes already accepted by an arbitrary writer. See
+`docs/phase1-migration.md` for the complete output contract.
+
+## Input Normalization
+
+JSON numbers decoded into dynamic values use `json.Number`, preserving their
+source representation and integers above $2^{53}$. Custom template functions
+should use `json.Number.String`, `Int64`, or `Float64` according to whether the
+value is an identifier, integer, or quantity. Generic numeric helpers accept
+both `json.Number` and native Go numeric values.
+
+Flow JSON rejects unknown fields. Runtime and static payload targets cannot
+overlap, use prefix-conflicting paths, or overwrite the reserved roots
+`Source`, `Payload`, `page`, `locale`, and `i18n`.
+
+Without an explicit i18n source, formatting uses self-contained separators:
+German uses decimal comma and thousands point; other locales use decimal point
+and thousands comma. `AssetBaseDir/i18n.json` remains an explicit profile
+default when an asset base directory is configured.
+
+Currency formatting rounds the complete value once using the precision of the
+currency: JPY uses zero decimals, BHD and KWD use three, and other currencies
+use two. Rounded negative zero is emitted without a minus sign. Float inputs
+retain IEEE 754 semantics; applications requiring exact financial arithmetic
+should calculate exact minor units before passing display values to csspdf.
 
 ## Security and Trust Model
 

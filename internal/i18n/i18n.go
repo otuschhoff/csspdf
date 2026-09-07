@@ -3,10 +3,7 @@
 package i18n
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -17,11 +14,14 @@ type I18n struct {
 	locale       string
 }
 
-// New creates a new I18n instance and loads translations for the given locale.
+// New creates a self-contained I18n instance with generic number separators.
 func New(locale string) (*I18n, error) {
 	i := newI18n(locale)
-	if err := i.loadTranslations(locale); err != nil {
-		return nil, err
+	i.translations["_floatSeparator"] = "."
+	i.translations["_kiloSeparator"] = ","
+	if locale == "de" {
+		i.translations["_floatSeparator"] = ","
+		i.translations["_kiloSeparator"] = "."
 	}
 	return i, nil
 }
@@ -43,42 +43,6 @@ func newI18n(locale string) *I18n {
 		locale:       locale,
 		translations: make(map[string]string),
 	}
-}
-
-func (i *I18n) loadTranslations(locale string) error {
-	paths := []string{
-		filepath.Join("examples", "invoice", "i18n.json"),
-		filepath.Join("..", "examples", "invoice", "i18n.json"),
-		filepath.Join("data", "i18n.json"),
-		filepath.Join("..", "data", "i18n.json"),
-		filepath.Join("i18n.json"),
-		filepath.Join("..", "..", "data", "i18n.json"),
-		filepath.Join("..", "..", "examples", "invoice", "i18n.json"),
-	}
-
-	var lastErr error
-	for _, path := range paths {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-
-		var source map[string]any
-		if err := json.Unmarshal(data, &source); err != nil {
-			return fmt.Errorf("failed to parse translations from %s: %w", path, err)
-		}
-
-		translations, err := flattenTranslationsForLocale(source, locale)
-		if err != nil {
-			return fmt.Errorf("failed to load %s translations from %s: %w", locale, path, err)
-		}
-		i.translations = translations
-
-		return nil
-	}
-
-	return fmt.Errorf("failed to load translations for locale %s: %w", locale, lastErr)
 }
 
 func flattenTranslationsForLocale(source map[string]any, locale string) (map[string]string, error) {

@@ -2,10 +2,14 @@ package docflowpdf
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	htmltmpl "html/template"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -134,6 +138,89 @@ func TestRenderToWriter_WritesPDF(t *testing.T) {
 	}
 }
 
+func TestRenderToBytes_DefaultI18nIsIndependentOfWorkingDirectory(t *testing.T) {
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get working directory: %v", err)
+	}
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatalf("change to empty working directory: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Errorf("restore working directory: %v", err)
+		}
+	})
+
+	pdf, err := RenderToBytes(RenderInput{
+		Assets:              minimalAssets(),
+		DefaultLocale:       "en",
+		DefaultCurrencyCode: "EUR",
+	})
+	if err != nil {
+		t.Fatalf("RenderToBytes returned error in empty working directory: %v", err)
+	}
+	if !bytes.HasPrefix(pdf, []byte("%PDF")) {
+		t.Fatalf("expected PDF output")
+	}
+}
+
+func TestRenderToBytes_CustomHelperReceivesExactLargeInteger(t *testing.T) {
+	assets := minimalAssets()
+	assets.HTML = `
+{{define "doc"}}<div>{{capture .Source.id}}</div>{{end}}
+{{define "page-number"}}<div>{{.Page}}/{{.Total}}</div>{{end}}`
+	const want = "9007199254740993"
+	var captured string
+
+	_, err := RenderToBytes(RenderInput{
+		Assets:     assets,
+		SourceData: map[string]any{"id": int64(9007199254740993), "locale": "en"},
+		FuncMapFactoryEx: func(FuncContext) htmltmpl.FuncMap {
+			return htmltmpl.FuncMap{"capture": func(value any) string {
+				captured = fmt.Sprint(value)
+				return captured
+			}}
+		},
+	})
+	if err != nil {
+		t.Fatalf("RenderToBytes returned error: %v", err)
+	}
+	if captured != want {
+		t.Fatalf("custom helper received %q, want %q", captured, want)
+	}
+}
+
+func TestRenderToBytes_ConcurrentReuseDoesNotMutateInput(t *testing.T) {
+	assets := minimalAssets()
+	assets.Flow.MainFlow[0].Transformer = ""
+	assets.Flow.PageNumber.Transformer = ""
+	originalFlow := cloneFlow(assets.Flow)
+	input := RenderInput{Assets: assets}
+
+	const workers = 8
+	errorsByWorker := make(chan error, workers)
+	var wait sync.WaitGroup
+	for worker := 0; worker < workers; worker++ {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			_, err := RenderToBytes(input)
+			errorsByWorker <- err
+		}()
+	}
+	wait.Wait()
+	close(errorsByWorker)
+	for err := range errorsByWorker {
+		if err != nil {
+			t.Fatalf("concurrent RenderToBytes returned error: %v", err)
+		}
+	}
+	if !reflect.DeepEqual(input.Assets.Flow, originalFlow) {
+		t.Fatalf("shared input flow was mutated: got %+v want %+v", input.Assets.Flow, originalFlow)
+	}
+}
+
 type testLogger struct {
 	warnings []string
 }
@@ -142,7 +229,7 @@ func (l *testLogger) Warnf(format string, args ...any) {
 	l.warnings = append(l.warnings, format)
 }
 
-func TestRender_UsesLoggerForNonFatalWarnings(t *testing.T) {
+func TestRender_LegacyPartialRenderingUsesLoggerForRecoverableErrors(t *testing.T) {
 	assets := minimalAssets()
 	assets.Flow.MainFlow[0].Template = "missing-doc-template"
 
@@ -153,12 +240,64 @@ func TestRender_UsesLoggerForNonFatalWarnings(t *testing.T) {
 		DefaultLocale:       "en",
 		DefaultCurrencyCode: "EUR",
 		Logger:              logger,
+		AllowPartialRender:  true,
 	}, &out)
 	if err != nil {
 		t.Fatalf("RenderToWriter returned error: %v", err)
 	}
 	if len(logger.warnings) == 0 {
 		t.Fatalf("expected warning log for main-flow render issue")
+	}
+}
+
+func TestRenderToBytes_MissingTemplateFailsForLegacyAndLayeredHTML(t *testing.T) {
+	testCases := []struct {
+		name   string
+		assets Assets
+	}{
+		{name: "legacy", assets: minimalAssets()},
+		{name: "layered", assets: func() Assets {
+			assets := minimalAssets()
+			assets.HTMLLayers = []HTMLLayer{{Name: "base", HTML: assets.HTML}}
+			assets.HTML = ""
+			return assets
+		}()},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			assets := testCase.assets
+			assets.Flow.MainFlow[0].Template = "missing-doc-template"
+			_, err := RenderToBytes(RenderInput{Assets: assets})
+			if err == nil || !strings.Contains(err.Error(), "missing-doc-template") {
+				t.Fatalf("expected missing template error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestRenderToBytes_MissingRequiredTemplateValueFails(t *testing.T) {
+	assets := minimalAssets()
+	assets.HTML = `
+{{define "doc"}}<div>{{.Source.RequiredValue}}</div>{{end}}
+{{define "page-number"}}<div>{{.Page}}/{{.Total}}</div>{{end}}`
+
+	_, err := RenderToBytes(RenderInput{Assets: assets})
+	if err == nil || !strings.Contains(err.Error(), "RequiredValue") {
+		t.Fatalf("expected missing required value error, got %v", err)
+	}
+}
+
+func TestRenderToBytes_MissingImageFails(t *testing.T) {
+	assets := minimalAssets()
+	missingPath := filepath.Join(t.TempDir(), "missing.png")
+	assets.HTML = fmt.Sprintf(`
+{{define "doc"}}<img src=%q width="10" height="10">{{end}}
+{{define "page-number"}}<div>{{.Page}}/{{.Total}}</div>{{end}}`, missingPath)
+
+	_, err := RenderToBytes(RenderInput{Assets: assets})
+	if err == nil || !strings.Contains(err.Error(), "image not found") {
+		t.Fatalf("expected missing image error, got %v", err)
 	}
 }
 
@@ -381,6 +520,166 @@ func TestRenderToFile_RequiresPath(t *testing.T) {
 	}
 }
 
+func TestRenderToFile_PreservesExistingDestinationOnRenderFailure(t *testing.T) {
+	dir := t.TempDir()
+	outputPath := filepath.Join(dir, "document.pdf")
+	original := []byte("existing output")
+	if err := os.WriteFile(outputPath, original, 0640); err != nil {
+		t.Fatalf("write existing destination: %v", err)
+	}
+
+	err := RenderToFile(RenderInput{Assets: Assets{}}, outputPath)
+	if err == nil {
+		t.Fatalf("expected render failure")
+	}
+	got, readErr := os.ReadFile(outputPath)
+	if readErr != nil {
+		t.Fatalf("read existing destination: %v", readErr)
+	}
+	if !bytes.Equal(got, original) {
+		t.Fatalf("destination changed after render failure: got %q", got)
+	}
+	assertNoAtomicOutputTemps(t, dir)
+}
+
+func TestRenderToFile_AtomicallyReplacesDestinationAndPreservesMode(t *testing.T) {
+	dir := t.TempDir()
+	outputPath := filepath.Join(dir, "document.pdf")
+	if err := os.WriteFile(outputPath, []byte("old"), 0640); err != nil {
+		t.Fatalf("write existing destination: %v", err)
+	}
+
+	err := RenderToFile(RenderInput{
+		Assets:              minimalAssets(),
+		DefaultLocale:       "en",
+		DefaultCurrencyCode: "EUR",
+	}, outputPath)
+	if err != nil {
+		t.Fatalf("RenderToFile returned error: %v", err)
+	}
+	got, readErr := os.ReadFile(outputPath)
+	if readErr != nil {
+		t.Fatalf("read replaced destination: %v", readErr)
+	}
+	if !bytes.HasPrefix(got, []byte("%PDF")) {
+		t.Fatalf("expected PDF output, got %q", got)
+	}
+	info, statErr := os.Stat(outputPath)
+	if statErr != nil {
+		t.Fatalf("stat replaced destination: %v", statErr)
+	}
+	if gotMode := info.Mode().Perm(); gotMode != 0640 {
+		t.Fatalf("destination mode = %o, want 640", gotMode)
+	}
+	assertNoAtomicOutputTemps(t, dir)
+}
+
+func TestRenderToFile_NewDestinationIsOwnerOnly(t *testing.T) {
+	outputPath := filepath.Join(t.TempDir(), "document.pdf")
+	err := RenderToFile(RenderInput{Assets: minimalAssets()}, outputPath)
+	if err != nil {
+		t.Fatalf("RenderToFile returned error: %v", err)
+	}
+	info, statErr := os.Stat(outputPath)
+	if statErr != nil {
+		t.Fatalf("stat output: %v", statErr)
+	}
+	if got := info.Mode().Perm(); got != 0600 {
+		t.Fatalf("new output mode = %o, want 600", got)
+	}
+}
+
+func assertNoAtomicOutputTemps(t *testing.T, dir string) {
+	t.Helper()
+	matches, err := filepath.Glob(filepath.Join(dir, ".document.pdf.tmp-*"))
+	if err != nil {
+		t.Fatalf("glob temporary outputs: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("temporary outputs were not cleaned up: %v", matches)
+	}
+}
+
+type failingAtomicOutput struct {
+	name       string
+	writeErr   error
+	closeErr   error
+	closeCalls int
+}
+
+func (f *failingAtomicOutput) Write(data []byte) (int, error) {
+	if f.writeErr != nil {
+		return 0, f.writeErr
+	}
+	return len(data), nil
+}
+
+func (f *failingAtomicOutput) Chmod(os.FileMode) error { return nil }
+func (f *failingAtomicOutput) Name() string            { return f.name }
+func (f *failingAtomicOutput) Close() error {
+	f.closeCalls++
+	return f.closeErr
+}
+
+func TestWriteFileAtomically_PreservesDestinationAndCleansUpOnFailures(t *testing.T) {
+	testCases := []struct {
+		name      string
+		writeErr  error
+		closeErr  error
+		renameErr error
+		wantError string
+	}{
+		{name: "write", writeErr: errors.New("disk full"), wantError: "failed to write temporary PDF"},
+		{name: "close", closeErr: errors.New("flush failed"), wantError: "failed to close temporary PDF"},
+		{name: "rename", renameErr: errors.New("replace failed"), wantError: "failed to replace output file"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			dir := t.TempDir()
+			outputPath := filepath.Join(dir, "document.pdf")
+			original := []byte("existing output")
+			if err := os.WriteFile(outputPath, original, 0600); err != nil {
+				t.Fatalf("write existing destination: %v", err)
+			}
+
+			removed := false
+			temp := &failingAtomicOutput{
+				name:     filepath.Join(dir, ".document.pdf.tmp-test"),
+				writeErr: testCase.writeErr,
+				closeErr: testCase.closeErr,
+			}
+			err := writeFileAtomically(outputPath, []byte("new output"), atomicOutputOps{
+				createTemp: func(string, string) (atomicOutputFile, error) { return temp, nil },
+				stat:       os.Stat,
+				rename: func(string, string) error {
+					return testCase.renameErr
+				},
+				remove: func(string) error {
+					removed = true
+					return nil
+				},
+			})
+			if err == nil || !strings.Contains(err.Error(), testCase.wantError) {
+				t.Fatalf("error = %v, want containing %q", err, testCase.wantError)
+			}
+			got, readErr := os.ReadFile(outputPath)
+			if readErr != nil {
+				t.Fatalf("read existing destination: %v", readErr)
+			}
+			if !bytes.Equal(got, original) {
+				t.Fatalf("destination changed after %s failure: got %q", testCase.name, got)
+			}
+			if !removed {
+				t.Fatalf("temporary output was not removed after %s failure", testCase.name)
+			}
+			if temp.closeCalls != 1 {
+				t.Fatalf("close calls = %d, want 1", temp.closeCalls)
+			}
+		})
+	}
+}
+
 func minimalI18nSourceForLocale(locale string) map[string]any {
 	return map[string]any{
 		"_floatSeparator": map[string]any{locale: "."},
@@ -557,6 +856,21 @@ func TestRenderToBytes_AppliesFlowDefaultsWhenFlowEntriesMissing(t *testing.T) {
 	}
 	if len(b) == 0 || !bytes.HasPrefix(b, []byte("%PDF")) {
 		t.Fatalf("expected rendered PDF output")
+	}
+}
+
+func TestRenderToBytes_LayerOnlyAssetsApplyFlowDefaults(t *testing.T) {
+	assets := minimalAssets()
+	assets.HTMLLayers = []HTMLLayer{{Name: "document", HTML: assets.HTML}}
+	assets.HTML = ""
+	assets.Flow = Flow{}
+
+	pdf, err := RenderToBytes(RenderInput{Assets: assets})
+	if err != nil {
+		t.Fatalf("expected layer-only resolved assets to infer flow defaults: %v", err)
+	}
+	if !bytes.HasPrefix(pdf, []byte("%PDF")) {
+		t.Fatalf("expected PDF output")
 	}
 }
 

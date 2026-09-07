@@ -1,6 +1,7 @@
 package docflowpdf
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -125,5 +126,56 @@ func TestFlowValidate_RejectsInvalidPayloadPath(t *testing.T) {
 	}
 	if err := flow.Validate(); err == nil {
 		t.Fatalf("expected validation error for invalid payload path")
+	}
+}
+
+func TestFlowValidate_RejectsReservedAndConflictingPayloadPaths(t *testing.T) {
+	testCases := []struct {
+		name    string
+		payload PayloadConfig
+		want    string
+	}{
+		{name: "reserved source", payload: PayloadConfig{Static: map[string]any{"Source.customer": "x"}}, want: "reserved root"},
+		{name: "reserved page", payload: PayloadConfig{Runtime: map[string]string{"page.width": "flow.tableWidth"}}, want: "reserved root"},
+		{name: "same target", payload: PayloadConfig{Runtime: map[string]string{"totals.net": "flow.tableWidth"}, Static: map[string]any{"totals.net": 1}}, want: "defined by both"},
+		{name: "path prefix", payload: PayloadConfig{Static: map[string]any{"totals": 1, "totals.net": 2}}, want: "conflict"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			section := Section{Template: "doc", Transformer: "generic", Payload: testCase.payload}
+			err := section.Validate()
+			if err == nil || !strings.Contains(err.Error(), testCase.want) {
+				t.Fatalf("Validate error = %v, want containing %q", err, testCase.want)
+			}
+		})
+	}
+}
+
+func TestCloneFlow_DeepCopiesMutablePayloadConfiguration(t *testing.T) {
+	original := Flow{MainFlow: []Section{{
+		Template:    "doc",
+		Transformer: "generic",
+		Payload: PayloadConfig{
+			Runtime:  map[string]string{"layout.width": "flow.tableWidth"},
+			I18nVars: map[string]string{"name": "customer.name"},
+			Static: map[string]any{
+				"metadata": map[string]any{"labels": []any{"original"}},
+			},
+		},
+	}}}
+	cloned := cloneFlow(original)
+	cloned.MainFlow[0].Payload.Runtime["layout.width"] = "page.number"
+	cloned.MainFlow[0].Payload.I18nVars["name"] = "other.name"
+	cloned.MainFlow[0].Payload.Static["metadata"].(map[string]any)["labels"].([]any)[0] = "changed"
+
+	if reflect.DeepEqual(original, cloned) {
+		t.Fatalf("expected modified clone to differ")
+	}
+	if got := original.MainFlow[0].Payload.Runtime["layout.width"]; got != "flow.tableWidth" {
+		t.Fatalf("original runtime map changed: %q", got)
+	}
+	if got := original.MainFlow[0].Payload.Static["metadata"].(map[string]any)["labels"].([]any)[0]; got != "original" {
+		t.Fatalf("original nested static value changed: %v", got)
 	}
 }
