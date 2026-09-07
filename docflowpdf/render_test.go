@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	htmltmpl "html/template"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -113,6 +114,24 @@ func TestResolvePageDimensions_InvalidFormatOrOrientation(t *testing.T) {
 	}
 	if _, _, err := resolvePageDimensions(RenderInput{PageOrientation: "sideways"}); err == nil {
 		t.Fatalf("expected error for unsupported orientation")
+	}
+}
+
+func TestResolvePageDimensions_RejectsNonFiniteOverrides(t *testing.T) {
+	testCases := []struct {
+		name  string
+		input RenderInput
+	}{
+		{name: "NaN width", input: RenderInput{PageWidth: math.NaN()}},
+		{name: "positive infinite width", input: RenderInput{PageWidth: math.Inf(1)}},
+		{name: "negative infinite height", input: RenderInput{PageHeight: math.Inf(-1)}},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if _, _, err := resolvePageDimensions(testCase.input); err == nil || !strings.Contains(err.Error(), "finite") {
+				t.Fatalf("expected finite-dimension error, got %v", err)
+			}
+		})
 	}
 }
 

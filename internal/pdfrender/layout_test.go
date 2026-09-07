@@ -1,14 +1,39 @@
 package pdfrender
 
 import (
+	"math"
 	"strings"
 	"testing"
 
 	"github.com/otuschhoff/csspdf/internal/format"
 	"github.com/otuschhoff/csspdf/internal/i18n"
 	"github.com/otuschhoff/csspdf/internal/pdfdom"
+	templateload "github.com/otuschhoff/csspdf/internal/templating"
 	"github.com/otuschhoff/gofpdf"
 )
+
+func TestNewLayoutPDFRejectsInvalidContentGeometry(t *testing.T) {
+	valid := templateload.PageSettings{Width: 200, Height: 300, Margins: templateload.PageMargins{Top: 10, Right: 10, Bottom: 10, Left: 10}}
+	testCases := []struct {
+		name     string
+		settings templateload.PageSettings
+		contains string
+	}{
+		{name: "non-finite width", settings: templateload.PageSettings{Width: math.Inf(1), Height: 300}, contains: "finite"},
+		{name: "zero height", settings: templateload.PageSettings{Width: 200}, contains: "greater than zero"},
+		{name: "negative margin", settings: templateload.PageSettings{Width: 200, Height: 300, Margins: templateload.PageMargins{Left: -1}}, contains: "zero or greater"},
+		{name: "impossible horizontal margins", settings: templateload.PageSettings{Width: 200, Height: 300, Margins: templateload.PageMargins{Left: 100, Right: 100}}, contains: "non-positive content box"},
+		{name: "impossible vertical margins", settings: templateload.PageSettings{Width: 200, Height: 300, Margins: templateload.PageMargins{Top: 200, Bottom: 100}}, contains: "non-positive content box"},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := NewLayoutPDF(testCase.settings, valid, nil, nil)
+			if err == nil || !strings.Contains(err.Error(), testCase.contains) {
+				t.Fatalf("expected error containing %q, got %v", testCase.contains, err)
+			}
+		})
+	}
+}
 
 func TestTableDefFromElement_AllowsFlexibleColWithoutWidth(t *testing.T) {
 	table := pdfdom.NewElemTable()
@@ -44,6 +69,29 @@ func TestTableDefFromElement_AllowsFlexibleColWithoutWidth(t *testing.T) {
 	}
 	if def.Columns[2].Width != 83 {
 		t.Fatalf("expected third column width 83, got %f", def.Columns[2].Width)
+	}
+}
+
+func TestTableDefFromElementInfersOccupiedColumnsFromColspan(t *testing.T) {
+	table := pdfdom.NewElemTable()
+	table.SetAttribute("width", "300")
+	table.SetAttribute("padding", "4")
+	table.SetAttribute("rowHeightMin", "20")
+	row := pdfdom.NewElemTr()
+	row.Add(pdfdom.NewElemTd().SetAttribute("colspan", "2").SetAttribute("width", "200"))
+	row.Add(pdfdom.NewElemTd().SetAttribute("width", "100"))
+	table.Add(row)
+
+	layout := &LayoutPDF{}
+	definition, err := layout.TableDefFromElement(table, 300)
+	if err != nil {
+		t.Fatalf("TableDefFromElement returned error: %v", err)
+	}
+	if len(definition.Columns) != 3 {
+		t.Fatalf("inferred columns = %d, want 3 occupied columns", len(definition.Columns))
+	}
+	if definition.Columns[0].Width != 100 || definition.Columns[1].Width != 100 || definition.Columns[2].Width != 100 {
+		t.Fatalf("unexpected inferred widths: %+v", definition.Columns)
 	}
 }
 

@@ -61,6 +61,7 @@ type ColumnDef struct {
 type RowDef struct {
 	Cells      []CellDef
 	Height     float64
+	Header     bool
 	Background string
 	Fill       string
 	Border     bool
@@ -111,6 +112,9 @@ func (tr *TableRenderer) RenderTable(table *TableDef) error {
 	startX := tr.pdf.GetX()
 	startY := tr.pdf.GetY()
 	layout := tr.resolveTableLayout(table)
+	if err := validateTableSpans(table, len(layout.colWidths)); err != nil {
+		return err
+	}
 
 	if table.Title != "" {
 		tr.pdf.SetFont(defaultTableFontFace, "", defaultTableFontSize)
@@ -150,19 +154,9 @@ func (tr *TableRenderer) RenderTable(table *TableDef) error {
 		if bgColor != "" || drawStroke {
 			tr.drawRowBackground(startX, currentY, layout.tableWidth, rh, bgColor, drawStroke)
 		}
-		currentX := startX
-		for colIdx, cell := range row.Cells {
-			if colIdx >= len(layout.colWidths) {
-				break
-			}
-			colWidth := tr.getColumnWidth(layout.colWidths, colIdx)
-			if cell.Colspan > 1 {
-				for i := 1; i < cell.Colspan && (colIdx+i) < len(layout.colWidths); i++ {
-					colWidth += tr.getColumnWidth(layout.colWidths, colIdx+i)
-				}
-			}
-			tr.renderCell(&cell, currentX, currentY, colWidth, rh, layout.padding)
-			currentX += tr.getColumnWidth(layout.colWidths, colIdx)
+		for _, placement := range tableCellPlacements(&row, layout.colWidths) {
+			cell := &row.Cells[placement.cellIndex]
+			tr.renderCell(cell, startX+placement.offset, currentY, placement.width, rh, layout.padding)
 		}
 		currentY += rh
 	}
@@ -179,20 +173,16 @@ func (tr *TableRenderer) MeasureTableHeight(table *TableDef) (float64, error) {
 	if len(table.Columns) == 0 {
 		return 0, fmt.Errorf("table must define at least one column")
 	}
-	layout := tr.resolveTableLayout(table)
+	rowHeights, err := tr.resolvedRowHeights(table)
+	if err != nil {
+		return 0, err
+	}
 	height := 0.0
 	if table.Title != "" {
 		height += defaultTableFontSize + 10
 	}
-	for _, row := range table.Rows {
-		rh := row.Height
-		if rh == 0 {
-			rh = layout.rowHeightMin
-		}
-		if calc := tr.calculateRowHeight(&row, rh, layout.padding, layout.colWidths); calc > rh {
-			rh = calc
-		}
-		height += rh
+	for _, rowHeight := range rowHeights {
+		height += rowHeight
 	}
 	return height, nil
 }
@@ -351,29 +341,22 @@ func (tr *TableRenderer) preferredColumnWidths(table *TableDef, currentWidths []
 			if colIdx >= len(preferred) {
 				break
 			}
-			span := cell.Colspan
-			if span < 1 {
-				span = 1
+			span := normalizedColspan(cell.Colspan)
+			if colIdx+span > len(preferred) {
+				break
 			}
-			if span == 1 {
-				required := tr.measureNoWrapCellRequiredWidth(&cell, defaultPadding)
-				if cell.NoWrap {
-					if required > preferred[colIdx] {
-						preferred[colIdx] = required
-					}
-				} else {
-					// For wrapping cells, prefer larger width to reduce wraps,
-					// while avoiding hard no-wrap behavior.
-					target := required * 0.65
-					if target < preferred[colIdx] {
-						target = preferred[colIdx]
-					}
-					if target > 420 {
-						target = 420
-					}
-					if target > preferred[colIdx] {
-						preferred[colIdx] = target
-					}
+			required := tr.measureNoWrapCellRequiredWidth(&cell, defaultPadding)
+			if !cell.NoWrap {
+				required = math.Min(required*0.65, 420)
+			}
+			current := 0.0
+			for idx := colIdx; idx < colIdx+span; idx++ {
+				current += preferred[idx]
+			}
+			if required > current {
+				extra := (required - current) / float64(span)
+				for idx := colIdx; idx < colIdx+span; idx++ {
+					preferred[idx] += extra
 				}
 			}
 			colIdx += span
@@ -526,11 +509,8 @@ func (tr *TableRenderer) maxLineWidthNoWrap(text string) float64 {
 
 func (tr *TableRenderer) calculateRowHeight(row *RowDef, minH, padding float64, colWidths []float64) float64 {
 	max := minH
-	for colIdx, cell := range row.Cells {
-		if colIdx >= len(colWidths) {
-			break
-		}
-		if h := tr.measureCellHeight(&cell, tr.getColumnWidth(colWidths, colIdx), padding); h > max {
+	for _, placement := range tableCellPlacements(row, colWidths) {
+		if h := tr.measureCellHeight(&row.Cells[placement.cellIndex], placement.width, padding); h > max {
 			max = h
 		}
 	}

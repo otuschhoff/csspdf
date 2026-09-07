@@ -325,6 +325,22 @@ use two. Rounded negative zero is emitted without a minus sign. Float inputs
 retain IEEE 754 semantics; applications requiring exact financial arithmetic
 should calculate exact minor units before passing display values to csspdf.
 
+## Layout Guarantees
+
+Consecutive flow sections share a persistent normal-flow cursor and therefore
+do not overlap. Absolute elements and page-number overlays are page-local and
+do not alter that cursor.
+
+Page dimensions and margins must define a finite, positive content box.
+Normal-flow tables paginate between rows and repeat leading `thead` rows on
+each page. Colspan occupancy is shared by width inference, row measurement,
+and rendering. A table row or image that cannot fit on an empty content box
+returns an overflow error rather than rendering beyond the page. Long text
+continues across pages without rewrapping already rendered lines.
+
+See [the Phase 2 layout contract](docs/phase2-layout.md) for detailed overflow
+and compatibility behavior.
+
 ## Security and Trust Model
 
 The current release is intended for trusted local authoring. Treat HTML/CSS

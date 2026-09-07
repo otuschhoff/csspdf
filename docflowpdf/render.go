@@ -139,13 +139,6 @@ func RenderToBytes(input RenderInput) ([]byte, error) {
 func buildArtifact(input RenderInput) (*renderArtifact, error) {
 	warnf := warningFunc(input)
 
-	if input.PageWidth < 0 {
-		return nil, fmt.Errorf("pageWidth must be zero or greater")
-	}
-	if input.PageHeight < 0 {
-		return nil, fmt.Errorf("pageHeight must be zero or greater")
-	}
-
 	assets, err := resolveRenderAssets(input)
 	if err != nil {
 		return nil, err
@@ -267,43 +260,6 @@ func formatResolvedCSSLayers(layers []CSSLayer, hasLegacyCSS bool) string {
 		parts = append(parts, "legacy-css")
 	}
 	return strings.Join(parts, " -> ")
-}
-
-func resolvePageDimensions(input RenderInput) (float64, float64, error) {
-	formatName := strings.TrimSpace(input.PageFormat)
-	if formatName == "" {
-		formatName = DefaultPageFormat
-	}
-
-	orientation := strings.ToLower(strings.TrimSpace(input.PageOrientation))
-	if orientation == "" {
-		orientation = PageOrientationPortrait
-	}
-	if orientation != PageOrientationPortrait && orientation != PageOrientationLandscape {
-		return 0, 0, fmt.Errorf("unsupported page orientation %q (expected %q or %q)", input.PageOrientation, PageOrientationPortrait, PageOrientationLandscape)
-	}
-
-	width, height, ok := templateload.ResolveNamedPageSize(formatName)
-	if !ok {
-		return 0, 0, fmt.Errorf("unsupported page format %q", input.PageFormat)
-	}
-
-	if orientation == PageOrientationLandscape {
-		if height > width {
-			width, height = height, width
-		}
-	} else if width > height {
-		width, height = height, width
-	}
-
-	if input.PageWidth > 0 {
-		width = input.PageWidth
-	}
-	if input.PageHeight > 0 {
-		height = input.PageHeight
-	}
-
-	return width, height, nil
 }
 
 type renderArtifact struct {

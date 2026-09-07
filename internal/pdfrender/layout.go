@@ -32,6 +32,9 @@ type LayoutPDF struct {
 	deferFlowPageNum      bool
 	currentPage           int
 	totalPages            int
+	flowCursorY           float64
+	flowBottomMargin      float64
+	flowCursorValid       bool
 	pageWidth             float64
 	pageHeight            float64
 	currentMargins        templateload.PageMargins
@@ -73,6 +76,12 @@ func NewLayoutPDF(defaultPage, firstPage templateload.PageSettings, i18nInst *i1
 // NewLayoutPDFWithOptions creates a LayoutPDF and applies optional profile
 // configuration such as custom font registrations.
 func NewLayoutPDFWithOptions(defaultPage, firstPage templateload.PageSettings, i18nInst *i18n.I18n, formatter *format.Formatter, options LayoutOptions) (*LayoutPDF, error) {
+	if err := validatePageSettings("default page", defaultPage); err != nil {
+		return nil, err
+	}
+	if err := validatePageSettings("first page", firstPage); err != nil {
+		return nil, err
+	}
 	pdf := gofpdf.New("P", "pt", "A4", "")
 	pdf.SetMargins(0, 0, 0)
 	pdf.SetAutoPageBreak(false, 0)
@@ -320,47 +329,6 @@ func (l *LayoutPDF) pageConfigFor(page int) (templateload.PageSettings, layoutPa
 		return l.firstPage, l.firstAssets
 	}
 	return l.defaultPage, l.defaultAssets
-}
-
-// CurrentFlowBox returns the current page's content box origin and width.
-func (l *LayoutPDF) CurrentFlowBox() (x, y, width float64) {
-	x = l.currentMargins.Left
-	y = l.currentMargins.Top
-	width = l.pageWidth - l.currentMargins.Left - l.currentMargins.Right
-	if width <= 0 {
-		width = l.pageWidth
-	}
-	return x, y, width
-}
-
-// CurrentFlowBottom returns the y coordinate of the bottom of the content area.
-func (l *LayoutPDF) CurrentFlowBottom() float64 {
-	bottom := l.pageHeight - l.currentMargins.Bottom
-	if bottom <= 0 {
-		return l.pageHeight
-	}
-	return bottom
-}
-
-// StartFlow initialises page tracking for a multi-page flow.
-func (l *LayoutPDF) StartFlow() {
-	l.currentPage = 1
-	l.totalPages = 1
-}
-
-// NextFlowPage advances to the next page in the flow.
-func (l *LayoutPDF) NextFlowPage() {
-	if l.currentPage < 1 {
-		l.currentPage = 1
-	}
-	l.currentPage++
-	if l.currentPage > l.totalPages {
-		l.totalPages = l.currentPage
-	}
-	l.BeginPage(l.currentPage)
-	if !l.deferFlowPageNum {
-		l.renderPageNum(l.currentPage, l.totalPages)
-	}
 }
 
 // RenderFinalFlowPageNums re-renders page numbers on all non-first pages after
@@ -645,43 +613,6 @@ func (l *LayoutPDF) TableDefFromElement(table *pdfdom.ElemTable, availableWidth 
 		columnsDefined = true
 	}
 
-	processRow := func(row *pdfdom.ElemTr, isHeader bool) error {
-		cells := row.ElementChildren()
-		if !columnsDefined {
-			tableDef.Columns = make([]ColumnDef, 0, len(cells))
-			for _, child := range cells {
-				cell, err := tableCellFromNode(child)
-				if err != nil {
-					return err
-				}
-				tableDef.Columns = append(tableDef.Columns, columnDefFromCell(cell))
-			}
-			columnsDefined = true
-		}
-
-		rowDef := RowDef{}
-		if fill, ok := row.Attribute("fill"); ok {
-			rowDef.Fill = fill
-		}
-		if stroke, ok := row.Attribute("stroke"); ok {
-			strokeVal := stroke == "true"
-			rowDef.Stroke = &strokeVal
-		}
-		if height, ok := row.Attribute("height"); ok {
-			fmt.Sscanf(height, "%f", &rowDef.Height)
-		}
-
-		for _, child := range cells {
-			cell, err := tableCellFromNode(child)
-			if err != nil {
-				return err
-			}
-			rowDef.Cells = append(rowDef.Cells, l.CellDefFromTableCell(cell, isHeader))
-		}
-		tableDef.Rows = append(tableDef.Rows, rowDef)
-		return nil
-	}
-
 	for _, child := range table.ElementChildren() {
 		switch elem := child.(type) {
 		case *pdfdom.ElemColgroup:
@@ -692,7 +623,7 @@ func (l *LayoutPDF) TableDefFromElement(table *pdfdom.ElemTable, availableWidth 
 				if !ok {
 					return nil, fmt.Errorf("thead contains non-tr child")
 				}
-				if err := processRow(tr, true); err != nil {
+				if err := l.appendTableRow(tableDef, tr, true, &columnsDefined); err != nil {
 					return nil, err
 				}
 			}
@@ -702,12 +633,12 @@ func (l *LayoutPDF) TableDefFromElement(table *pdfdom.ElemTable, availableWidth 
 				if !ok {
 					return nil, fmt.Errorf("tbody contains non-tr child")
 				}
-				if err := processRow(tr, false); err != nil {
+				if err := l.appendTableRow(tableDef, tr, false, &columnsDefined); err != nil {
 					return nil, err
 				}
 			}
 		case *pdfdom.ElemTr:
-			if err := processRow(elem, false); err != nil {
+			if err := l.appendTableRow(tableDef, elem, false, &columnsDefined); err != nil {
 				return nil, err
 			}
 		default:
@@ -716,6 +647,55 @@ func (l *LayoutPDF) TableDefFromElement(table *pdfdom.ElemTable, availableWidth 
 	}
 
 	return tableDef, nil
+}
+
+func (l *LayoutPDF) appendTableRow(tableDef *TableDef, row *pdfdom.ElemTr, isHeader bool, columnsDefined *bool) error {
+	cells := row.ElementChildren()
+	if !*columnsDefined {
+		tableDef.Columns = make([]ColumnDef, 0, len(cells))
+		for _, child := range cells {
+			cell, err := tableCellFromNode(child)
+			if err != nil {
+				return err
+			}
+			column := columnDefFromCell(cell)
+			span := 1
+			if raw, ok := cell.Attribute("colspan"); ok {
+				fmt.Sscanf(raw, "%d", &span)
+			}
+			span = normalizedColspan(span)
+			if span > 1 {
+				column.Width /= float64(span)
+				column.MinWidth /= float64(span)
+				column.MaxWidth /= float64(span)
+			}
+			for range span {
+				tableDef.Columns = append(tableDef.Columns, column)
+			}
+		}
+		*columnsDefined = true
+	}
+
+	rowDef := RowDef{Header: isHeader}
+	if fill, ok := row.Attribute("fill"); ok {
+		rowDef.Fill = fill
+	}
+	if stroke, ok := row.Attribute("stroke"); ok {
+		strokeVal := stroke == "true"
+		rowDef.Stroke = &strokeVal
+	}
+	if height, ok := row.Attribute("height"); ok {
+		fmt.Sscanf(height, "%f", &rowDef.Height)
+	}
+	for _, child := range cells {
+		cell, err := tableCellFromNode(child)
+		if err != nil {
+			return err
+		}
+		rowDef.Cells = append(rowDef.Cells, l.CellDefFromTableCell(cell, isHeader))
+	}
+	tableDef.Rows = append(tableDef.Rows, rowDef)
+	return nil
 }
 
 func parseTableWidthAttr(node pdfdom.PDFElementNode, availableWidth float64) (float64, error) {

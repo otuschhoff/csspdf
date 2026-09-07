@@ -21,7 +21,7 @@ func configurePageNumberRenderer(layout *pdfrender.LayoutPDF, assets Assets, sou
 			warnf("failed to render page-number template: %v", err)
 			return
 		}
-		if err := pdfrender.RenderDocTemplateFlow(layout, elements); err != nil {
+		if err := pdfrender.RenderDocTemplateOverlay(layout, elements); err != nil {
 			if !input.AllowPartialRender && renderErr == nil {
 				renderErr = fmt.Errorf("page-number template flow failed on page %d/%d: %w", page, pageCount, err)
 			}
