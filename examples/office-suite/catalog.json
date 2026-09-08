@@ -1,0 +1,24 @@
+{
+  "cases": [
+    {"id":"01-internal-memo","title":"Internal operations memo","template":"internal-memo","data":"01-internal-memo.json","complexity":"simple"},
+    {"id":"02-business-letter","title":"Formal business letter","template":"business-letter","data":"02-business-letter.json","complexity":"simple"},
+    {"id":"03-meeting-agenda","title":"Executive meeting agenda","template":"meeting-agenda","data":"03-meeting-agenda.json","complexity":"simple"},
+    {"id":"04-receipt","title":"Retail receipt with raster brand mark","template":"receipt","data":"04-receipt.json","complexity":"medium"},
+    {"id":"05-sales-quote","title":"Tiered services quotation","template":"sales-quote","data":"05-sales-quote.json","complexity":"medium"},
+    {"id":"06-purchase-order","title":"Purchase order with delivery terms","template":"purchase-order","data":"06-purchase-order.json","complexity":"medium"},
+    {"id":"07-tax-invoice","title":"Multi-line tax invoice","template":"tax-invoice","data":"07-tax-invoice.json","complexity":"medium"},
+    {"id":"08-delivery-note","title":"Warehouse delivery note","template":"delivery-note","data":"08-delivery-note.json","complexity":"medium"},
+    {"id":"09-expense-report","title":"Employee expense report","template":"expense-report","data":"09-expense-report.json","complexity":"medium"},
+    {"id":"10-timesheet","title":"Weekly consulting timesheet","template":"timesheet","data":"10-timesheet.json","complexity":"medium"},
+    {"id":"11-project-status","title":"Program status dashboard","template":"project-status","data":"11-project-status.json","complexity":"complex"},
+    {"id":"12-board-pack","title":"Board briefing pack","template":"board-pack","data":"12-board-pack.json","complexity":"complex"},
+    {"id":"13-service-contract","title":"Professional services contract","template":"service-contract","data":"13-service-contract.json","complexity":"complex"},
+    {"id":"14-eula","title":"Enterprise software EULA","template":"eula","data":"14-eula.json","complexity":"complex"},
+    {"id":"15-annual-report","title":"Annual performance report","template":"annual-report","data":"15-annual-report.json","complexity":"complex"},
+    {"id":"16-product-catalog","title":"Landscape product catalog","template":"product-catalog","data":"16-product-catalog.json","complexity":"complex","orientation":"landscape"},
+    {"id":"17-engine-stress","title":"High-density pagination and table stress test","template":"engine-stress","data":"17-engine-stress.json","complexity":"extreme"},
+    {"id":"18-invalid-font-size","title":"Fault: non-finite span font size","template":"invalid-font-size","data":"18-invalid-font-size.json","complexity":"fault","expectedError":"invalid span attribute font-size"},
+    {"id":"19-invalid-colspan","title":"Fault: colspan exceeds table width","template":"invalid-colspan","data":"19-invalid-colspan.json","complexity":"fault","expectedError":"colspan 4 exceeds"},
+    {"id":"20-missing-image","title":"Fault: missing image resource","template":"missing-image","data":"20-missing-image.json","complexity":"fault","expectedError":"image not found"}
+  ]
+}

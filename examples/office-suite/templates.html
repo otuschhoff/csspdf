@@ -1,0 +1,131 @@
+{{define "brand-header"}}
+<div class="brand-header"><img src="{{.Source.AssetLogo}}" width="108" height="36"><span class="brand-name">NORTHSTAR WORKS</span><span class="brand-tag">Business systems, clearly delivered</span></div>
+{{end}}
+{{define "common-footer"}}
+<footer class="common-footer"><span>Northstar Works · 84 Meridian Avenue · Portland, OR 97205</span><span class="footer-right">office-suite demonstration</span></footer>
+{{end}}
+{{define "page-number"}}<div class="page-number">{{.Page}} / {{.Total}}</div>{{end}}
+
+{{define "internal-memo"}}
+{{template "brand-header" .}}<div class="memo-ribbon">INTERNAL MEMORANDUM</div>
+<table class="meta-table" width="100%" padding="5"><tbody><tr><td class="label">TO</td><td>{{.Source.To}}</td><td class="label">DATE</td><td>{{.Source.Date}}</td></tr><tr><td class="label">FROM</td><td>{{.Source.From}}</td><td class="label">PRIORITY</td><td>{{.Source.Priority}}</td></tr></tbody></table>
+<h1>{{.Source.Subject}}</h1><p class="lead">{{.Source.Summary}}</p>
+{{range .Source.Sections}}<h2>{{.Heading}}</h2><p>{{.Body}}</p>{{end}}
+<div class="callout"><span class="bold">Action:</span> {{.Source.Action}}</div>{{template "common-footer" .}}
+{{end}}
+
+{{define "business-letter"}}
+{{template "brand-header" .}}<div class="letter-date">{{.Source.Date}}</div>
+<div class="address"><span class="bold">{{.Source.Recipient.Name}}</span><br>{{.Source.Recipient.Role}}<br>{{.Source.Recipient.Company}}<br>{{.Source.Recipient.Address}}</div>
+<p class="subject-line">Re: {{.Source.Subject}}</p><p>Dear {{.Source.Recipient.Salutation}},</p>
+{{range .Source.Paragraphs}}<p>{{.}}</p>{{end}}<p>Sincerely,</p><p class="signature-space"><span class="bold">{{.Source.Sender}}</span><br>{{.Source.SenderRole}}</p>{{template "common-footer" .}}
+{{end}}
+
+{{define "meeting-agenda"}}
+<div class="agenda-cover"><span class="kicker">LEADERSHIP COUNCIL</span><h1>{{.Source.Title}}</h1><p>{{.Source.Date}} · {{.Source.Time}} · {{.Source.Location}}</p></div>
+<div class="agenda-facts"><span class="bold">Chair:</span> {{.Source.Chair}}<br><span class="bold">Objective:</span> {{.Source.Objective}}</div>
+<table class="agenda-table" width="100%" padding="6"><thead><tr><th>Time</th><th>Topic</th><th>Owner</th><th>Outcome</th></tr></thead><tbody>{{range .Source.Items}}<tr><td>{{.Time}}</td><td><span class="bold">{{.Topic}}</span><br><span class="muted">{{.Detail}}</span></td><td>{{.Owner}}</td><td>{{.Outcome}}</td></tr>{{end}}</tbody></table>
+<h2>Preparation</h2><ul>{{range .Source.Preparation}}<li>{{.}}</li>{{end}}</ul>{{template "common-footer" .}}
+{{end}}
+
+{{define "receipt"}}
+<div class="receipt"><img src="{{.Source.AssetLogo}}" width="144" height="48"><h1>PAYMENT RECEIPT</h1><p class="center">{{.Source.Store}}<br>{{.Source.Address}}<br>{{.Source.Contact}}</p>
+<div class="rule"></div><p>Receipt <span class="right bold">{{.Source.Number}}</span><br>Date <span class="right">{{.Source.Date}}</span><br>Cashier <span class="right">{{.Source.Cashier}}</span></p>
+<table class="receipt-table" width="100%" padding="4"><tbody>{{range .Source.Items}}<tr><td>{{.Qty}} × {{.Name}}</td><td class="num"><currency-value v="{{.Amount}}"></currency-value></td></tr>{{end}}<tr class="total"><td>TOTAL</td><td class="num"><currency-value v="{{.Source.Total}}"></currency-value></td></tr></tbody></table>
+<p>Paid by {{.Source.Payment}}<br>Auth {{.Source.Authorization}}</p><p class="center muted">Thank you. Keep this receipt for your records.</p></div>
+{{end}}
+
+{{define "sales-quote"}}
+{{template "brand-header" .}}<div class="doc-title coral">QUOTATION</div>
+<table class="split-meta" width="100%" padding="8"><tbody><tr><td><span class="label">PREPARED FOR</span><br><span class="bold">{{.Source.Customer.Name}}</span><br>{{.Source.Customer.Address}}</td><td><span class="label">QUOTE</span> {{.Source.Number}}<br><span class="label">ISSUED</span> {{.Source.Date}}<br><span class="label">VALID UNTIL</span> {{.Source.ValidUntil}}</td></tr></tbody></table>
+<h1>{{.Source.Project}}</h1><p class="lead">{{.Source.Introduction}}</p>
+<table class="line-table" width="100%" padding="6"><thead><tr><th>Workstream</th><th>Description</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead><tbody>{{range .Source.Items}}<tr><td class="bold">{{.Name}}</td><td>{{.Description}}</td><td class="num">{{.Qty}}</td><td class="num"><currency-value v="{{.Rate}}"></currency-value></td><td class="num"><currency-value v="{{.Total}}"></currency-value></td></tr>{{end}}<tr class="grand-total"><td colspan="4">Quoted total</td><td class="num"><currency-value v="{{.Source.Total}}"></currency-value></td></tr></tbody></table>
+<div class="terms"><span class="bold">Commercial terms</span><br>{{.Source.Terms}}</div>{{template "common-footer" .}}
+{{end}}
+
+{{define "purchase-order"}}
+{{template "brand-header" .}}<div class="doc-title teal">PURCHASE ORDER</div>
+<table class="split-meta" width="100%" padding="8"><tbody><tr><td><span class="label">SUPPLIER</span><br><span class="bold">{{.Source.Supplier.Name}}</span><br>{{.Source.Supplier.Address}}<br>{{.Source.Supplier.Contact}}</td><td><span class="label">PO NUMBER</span> {{.Source.Number}}<br><span class="label">ORDER DATE</span> {{.Source.Date}}<br><span class="label">BUYER</span> {{.Source.Buyer}}</td></tr></tbody></table>
+<table class="line-table striped" width="100%" padding="6"><thead><tr><th>SKU</th><th>Item</th><th>Delivery</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead><tbody>{{range .Source.Items}}<tr><td class="mono">{{.SKU}}</td><td>{{.Name}}</td><td>{{.Delivery}}</td><td class="num">{{.Qty}}</td><td class="num"><currency-value v="{{.Unit}}"></currency-value></td><td class="num"><currency-value v="{{.Total}}"></currency-value></td></tr>{{end}}<tr class="grand-total"><td colspan="5">Order total</td><td class="num"><currency-value v="{{.Source.Total}}"></currency-value></td></tr></tbody></table>
+<h2>Delivery instructions</h2><p>{{.Source.Instructions}}</p><div class="approval"><span>Requested by<br><span class="bold">{{.Source.RequestedBy}}</span></span><span>Approved by<br><span class="bold">{{.Source.ApprovedBy}}</span></span></div>{{template "common-footer" .}}
+{{end}}
+
+{{define "tax-invoice"}}
+{{template "brand-header" .}}<div class="doc-title navy">TAX INVOICE</div>
+<table class="split-meta" width="100%" padding="8"><tbody><tr><td><span class="label">BILL TO</span><br><span class="bold">{{.Source.Customer.Name}}</span><br>{{.Source.Customer.Address}}<br>Tax ID {{.Source.Customer.TaxID}}</td><td><span class="label">INVOICE</span> {{.Source.Number}}<br><span class="label">DATE</span> {{.Source.Date}}<br><span class="label">DUE</span> {{.Source.Due}}</td></tr></tbody></table>
+<table class="line-table invoice" width="100%" padding="6"><thead><tr><th>#</th><th>Description</th><th>Period</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>{{range .Source.Items}}<tr><td>{{.ID}}</td><td><span class="bold">{{.Name}}</span><br><span class="muted">{{.Detail}}</span></td><td>{{.Period}}</td><td class="num">{{.Qty}}</td><td class="num"><currency-value v="{{.Rate}}"></currency-value></td><td class="num"><currency-value v="{{.Amount}}"></currency-value></td></tr>{{end}}<tr><td colspan="5" class="num">Subtotal</td><td class="num"><currency-value v="{{.Source.Subtotal}}"></currency-value></td></tr><tr><td colspan="5" class="num">Tax {{.Source.TaxRate}}</td><td class="num"><currency-value v="{{.Source.Tax}}"></currency-value></td></tr><tr class="grand-total"><td colspan="5">Amount due</td><td class="num"><currency-value v="{{.Source.Total}}"></currency-value></td></tr></tbody></table>
+<div class="payment-box"><span class="bold">Payment:</span> {{.Source.Payment}}</div>{{template "common-footer" .}}
+{{end}}
+
+{{define "delivery-note"}}
+{{template "brand-header" .}}<div class="doc-title amber">DELIVERY NOTE</div>
+<table class="split-meta" width="100%" padding="8"><tbody><tr><td><span class="label">DELIVER TO</span><br><span class="bold">{{.Source.Destination.Name}}</span><br>{{.Source.Destination.Address}}<br>Dock: {{.Source.Destination.Dock}}</td><td><span class="label">SHIPMENT</span> {{.Source.Number}}<br><span class="label">DISPATCHED</span> {{.Source.Date}}<br><span class="label">CARRIER</span> {{.Source.Carrier}}</td></tr></tbody></table>
+<table class="line-table" width="100%" padding="6"><thead><tr><th>Package</th><th>Description</th><th>Lot</th><th>Ordered</th><th>Delivered</th><th>Condition</th></tr></thead><tbody>{{range .Source.Items}}<tr><td class="mono">{{.Package}}</td><td>{{.Name}}</td><td>{{.Lot}}</td><td class="num">{{.Ordered}}</td><td class="num">{{.Delivered}}</td><td>{{.Condition}}</td></tr>{{end}}</tbody></table>
+<div class="signature-grid"><span>Released by<br><br>____________________</span><span>Received by<br><br>____________________</span><span>Date / time<br><br>____________________</span></div>{{template "common-footer" .}}
+{{end}}
+
+{{define "expense-report"}}
+{{template "brand-header" .}}<div class="doc-title plum">EXPENSE REPORT</div>
+<table class="meta-table" width="100%" padding="5"><tbody><tr><td class="label">EMPLOYEE</td><td>{{.Source.Employee}}</td><td class="label">PERIOD</td><td>{{.Source.Period}}</td></tr><tr><td class="label">DEPARTMENT</td><td>{{.Source.Department}}</td><td class="label">COST CENTER</td><td>{{.Source.CostCenter}}</td></tr></tbody></table>
+<table class="line-table" width="100%" padding="6"><thead><tr><th>Date</th><th>Merchant / purpose</th><th>Category</th><th>Currency</th><th>Amount</th><th>Receipt</th></tr></thead><tbody>{{range .Source.Items}}<tr><td>{{.Date}}</td><td>{{.Merchant}}<br><span class="muted">{{.Purpose}}</span></td><td>{{.Category}}</td><td>{{.Currency}}</td><td class="num"><currency-value v="{{.Amount}}"></currency-value></td><td>{{.Receipt}}</td></tr>{{end}}<tr class="grand-total"><td colspan="4">Reimbursement requested</td><td class="num"><currency-value v="{{.Source.Total}}"></currency-value></td><td></td></tr></tbody></table>
+<p class="certification">I certify that these expenses were incurred for legitimate business purposes and comply with policy.</p>{{template "common-footer" .}}
+{{end}}
+
+{{define "timesheet"}}
+{{template "brand-header" .}}<div class="doc-title blue">WEEKLY TIMESHEET</div>
+<table class="meta-table" width="100%" padding="5"><tbody><tr><td class="label">CONSULTANT</td><td>{{.Source.Consultant}}</td><td class="label">WEEK</td><td>{{.Source.Week}}</td></tr><tr><td class="label">CLIENT</td><td>{{.Source.Client}}</td><td class="label">PROJECT</td><td>{{.Source.Project}}</td></tr></tbody></table>
+<table class="line-table" width="100%" padding="6"><thead><tr><th>Date</th><th>Work package</th><th>Description</th><th>Start</th><th>End</th><th>Hours</th></tr></thead><tbody>{{range .Source.Items}}<tr><td>{{.Date}}</td><td class="mono">{{.Code}}</td><td>{{.Description}}</td><td>{{.Start}}</td><td>{{.End}}</td><td class="num"><duration-value v="{{.Hours}}"></duration-value></td></tr>{{end}}<tr class="grand-total"><td colspan="5">Total hours</td><td class="num"><duration-value v="{{.Source.TotalHours}}"></duration-value></td></tr></tbody></table>
+<div class="signature-grid"><span>Consultant<br><br>{{.Source.Consultant}}</span><span>Client approval<br><br>____________________</span><span>Date<br><br>____________________</span></div>{{template "common-footer" .}}
+{{end}}
+
+{{define "project-status"}}
+<div class="status-banner"><span class="kicker">PROGRAM STATUS · {{.Source.Period}}</span><h1>{{.Source.Project}}</h1><p>{{.Source.Summary}}</p></div>
+<table class="kpi-table" width="100%" padding="8"><tbody><tr>{{range .Source.KPIs}}<td><span class="kpi-value">{{.Value}}</span><br><span class="kpi-label">{{.Label}}</span><br><span class="muted">{{.Trend}}</span></td>{{end}}</tr></tbody></table>
+<h2>Milestones</h2><table class="line-table" width="100%" padding="6"><thead><tr><th>Milestone</th><th>Owner</th><th>Target</th><th>Status</th></tr></thead><tbody>{{range .Source.Milestones}}<tr><td>{{.Name}}</td><td>{{.Owner}}</td><td>{{.Target}}</td><td class="status-cell">{{.Status}}</td></tr>{{end}}</tbody></table>
+<h2>Risks and decisions</h2>{{range .Source.Risks}}<div class="risk"><span class="risk-score">{{.Score}}</span><span class="bold">{{.Title}}</span><br>{{.Mitigation}}</div>{{end}}{{template "common-footer" .}}
+{{end}}
+
+{{define "board-pack"}}
+<div class="board-cover"><span class="kicker">CONFIDENTIAL · BOARD OF DIRECTORS</span><h1>{{.Source.Company}}</h1><h2>{{.Source.Title}}</h2><p>{{.Source.Date}}</p></div>
+<div class="page-break"></div><h1>Executive summary</h1><p class="lead">{{.Source.ExecutiveSummary}}</p>
+<table class="kpi-table" width="100%" padding="8"><tbody><tr>{{range .Source.KPIs}}<td><span class="kpi-value">{{.Value}}</span><br>{{.Label}}<br><span class="muted">{{.Note}}</span></td>{{end}}</tr></tbody></table>
+{{range .Source.Sections}}<h2>{{.Heading}}</h2><p>{{.Body}}</p>{{end}}
+<div class="page-break"></div><h1>Decision register</h1><table class="line-table" width="100%" padding="6"><thead><tr><th>Decision requested</th><th>Sponsor</th><th>Recommendation</th></tr></thead><tbody>{{range .Source.Decisions}}<tr><td>{{.Decision}}</td><td>{{.Sponsor}}</td><td>{{.Recommendation}}</td></tr>{{end}}</tbody></table>{{template "common-footer" .}}
+{{end}}
+
+{{define "service-contract"}}
+<div class="legal-cover"><span class="kicker">AGREEMENT {{.Source.Number}}</span><h1>PROFESSIONAL SERVICES AGREEMENT</h1><p>between</p><h2>{{.Source.Provider}}</h2><p>and</p><h2>{{.Source.Customer}}</h2><p>Effective {{.Source.Effective}}</p></div>
+{{range .Source.Clauses}}<h2 class="legal-heading">{{.Number}}. {{.Title}}</h2><p class="legal-text">{{.Body}}</p>{{end}}
+<h2 class="legal-heading">SIGNATURES</h2><table class="signature-table" width="100%" padding="12"><tbody><tr><td>For {{.Source.Provider}}<br><br><br>________________________<br>Name / title / date</td><td>For {{.Source.Customer}}<br><br><br>________________________<br>Name / title / date</td></tr></tbody></table><div class="legal-footer">Agreement {{.Source.Number}} · Confidential</div>
+{{end}}
+
+{{define "eula"}}
+<div class="eula-header"><span class="mono">LICENSE / {{.Source.Version}}</span><h1>ENTERPRISE SOFTWARE LICENSE AGREEMENT</h1><p>Last revised {{.Source.Revised}}</p></div>
+<div class="notice"><span class="bold">IMPORTANT:</span> {{.Source.Notice}}</div>
+{{range .Source.Clauses}}<h2 class="legal-heading">{{.Number}} {{.Title}}</h2><p class="legal-text">{{.Body}}</p>{{if .Bullets}}<ul class="legal-list">{{range .Bullets}}<li>{{.}}</li>{{end}}</ul>{{end}}{{end}}
+<div class="acceptance">BY INSTALLING OR USING THE SOFTWARE, THE CUSTOMER ACCEPTS THIS AGREEMENT.</div><div class="legal-footer">Northstar Works EULA · {{.Source.Version}}</div>
+{{end}}
+
+{{define "annual-report"}}
+<div class="annual-cover"><img src="{{.Source.AssetLogo}}" width="216" height="72"><span class="kicker">ANNUAL REPORT</span><h1>{{.Source.Year}}</h1><h2>{{.Source.Theme}}</h2><p>{{.Source.Company}}</p></div>
+<div class="page-break"></div><h1>Year in review</h1><p class="lead">{{.Source.Introduction}}</p>
+<table class="kpi-table annual-kpis" width="100%" padding="8"><tbody><tr>{{range .Source.KPIs}}<td><span class="kpi-value">{{.Value}}</span><br>{{.Label}}<br><span class="muted">{{.Change}}</span></td>{{end}}</tr></tbody></table>
+{{range .Source.Sections}}<h2>{{.Heading}}</h2><p>{{.Body}}</p>{{end}}
+<div class="page-break"></div><h1>Five-year overview</h1><table class="line-table" width="100%" padding="6"><thead><tr><th>Year</th><th>Revenue</th><th>Operating margin</th><th>Employees</th><th>Customer NPS</th></tr></thead><tbody>{{range .Source.History}}<tr><td>{{.Year}}</td><td class="num">{{.Revenue}}</td><td class="num">{{.Margin}}</td><td class="num">{{.Employees}}</td><td class="num">{{.NPS}}</td></tr>{{end}}</tbody></table>{{template "common-footer" .}}
+{{end}}
+
+{{define "product-catalog"}}
+<div class="catalog-header"><span class="kicker">FIELD EQUIPMENT · {{.Source.Season}}</span><h1>{{.Source.Title}}</h1><p>{{.Source.Introduction}}</p></div>
+<table class="catalog-table" width="100%" padding="5"><colgroup><col width="115"><col><col width="86"><col width="86"><col width="68"></colgroup><thead><tr><th>Product</th><th>Application and specifications</th><th>SKU</th><th>Lead time</th><th>Price</th></tr></thead><tbody>{{range .Source.Products}}<tr><td><span class="product-block">{{.Code}}</span><br><span class="bold">{{.Name}}</span></td><td>{{.Description}}<br><span class="muted">{{.Specs}}</span></td><td class="mono">{{.SKU}}</td><td>{{.Lead}}</td><td class="num"><currency-value v="{{.Price}}"></currency-value></td></tr>{{end}}</tbody></table>
+<div class="terms"><span class="bold">Ordering:</span> {{.Source.Terms}}</div>{{template "common-footer" .}}
+{{end}}
+
+{{define "engine-stress"}}
+{{template "brand-header" .}}<div class="doc-title red">RENDERING CAPACITY EXERCISE</div><p class="lead">{{.Source.Introduction}}</p>
+<table class="stress-table" width="100%" row-height-min="11"><colgroup><col width="30"><col width="70"><col><col width="58"><col width="58"><col width="58"></colgroup><thead><tr><th>#</th><th>Reference</th><th>Dense description</th><th>Units</th><th>Rate</th><th>Amount</th></tr></thead><tbody>{{range .Source.Rows}}<tr><td>{{.ID}}</td><td class="mono">{{.Reference}}</td><td><span class="bold">{{.Title}}</span><br><span class="tiny">{{.Description}}</span></td><td class="num">{{.Units}}</td><td class="num"><currency-value v="{{.Rate}}"></currency-value></td><td class="num"><currency-value v="{{.Amount}}"></currency-value></td></tr>{{end}}</tbody></table>
+<div class="page-break"></div><h1>Nested narrative load</h1>{{range .Source.Sections}}<div class="stress-section"><h2>{{.Heading}}</h2><p>{{.Body}}</p><div class="callout">{{.Note}}</div></div>{{end}}{{template "common-footer" .}}
+{{end}}
+
+{{define "invalid-font-size"}}<h1>Intentional parser failure</h1><div><span font-size="NaN">This must not render.</span></div>{{end}}
+{{define "invalid-colspan"}}<h1>Intentional layout failure</h1><table width="100%" padding="4"><colgroup><col><col></colgroup><tbody><tr><td colspan="4">Too wide</td></tr></tbody></table>{{end}}
+{{define "missing-image"}}<h1>Intentional resource failure</h1><img src="asset-that-does-not-exist.png" width="120" height="80">{{end}}

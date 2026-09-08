@@ -26,6 +26,8 @@ func Run(programName string, args []string) int {
 	switch args[0] {
 	case "layered":
 		return runLayered(programName, args[1:])
+	case "office-suite":
+		return runOfficeSuite(programName, args[1:])
 	case "dump-pdf":
 		return runDumpPDF(programName, args[1:])
 	case "version", "-version", "--version":
@@ -92,6 +94,7 @@ func printUsage(w io.Writer, programName string) {
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Subcommands:")
 	fmt.Fprintln(w, "  layered     Generate layered-css concept example")
+	fmt.Fprintln(w, "  office-suite Render or verify 20 office and business documents")
 	fmt.Fprintln(w, "  dump-pdf    Display PDF structure with binary streams hidden")
 	fmt.Fprintln(w, "  version     Print version and exit")
 	fmt.Fprintln(w, "")

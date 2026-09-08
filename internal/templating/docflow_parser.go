@@ -157,10 +157,11 @@ var cssAttributeMappings = map[string]cssAttributeMapping{
 	"font-size": {attribute: "font-size"}, "color": {attribute: "font-color"},
 	"font-style": {attribute: "font-style"}, "background-color": {attribute: "background-color"},
 	"margin-top": {attribute: "margin-top"}, "margin-bottom": {attribute: "margin-bottom"},
-	"break-before": {attribute: "break-before", lowercase: true},
-	"break-after":  {attribute: "break-after", lowercase: true},
-	"white-space":  {attribute: "white-space", lowercase: true},
-	"table-layout": {attribute: "table-layout", lowercase: true},
+	"break-before":   {attribute: "break-before", lowercase: true},
+	"break-after":    {attribute: "break-after", lowercase: true},
+	"white-space":    {attribute: "white-space", lowercase: true},
+	"table-layout":   {attribute: "table-layout", lowercase: true},
+	"row-height-min": {attribute: "row-height-min"},
 }
 
 func SetOrReplaceAttr(node *html.Node, key, value string) {

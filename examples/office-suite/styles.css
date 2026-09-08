@@ -1,0 +1,34 @@
+@page { size: A4; margin-top: 54pt; margin-right: 48pt; margin-bottom: 54pt; margin-left: 48pt; }
+* { font-family: Helvetica; font-size: 9.5pt; color: #20303a; text-align: left; }
+h1 { font-size: 24pt; font-weight: bold; color: #122837; margin-top: 18pt; margin-bottom: 12pt; }
+h2 { font-size: 13pt; font-weight: bold; color: #126b70; margin-top: 15pt; margin-bottom: 6pt; }
+p { margin-bottom: 8pt; }
+ul { margin-bottom: 10pt; }
+li { margin-bottom: 3pt; }
+table { padding: 6; row-height-min: 10; }
+.bold { font-weight: bold; }.muted { color: #687780; font-size: 8pt; }.tiny { color: #53646d; font-size: 7pt; }.mono { font-family: Courier; font-size: 8pt; }
+.center { text-align: center; }.right { text-align: right; }.num { text-align: right; white-space: nowrap; }.label { color: #64747d; font-size: 7pt; font-weight: bold; }
+.lead { font-family: Times; font-size: 12pt; color: #334b57; margin-bottom: 14pt; }.kicker { font-size: 8pt; font-weight: bold; color: #13a99b; }
+.brand-header { height: 48pt; border-bottom: 2pt solid #12a99a; margin-bottom: 18pt; }
+.brand-header img { margin-bottom: 4pt; }.brand-name { font-size: 14pt; font-weight: bold; color: #122837; }.brand-tag { font-size: 7pt; color: #687780; }
+.common-footer { position: running(footer); width: 595pt; height: 30pt; border-top: 1pt solid #cbd6da; padding-top: 7pt; color: #64747d; font-size: 7pt; }
+.footer-right { text-align: right; }.page-number { position: absolute; right: 30pt; top: 24pt; color: #64747d; font-size: 8pt; text-align: right; }
+.doc-title { font-size: 28pt; font-weight: bold; text-align: right; margin-bottom: 20pt; }.coral { color: #e45d4f; }.teal { color: #0c8d84; }.navy { color: #173d59; }.amber { color: #bd7a00; }.plum { color: #7d4e78; }.blue { color: #3174a8; }.red { color: #b83a3a; }
+.memo-ribbon { background-color: #163746; color: #ffffff; font-size: 12pt; font-weight: bold; padding: 9pt; margin-bottom: 14pt; }
+.meta-table, .split-meta { width: 100%; margin-bottom: 16pt; }.meta-table td { border-bottom: 1pt solid #dce4e7; padding: 5pt; }.split-meta td { background-color: #eef3f4; border: 1pt solid #d4dfe2; padding: 12pt; }
+.callout, .terms, .payment-box, .notice { background-color: #edf7f5; border-left: 4pt solid #12a99a; padding: 10pt; margin-top: 12pt; margin-bottom: 12pt; }
+.letter-date { text-align: right; margin-bottom: 24pt; }.address { margin-bottom: 20pt; }.subject-line { font-weight: bold; border-bottom: 1pt solid #87979e; padding-bottom: 5pt; }.signature-space { margin-top: 28pt; }
+.agenda-cover { background-color: #143846; padding: 20pt; margin-bottom: 14pt; }.agenda-cover h1, .agenda-cover p { color: #ffffff; }.agenda-facts { background-color: #f5bd46; padding: 10pt; margin-bottom: 12pt; }
+.agenda-table, .line-table, .catalog-table, .stress-table { width: 100%; border: 1pt solid #cbd6da; row-height-min: 12; table-layout: auto; }
+.agenda-table th, .line-table th, .catalog-table th, .stress-table th { background-color: #183b4b; color: #ffffff; font-weight: bold; padding: 6pt; }
+.agenda-table td, .line-table td, .catalog-table td, .stress-table td { border-bottom: 1pt solid #dbe3e6; padding: 6pt; }
+.grand-total td { background-color: #173d59; color: #ffffff; font-weight: bold; }.striped tbody tr { fill: #f5f8f8; }
+.receipt { width: 250pt; margin-left: 120pt; border: 1pt solid #abb8bd; padding: 18pt; font-family: Courier; }.receipt h1 { font-family: Courier; font-size: 16pt; text-align: center; }.receipt-table { width: 100%; }.receipt-table td { padding: 4pt; border-bottom: 1pt dashed #aab4b8; }.receipt-table .total td { font-weight: bold; font-size: 12pt; border-top: 2pt solid #243943; }.rule { border-top: 1pt dashed #7d8a90; margin-top: 9pt; margin-bottom: 9pt; }
+.approval, .signature-grid { margin-top: 24pt; background-color: #f1f5f6; padding: 12pt; }.approval span, .signature-grid span { width: 31%; }
+.certification { font-family: Times; font-style: italic; border: 1pt solid #acb8be; padding: 10pt; margin-top: 15pt; }
+.status-banner { background-color: #10394a; padding: 18pt; margin-bottom: 14pt; }.status-banner h1, .status-banner p { color: #ffffff; }.kpi-table { width: 100%; margin-bottom: 18pt; }.kpi-table td { background-color: #edf4f3; border: 3pt solid #ffffff; padding: 12pt; text-align: center; }.kpi-value { font-size: 20pt; font-weight: bold; color: #0b857c; }.kpi-label { font-size: 7pt; font-weight: bold; }.status-cell { font-weight: bold; color: #0a7c58; }.risk { border-left: 5pt solid #e15f51; background-color: #fff4f0; padding: 9pt; margin-bottom: 7pt; }.risk-score { background-color: #e15f51; color: #ffffff; font-weight: bold; padding: 4pt; }
+.page-break { break-before: page; }.board-cover, .annual-cover, .legal-cover { height: 610pt; background-color: #123847; padding: 36pt; }.board-cover h1, .board-cover h2, .board-cover p, .legal-cover h1, .legal-cover h2, .legal-cover p, .annual-cover h1, .annual-cover h2, .annual-cover p { color: #ffffff; }.board-cover h1, .annual-cover h1 { font-size: 42pt; margin-top: 150pt; }.legal-cover { font-family: Times; text-align: center; }.legal-cover h1 { font-family: Times; font-size: 30pt; margin-top: 120pt; text-align: center; }.legal-cover h2, .legal-cover p { font-family: Times; text-align: center; }
+.legal-heading { font-family: Times; color: #1b2830; font-size: 12pt; }.legal-text, .legal-list { font-family: Times; font-size: 9pt; text-align: justify; }.legal-footer { position: running(footer); width: 595pt; height: 25pt; border-top: 1pt solid #777777; padding-top: 5pt; font-family: Times; font-size: 7pt; text-align: center; }.signature-table { width: 100%; }.signature-table td { width: 50%; border: 1pt solid #9aa4a9; padding: 14pt; }
+.eula-header { border-bottom: 5pt solid #f2b842; margin-bottom: 16pt; }.eula-header h1 { font-family: Courier; font-size: 21pt; }.acceptance { background-color: #222222; color: #ffffff; font-weight: bold; padding: 12pt; margin-top: 18pt; }
+.annual-cover { background-color: #254f3e; }.annual-cover h1 { color: #f6c84a; }.annual-kpis td { background-color: #e7f1ea; }
+.catalog-header { background-color: #274c57; padding: 16pt; margin-bottom: 12pt; }.catalog-header h1, .catalog-header p { color: #ffffff; }.catalog-table td { font-size: 8pt; }.product-block { background-color: #efb83f; color: #253943; font-weight: bold; padding: 7pt; }.stress-table td { font-size: 7pt; padding: 3pt; }.stress-table th { font-size: 7pt; padding: 4pt; }.stress-section { break-after: page; }

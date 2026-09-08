@@ -39,3 +39,10 @@ func TestParseLengthValue(t *testing.T) {
 		t.Fatalf("expected invalid length parsing to fail")
 	}
 }
+
+func TestCSSDeclarationToAttrMapsMinimumTableRowHeight(t *testing.T) {
+	attr, value, ok := CSSDeclarationToAttr(&css.Declaration{Property: "row-height-min", Value: "10"})
+	if !ok || attr != "row-height-min" || value != "10" {
+		t.Fatalf("expected row-height-min=10 mapping, got attr=%q value=%q ok=%v", attr, value, ok)
+	}
+}

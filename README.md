@@ -227,6 +227,16 @@ Run the included end-to-end layered profile example:
 go run ./cmd/gen-example layered -o output/layered.pdf
 ```
 
+Render the 20-case office and business document gallery:
+
+```bash
+go run ./cmd/gen-example office-suite -o output/office-suite
+```
+
+The gallery includes memos, letters, receipts, quotes, orders, invoices,
+reports, contracts, a landscape catalog, a high-volume stress document, and
+three asserted failure cases. See [the office-suite guide](examples/office-suite/README.md).
+
 Notes:
 - If both `CSSLayers` and legacy `Assets.CSS` are set, legacy CSS is applied as an implicit final layer.
 - csspdf uses mapped-property style application, not full browser cascade semantics.
