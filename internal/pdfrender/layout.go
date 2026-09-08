@@ -1,6 +1,7 @@
 package pdfrender
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -25,6 +26,7 @@ type LayoutPDF struct {
 	Formatter             *format.Formatter
 	I18n                  *i18n.I18n
 	imageSearchDirs       []string
+	imageLoader           ImageLoader
 	strictRenderErrors    bool
 	tableRenderer         *TableRenderer
 	warningf              func(format string, args ...any)
@@ -46,6 +48,8 @@ type LayoutPDF struct {
 	runningFooterTemplate gofpdf.Template
 	runningFooterSize     gofpdf.SizeType
 	userTemplates         map[string]gofpdf.Template
+	ctx                   context.Context
+	maxPages              int
 }
 
 type layoutPageAssets struct {
@@ -55,19 +59,6 @@ type layoutPageAssets struct {
 
 // FontRegistration declares one font family/style with ordered candidate file
 // paths. The first existing file path will be loaded.
-type FontRegistration struct {
-	Family  string
-	Style   string
-	Sources []string
-}
-
-// LayoutOptions controls optional renderer initialization behavior.
-type LayoutOptions struct {
-	FontRegistrations  []FontRegistration
-	ImageSearchDirs    []string
-	StrictRenderErrors bool
-}
-
 // NewLayoutPDF creates a LayoutPDF from page settings and locale/format helpers.
 func NewLayoutPDF(defaultPage, firstPage templateload.PageSettings, i18nInst *i18n.I18n, formatter *format.Formatter) (*LayoutPDF, error) {
 	return NewLayoutPDFWithOptions(defaultPage, firstPage, i18nInst, formatter, LayoutOptions{})
@@ -87,6 +78,19 @@ func NewLayoutPDFWithOptions(defaultPage, firstPage templateload.PageSettings, i
 	pdf.SetAutoPageBreak(false, 0)
 	pdf.AddPageFormat("P", gofpdf.SizeType{Wd: firstPage.Width, Ht: firstPage.Height})
 
+	ctx := options.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if options.MaxPages < 0 {
+		return nil, fmt.Errorf("maximum pages must not be negative")
+	}
+	if options.MaxPages > 0 && options.MaxPages < 1 {
+		return nil, fmt.Errorf("maximum pages must allow the first page")
+	}
 	ringTpl := CreateRingLogoTemplate(pdf, LogoBaseRadius, LogoTplCenter, LogoTplCenter)
 	if err := loadDefaultFontSet(pdf, options.FontRegistrations); err != nil {
 		return nil, err
@@ -102,6 +106,7 @@ func NewLayoutPDFWithOptions(defaultPage, firstPage templateload.PageSettings, i
 		Formatter:          formatter,
 		I18n:               i18nInst,
 		imageSearchDirs:    append([]string(nil), options.ImageSearchDirs...),
+		imageLoader:        options.ImageLoader,
 		strictRenderErrors: options.StrictRenderErrors,
 		tableRenderer:      tableRenderer,
 		warningf: func(format string, args ...any) {
@@ -115,6 +120,8 @@ func NewLayoutPDFWithOptions(defaultPage, firstPage templateload.PageSettings, i
 		defaultAssets:  defaultAssets,
 		firstAssets:    firstAssets,
 		ringTemplate:   ringTpl,
+		ctx:            ctx,
+		maxPages:       options.MaxPages,
 	}, nil
 }
 
@@ -122,6 +129,7 @@ func (l *LayoutPDF) newTextEngine(pdf *gofpdf.Fpdf, i18n Translator) *PDFTextEng
 	engine := NewPDFTextEngine(pdf, i18n)
 	engine.SetValueFormatter(l.Formatter)
 	engine.SetImageSearchDirs(l.imageSearchDirs)
+	engine.SetImageLoader(l.imageLoader)
 	return engine
 }
 
@@ -186,7 +194,13 @@ func buildLayoutPageAssets(pageWidth, pageHeight float64) layoutPageAssets {
 
 // BeginPage handles pagination (AddPage on page > 1) and stamps the running
 // footer template on every page.
-func (l *LayoutPDF) BeginPage(page int) {
+func (l *LayoutPDF) BeginPage(page int) error {
+	if err := l.ctx.Err(); err != nil {
+		return fmt.Errorf("layout canceled before page %d: %w", page, err)
+	}
+	if l.maxPages > 0 && page > l.maxPages {
+		return &PageLimitError{Limit: l.maxPages, Requested: page}
+	}
 	settings, assets := l.pageConfigFor(page)
 	if page > 1 {
 		l.PDF.AddPageFormat("P", gofpdf.SizeType{Wd: assets.pageWidth, Ht: assets.pageHeight})
@@ -195,6 +209,7 @@ func (l *LayoutPDF) BeginPage(page int) {
 	l.pageHeight = assets.pageHeight
 	l.currentMargins = settings.Margins
 	l.renderRunningFooterTemplate()
+	return nil
 }
 
 // SetRunningFooterTemplateFromElement creates and stores a reusable footer
@@ -1101,39 +1116,4 @@ func (l *LayoutPDF) RenderUseTemplateElement(elem *pdfdom.ElemUseTemplate, fallb
 	}
 
 	return height, absolute, nil
-}
-
-func loadDefaultFontSet(pdf *gofpdf.Fpdf, fonts []FontRegistration) error {
-	for _, font := range fonts {
-		family := strings.TrimSpace(font.Family)
-		if family == "" {
-			return fmt.Errorf("font registration has empty family")
-		}
-		style := strings.TrimSpace(font.Style)
-		if len(font.Sources) == 0 {
-			return fmt.Errorf("font registration %q has no sources", family)
-		}
-
-		loaded := false
-		for _, source := range font.Sources {
-			fontPath := strings.TrimSpace(source)
-			if fontPath == "" {
-				continue
-			}
-			if _, statErr := os.Stat(fontPath); statErr != nil {
-				continue
-			}
-			pdf.AddUTF8Font(family, style, fontPath)
-			if pdf.Err() {
-				return fmt.Errorf("failed to load %s (style=%q) from %s: %w", family, style, fontPath, pdf.Error())
-			}
-			loaded = true
-			break
-		}
-
-		if !loaded {
-			return fmt.Errorf("font %s (style=%q) not found in configured sources", family, style)
-		}
-	}
-	return nil
 }

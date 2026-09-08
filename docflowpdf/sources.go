@@ -2,6 +2,7 @@ package docflowpdf
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,21 +28,34 @@ func (s TextSource) IsSet() bool {
 }
 
 func (s TextSource) Resolve(label string) (string, error) {
+	return s.resolve(context.Background(), TrustedFileResolver{}, 0, label)
+}
+
+func (s TextSource) resolve(ctx context.Context, resolver ResourceResolver, maxBytes int64, label string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if s.Raw != nil {
+		if maxBytes > 0 && int64(len(s.Raw)) > maxBytes {
+			return "", &BudgetError{Stage: label + " source bytes", Limit: maxBytes, Actual: int64(len(s.Raw))}
+		}
 		return string(s.Raw), nil
 	}
 	if s.Text != "" {
+		if maxBytes > 0 && int64(len(s.Text)) > maxBytes {
+			return "", &BudgetError{Stage: label + " source bytes", Limit: maxBytes, Actual: int64(len(s.Text))}
+		}
 		return s.Text, nil
 	}
 	if s.FilePath != "" {
-		buf, err := os.ReadFile(s.FilePath)
+		buf, err := resolver.ReadFile(ctx, s.FilePath, maxBytes)
 		if err != nil {
 			return "", fmt.Errorf("failed to read %s from file %q: %w", label, s.FilePath, err)
 		}
 		return string(buf), nil
 	}
 	if s.FS != nil && s.FSPath != "" {
-		buf, err := fs.ReadFile(s.FS, s.FSPath)
+		buf, err := readFSFile(ctx, s.FS, s.FSPath, maxBytes)
 		if err != nil {
 			return "", fmt.Errorf("failed to read %s from fs path %q: %w", label, s.FSPath, err)
 		}
@@ -70,43 +84,88 @@ func (s JSONSource) DecodeInto(target any, label string) error {
 }
 
 func (s JSONSource) decodeInto(target any, label string, disallowUnknownFields bool) error {
-	if s.Object != nil {
-		buf, err := json.Marshal(s.Object)
-		if err != nil {
-			return fmt.Errorf("failed to marshal %s object: %w", label, err)
-		}
-		if err := decodeJSON(buf, target, disallowUnknownFields); err != nil {
-			return fmt.Errorf("failed to decode %s object: %w", label, err)
-		}
-		return nil
-	}
+	return s.decodeIntoContext(context.Background(), TrustedFileResolver{}, 0, target, label, disallowUnknownFields)
+}
 
-	var buf []byte
-	switch {
-	case s.Raw != nil:
-		buf = s.Raw
-	case s.Text != "":
-		buf = []byte(s.Text)
-	case s.FilePath != "":
-		read, err := os.ReadFile(s.FilePath)
-		if err != nil {
-			return fmt.Errorf("failed to read %s from file %q: %w", label, s.FilePath, err)
-		}
-		buf = read
-	case s.FS != nil && s.FSPath != "":
-		read, err := fs.ReadFile(s.FS, s.FSPath)
-		if err != nil {
-			return fmt.Errorf("failed to read %s from fs path %q: %w", label, s.FSPath, err)
-		}
-		buf = read
-	default:
-		return fmt.Errorf("missing %s source", label)
+func (s JSONSource) decodeIntoContext(ctx context.Context, resolver ResourceResolver, maxBytes int64, target any, label string, disallowUnknownFields bool) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if s.Object != nil {
+		return decodeJSONObject(s.Object, target, label, maxBytes, disallowUnknownFields)
+	}
+	buf, err := s.resolveJSONBytes(ctx, resolver, maxBytes, label)
+	if err != nil {
+		return err
+	}
+	if maxBytes > 0 && int64(len(buf)) > maxBytes {
+		return &BudgetError{Stage: label + " source bytes", Limit: maxBytes, Actual: int64(len(buf))}
 	}
 
 	if err := decodeJSON(buf, target, disallowUnknownFields); err != nil {
 		return fmt.Errorf("failed to parse %s JSON: %w", label, err)
 	}
 	return nil
+}
+
+func decodeJSONObject(object, target any, label string, maxBytes int64, disallowUnknownFields bool) error {
+	buf, err := json.Marshal(object)
+	if err != nil {
+		return fmt.Errorf("failed to marshal %s object: %w", label, err)
+	}
+	if maxBytes > 0 && int64(len(buf)) > maxBytes {
+		return &BudgetError{Stage: label + " source bytes", Limit: maxBytes, Actual: int64(len(buf))}
+	}
+	if err := decodeJSON(buf, target, disallowUnknownFields); err != nil {
+		return fmt.Errorf("failed to decode %s object: %w", label, err)
+	}
+	return nil
+}
+
+func (s JSONSource) resolveJSONBytes(ctx context.Context, resolver ResourceResolver, maxBytes int64, label string) ([]byte, error) {
+	switch {
+	case s.Raw != nil:
+		return s.Raw, nil
+	case s.Text != "":
+		return []byte(s.Text), nil
+	case s.FilePath != "":
+		data, err := resolver.ReadFile(ctx, s.FilePath, maxBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s from file %q: %w", label, s.FilePath, err)
+		}
+		return data, nil
+	case s.FS != nil && s.FSPath != "":
+		data, err := readFSFile(ctx, s.FS, s.FSPath, maxBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s from fs path %q: %w", label, s.FSPath, err)
+		}
+		return data, nil
+	default:
+		return nil, fmt.Errorf("missing %s source", label)
+	}
+}
+
+func readFSFile(ctx context.Context, sourceFS fs.FS, name string, maxBytes int64) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	file, err := sourceFS.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	reader := io.Reader(file)
+	if maxBytes > 0 {
+		reader = io.LimitReader(file, maxBytes+1)
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	if maxBytes > 0 && int64(len(data)) > maxBytes {
+		return nil, &LimitError{Resource: name, Limit: maxBytes, Actual: int64(len(data))}
+	}
+	return data, ctx.Err()
 }
 
 func decodeJSON(data []byte, target any, disallowUnknownFields bool) error {
@@ -143,6 +202,10 @@ type HTMLLayerInput struct {
 
 // Resolve resolves the layer source into a concrete HTMLLayer.
 func (l HTMLLayerInput) Resolve(index int) (HTMLLayer, bool, error) {
+	return l.resolve(context.Background(), TrustedFileResolver{}, 0, index)
+}
+
+func (l HTMLLayerInput) resolve(ctx context.Context, resolver ResourceResolver, maxBytes int64, index int) (HTMLLayer, bool, error) {
 	name := strings.TrimSpace(l.Name)
 	if name == "" {
 		name = fmt.Sprintf("layer-%d", index+1)
@@ -155,7 +218,7 @@ func (l HTMLLayerInput) Resolve(index int) (HTMLLayer, bool, error) {
 		return HTMLLayer{}, false, fmt.Errorf("missing template HTML layer source for %q", name)
 	}
 
-	html, err := l.Source.Resolve(fmt.Sprintf("template HTML layer %q", name))
+	html, err := l.Source.resolve(ctx, resolver, maxBytes, fmt.Sprintf("template HTML layer %q", name))
 	if err != nil {
 		if l.Optional && errors.Is(err, os.ErrNotExist) {
 			return HTMLLayer{}, true, nil
@@ -168,6 +231,10 @@ func (l HTMLLayerInput) Resolve(index int) (HTMLLayer, bool, error) {
 
 // Resolve resolves the layer source into a concrete CSSLayer.
 func (l CSSLayerInput) Resolve(index int) (CSSLayer, bool, error) {
+	return l.resolve(context.Background(), TrustedFileResolver{}, 0, index)
+}
+
+func (l CSSLayerInput) resolve(ctx context.Context, resolver ResourceResolver, maxBytes int64, index int) (CSSLayer, bool, error) {
 	name := strings.TrimSpace(l.Name)
 	if name == "" {
 		name = fmt.Sprintf("layer-%d", index+1)
@@ -180,7 +247,7 @@ func (l CSSLayerInput) Resolve(index int) (CSSLayer, bool, error) {
 		return CSSLayer{}, false, fmt.Errorf("missing template CSS layer source for %q", name)
 	}
 
-	cssText, err := l.Source.Resolve(fmt.Sprintf("template CSS layer %q", name))
+	cssText, err := l.Source.resolve(ctx, resolver, maxBytes, fmt.Sprintf("template CSS layer %q", name))
 	if err != nil {
 		if l.Optional && errors.Is(err, os.ErrNotExist) {
 			return CSSLayer{}, true, nil
@@ -255,91 +322,23 @@ func (in AssetInput) ResolveWithBaseDir(baseDir string) (Assets, error) {
 }
 
 func (in AssetInput) ResolveAssets() (Assets, error) {
-	html := ""
-	if in.HTML.IsSet() {
-		resolvedHTML, err := in.HTML.Resolve("template HTML")
-		if err != nil {
-			return Assets{}, err
-		}
-		html = resolvedHTML
-	} else if len(in.HTMLLayers) == 0 {
-		if _, err := in.HTML.Resolve("template HTML"); err != nil {
-			return Assets{}, err
-		}
-	}
+	return in.resolveAssetsContext(context.Background(), TrustedFileResolver{}, 0)
+}
 
-	htmlLayers := make([]HTMLLayer, 0, len(in.HTMLLayers))
-	for idx, layerInput := range in.HTMLLayers {
-		layer, skipped, layerErr := layerInput.Resolve(idx)
-		if layerErr != nil {
-			return Assets{}, layerErr
-		}
-		if skipped {
-			continue
-		}
-		htmlLayers = append(htmlLayers, layer)
-	}
-
-	if _, err := composeTemplateHTML(htmlLayers, html); err != nil {
-		return Assets{}, err
-	}
-
-	css, err := resolveLegacyCSS(in.CSS, len(in.CSSLayers) > 0)
-	if err != nil {
-		return Assets{}, err
-	}
-
-	layers := make([]CSSLayer, 0, len(in.CSSLayers))
-	for idx, layerInput := range in.CSSLayers {
-		layer, skipped, layerErr := layerInput.Resolve(idx)
-		if layerErr != nil {
-			return Assets{}, layerErr
-		}
-		if skipped {
-			continue
-		}
-		layers = append(layers, layer)
-	}
-
-	var flow Flow
-	if in.Flow.IsSet() {
-		if err := in.Flow.decodeInto(&flow, "flow", true); err != nil {
-			return Assets{}, err
-		}
-	}
-	assetsForDefaults := Assets{HTML: html, HTMLLayers: htmlLayers}
-	if err := applyFlowDefaults(&flow, templateSourcesInRenderOrder(assetsForDefaults)); err != nil {
-		return Assets{}, err
-	}
-
-	var sourceData map[string]any
-	if in.SourceData.IsSet() {
-		sourceData = make(map[string]any)
-		if err := in.SourceData.DecodeInto(&sourceData, "source data"); err != nil {
-			return Assets{}, err
-		}
-	}
-
-	assets := Assets{
-		HTML:       html,
-		HTMLLayers: htmlLayers,
-		CSS:        css,
-		CSSLayers:  layers,
-		Flow:       flow,
-		SourceData: sourceData,
-	}
-	if err := assets.Validate(); err != nil {
-		return Assets{}, err
-	}
-	return assets, nil
+func (in AssetInput) resolveAssetsContext(ctx context.Context, resolver ResourceResolver, maxBytes int64) (Assets, error) {
+	return (&assetInputResolver{ctx: ctx, resolver: resolver, maxBytes: maxBytes}).resolve(in)
 }
 
 func resolveLegacyCSS(source TextSource, hasLayers bool) (string, error) {
+	return resolveLegacyCSSContext(context.Background(), TrustedFileResolver{}, 0, source, hasLayers)
+}
+
+func resolveLegacyCSSContext(ctx context.Context, resolver ResourceResolver, maxBytes int64, source TextSource, hasLayers bool) (string, error) {
 	if source.IsSet() {
-		return source.Resolve("template CSS")
+		return source.resolve(ctx, resolver, maxBytes, "template CSS")
 	}
 	if hasLayers {
 		return "", nil
 	}
-	return source.Resolve("template CSS")
+	return source.resolve(ctx, resolver, maxBytes, "template CSS")
 }

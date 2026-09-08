@@ -1,21 +1,23 @@
 package docflowpdf
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
+	"github.com/otuschhoff/csspdf/internal/flowrender"
 	"github.com/otuschhoff/csspdf/internal/pdfrender"
 )
 
-func configurePageNumberRenderer(layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, input RenderInput, warnf func(string, ...any)) func() error {
+func configurePageNumberRenderer(ctx context.Context, limits RenderLimits, complexity *flowrender.ComplexityBudget, layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, input RenderInput, warnf func(string, ...any)) func() error {
 	var renderErr error
 	layout.SetPageNumRenderer(func(layout *pdfrender.LayoutPDF, page, pageCount int) {
 		if page <= 1 {
 			return
 		}
-		elements, err := pageNumberTemplateFlowElements(layout, assets, source, page, pageCount, input)
+		elements, err := pageNumberTemplateFlowElements(ctx, limits, complexity, layout, assets, source, page, pageCount, input)
 		if err != nil {
-			if !input.AllowPartialRender && renderErr == nil {
+			if (!input.AllowPartialRender || isOperationalBoundaryError(err)) && renderErr == nil {
 				renderErr = fmt.Errorf("page-number template render failed on page %d/%d: %w", page, pageCount, err)
 			}
 			warnf("failed to render page-number template: %v", err)
@@ -32,6 +34,9 @@ func configurePageNumberRenderer(layout *pdfrender.LayoutPDF, assets Assets, sou
 }
 
 func handleMainFlowError(err error, input RenderInput, warnf func(string, ...any)) error {
+	if isOperationalBoundaryError(err) {
+		return err
+	}
 	var fatalErr *fatalFlowRenderError
 	if errors.As(err, &fatalErr) {
 		return fatalErr
@@ -41,4 +46,9 @@ func handleMainFlowError(err error, input RenderInput, warnf func(string, ...any
 	}
 	warnf("%v", err)
 	return nil
+}
+
+func isOperationalBoundaryError(err error) bool {
+	var budgetErr *BudgetError
+	return errors.As(err, &budgetErr) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }

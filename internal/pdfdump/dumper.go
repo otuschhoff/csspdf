@@ -204,13 +204,24 @@ func annotateDictStartWithObjectID(prettyDict, objID string) string {
 	return strings.Join(lines, "\n")
 }
 
-func decompressFlate(data []byte) ([]byte, error) {
+func decompressFlate(data []byte, maxBytes int64) ([]byte, error) {
 	r, err := zlib.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
 	defer r.Close()
-	return io.ReadAll(r)
+	reader := io.Reader(r)
+	if maxBytes > 0 {
+		reader = io.LimitReader(r, maxBytes+1)
+	}
+	decoded, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	if maxBytes > 0 && int64(len(decoded)) > maxBytes {
+		return nil, &InspectionLimitError{Stage: "decompressed stream", Limit: maxBytes, Actual: int64(len(decoded))}
+	}
+	return decoded, nil
 }
 
 func formatDictionary(dict string) string {
@@ -1030,86 +1041,4 @@ func formatPdfCommands(text string) string {
 	}
 	result = regexp.MustCompile(`\n\n+`).ReplaceAllString(result, "\n")
 	return result
-}
-
-// DumpPDF reads a PDF file and prints its structure with sophisticated parsing.
-func DumpPDF(pdfPath string) error {
-	data, err := os.ReadFile(pdfPath)
-	if err != nil {
-		return fmt.Errorf("failed to read PDF: %w", err)
-	}
-
-	fmt.Printf("PDF Stream Dump: %s\n", pdfPath)
-	fmt.Println(strings.Repeat("=", 80))
-
-	matches := objRe.FindAllSubmatch(data, -1)
-
-	for _, match := range matches {
-		objNum := string(match[1])
-		objBody := match[2]
-
-		streamMatch := streamRe.FindSubmatch(objBody)
-		if streamMatch == nil {
-			dictBody := strings.TrimSpace(string(objBody))
-			optional := isOptionalObject(dictBody)
-			if len(dictBody) > 500 {
-				dictBody = dictBody[:500] + "..."
-			}
-			if !isBinaryContent([]byte(dictBody)) && len(dictBody) < 2000 {
-				fmt.Printf("\n%s\n", objectHeader(objNum, optional))
-				fmt.Println("  Kind: no stream")
-				fmt.Println(indentLines(formatDictionary(dictBody), "  "))
-			}
-			continue
-		}
-
-		streamData := streamMatch[1]
-		streamData = bytes.TrimPrefix(streamData, []byte("\r\n"))
-		streamData = bytes.TrimPrefix(streamData, []byte("\n"))
-		streamData = bytes.TrimPrefix(streamData, []byte("\r"))
-		streamData = bytes.TrimRight(streamData, "\r\n \t")
-
-		dictPart := objBody[:bytes.Index(objBody, []byte("stream"))]
-		dictStr := strings.TrimSpace(string(dictPart))
-		optional := isOptionalObject(dictStr)
-		isHint := isHintBinaryStream(dictStr)
-
-		fmt.Printf("\n%s\n", objectHeader(objNum, optional))
-		if isHint {
-			fmt.Println("  Kind: Hint stream")
-		}
-		fmt.Println("  Dictionary:")
-		fmt.Print(indentLines(annotateDictStartWithObjectID(formatDictionary(dictStr), objNum), "    "))
-
-		var decodedData []byte
-		if bytes.Contains(dictPart, []byte("FlateDecode")) {
-			decodedData, err = decompressFlate(streamData)
-			if err != nil {
-				fmt.Printf("  Stream: [failed to decompress: %v, raw %d bytes]\n", err, len(streamData))
-				continue
-			}
-			fmt.Printf("  Stream (decompressed %d -> %d bytes):\n", len(streamData), len(decodedData))
-		} else {
-			decodedData = streamData
-			fmt.Printf("  Stream (%d bytes, uncompressed):\n", len(decodedData))
-		}
-
-		formatted := ""
-		if bytes.Contains(dictPart, []byte("/ObjStm")) || bytes.Contains(dictPart, []byte("/Type/ObjStm")) {
-			formatted = formatObjectStreamContent(decodedData)
-		} else if bytes.Contains(dictPart, []byte("/Type /XRef")) || bytes.Contains(dictPart, []byte("/Type/XRef")) {
-			formatted = formatXRefStream(decodedData, dictStr)
-		} else if isHint {
-			formatted = formatHintStream(decodedData, dictStr)
-		} else {
-			formatted = formatStreamContent(decodedData)
-		}
-		if formatted != "" {
-			fmt.Print(indentLines(formatted, "    "))
-		}
-	}
-
-	fmt.Println("\n" + strings.Repeat("=", 80))
-	fmt.Printf("Total objects processed: %d\n", len(matches))
-	return nil
 }

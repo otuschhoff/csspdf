@@ -158,6 +158,35 @@ JSONSource supports:
 
 This avoids mandatory caller-side JSON serde when using the library in Go apps.
 
+## Confined Rendering
+
+For service workloads, confine file-backed resources and set explicit budgets:
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+defer cancel()
+
+err := docflowpdf.RenderContext(ctx, "output/document.pdf",
+	docflowpdf.WithConfinedResourceRoot("/srv/csspdf/jobs/job-123"),
+	docflowpdf.WithRenderLimits(docflowpdf.RenderLimits{
+		SourceBytes:         4 << 20,
+		TemplateOutputBytes: 8 << 20,
+		ImageBytes:          8 << 20,
+		ImagePixels:         12_000_000,
+		OutputBytes:         32 << 20,
+		Nodes:               25_000,
+		Depth:               128,
+		Rows:                10_000,
+		Pages:               250,
+	}),
+)
+```
+
+Zero limit fields use safe library defaults. Budget violations return
+`*docflowpdf.BudgetError`; file output remains atomic. Templates and custom Go
+functions remain trusted code, and hard resource ceilings require process or
+container isolation. See [the Phase 3 security contract](docs/phase3-security.md).
+
 ## Layered CSS Usage
 
 You can compose CSS in ordered layers with `AssetInput.CSSLayers`.

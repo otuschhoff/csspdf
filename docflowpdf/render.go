@@ -2,11 +2,13 @@ package docflowpdf
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	htmltmpl "html/template"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -15,8 +17,6 @@ import (
 	"time"
 
 	"github.com/otuschhoff/csspdf/internal/flowrender"
-	"github.com/otuschhoff/csspdf/internal/format"
-	"github.com/otuschhoff/csspdf/internal/i18n"
 	"github.com/otuschhoff/csspdf/internal/pdfdom"
 	"github.com/otuschhoff/csspdf/internal/pdfrender"
 	templateload "github.com/otuschhoff/csspdf/internal/templating"
@@ -89,6 +89,8 @@ type RenderInput struct {
 	FuncMapFactoryEx         FuncMapFactoryWithContext
 	FuncMapFactory           FuncMapFactory
 	Logger                   Logger
+	ResourceResolver         ResourceResolver
+	Limits                   RenderLimits
 	// AllowPartialRender preserves the legacy behavior of logging recoverable
 	// template and element errors while emitting a potentially incomplete PDF.
 	AllowPartialRender bool
@@ -106,22 +108,53 @@ type FontRegistration struct {
 
 // RenderWithInput renders using a fully specified RenderInput.
 func RenderWithInput(input RenderInput) error {
+	return RenderWithInputContext(context.Background(), input)
+}
+
+// RenderWithInputContext renders using a fully specified input and context.
+func RenderWithInputContext(ctx context.Context, input RenderInput) error {
 	if strings.TrimSpace(input.OutputPath) == "" {
 		return fmt.Errorf("output path is required")
 	}
-	return RenderToFile(input, input.OutputPath)
+	return RenderToFileContext(ctx, input, input.OutputPath)
 }
 
 // RenderToWriter renders and writes a PDF to an io.Writer.
 func RenderToWriter(input RenderInput, out io.Writer) error {
+	return RenderToWriterContext(context.Background(), input, out)
+}
+
+// RenderToWriterContext renders a PDF to out with cancellation and budgets.
+func RenderToWriterContext(ctx context.Context, input RenderInput, out io.Writer) error {
 	if out == nil {
 		return fmt.Errorf("output writer is required")
 	}
-	artifact, err := buildArtifact(input)
+	if ctx == nil {
+		return fmt.Errorf("render context is required")
+	}
+	limits, err := normalizeRenderLimits(input.Limits)
 	if err != nil {
 		return err
 	}
-	if err := artifact.layout.PDF.Output(out); err != nil {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("render canceled before preparation: %w", err)
+	}
+	artifact, err := buildArtifactContext(ctx, input, limits)
+	if err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("render canceled before emission: %w", err)
+	}
+	return emitArtifactContext(ctx, artifact, out, limits.OutputBytes)
+}
+
+func emitArtifactContext(ctx context.Context, artifact *renderArtifact, out io.Writer, outputLimit int64) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("render canceled before emission: %w", err)
+	}
+	limited := &budgetWriter{writer: out, remaining: outputLimit, limit: outputLimit, stage: "PDF output bytes", ctx: ctx}
+	if err := artifact.layout.PDF.Output(limited); err != nil {
 		return fmt.Errorf("failed to output PDF: %w", err)
 	}
 	return nil
@@ -129,141 +162,20 @@ func RenderToWriter(input RenderInput, out io.Writer) error {
 
 // RenderToBytes renders and returns a complete PDF byte slice.
 func RenderToBytes(input RenderInput) ([]byte, error) {
+	return RenderToBytesContext(context.Background(), input)
+}
+
+// RenderToBytesContext renders and returns a complete bounded PDF byte slice.
+func RenderToBytesContext(ctx context.Context, input RenderInput) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := RenderToWriter(input, &buf); err != nil {
+	if err := RenderToWriterContext(ctx, input, &buf); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
 func buildArtifact(input RenderInput) (*renderArtifact, error) {
-	warnf := warningFunc(input)
-
-	assets, err := resolveRenderAssets(input)
-	if err != nil {
-		return nil, err
-	}
-	effectiveHTML, err := effectiveTemplateHTML(assets)
-	if err != nil {
-		return nil, err
-	}
-	effectiveCSS, err := effectiveTemplateCSS(assets)
-	if err != nil {
-		return nil, err
-	}
-	_ = effectiveHTML
-	if len(assets.CSSLayers) > 0 {
-		warnf("resolved CSS layer order (low->high): %s", formatResolvedCSSLayers(assets.CSSLayers, strings.TrimSpace(assets.CSS) != ""))
-	}
-	if len(assets.CSSLayers) > 0 && strings.TrimSpace(assets.CSS) != "" {
-		warnf("both CSSLayers and legacy CSS are set; legacy CSS is applied as the final implicit layer")
-	}
-	assets.CSS = effectiveCSS
-	resolvedFontRegistrations, err := resolveFontRegistrations(input)
-	if err != nil {
-		return nil, err
-	}
-
-	effectiveWidth, effectiveHeight, err := resolvePageDimensions(input)
-	if err != nil {
-		return nil, err
-	}
-
-	locale := strings.TrimSpace(input.DefaultLocale)
-	if locale == "" {
-		locale = DefaultLocale
-	}
-	currencyCode := strings.TrimSpace(input.DefaultCurrencyCode)
-	if currencyCode == "" {
-		currencyCode = DefaultCurrencyCode
-	}
-
-	defaults := templateload.PageSettings{
-		Width:   effectiveWidth,
-		Height:  effectiveHeight,
-		Margins: input.DefaultMargins,
-	}
-	defaultPage, firstPage, err := templateload.ParseCSSPageSettings(assets.CSS, defaults, templateload.ParseLengthValue)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse @page settings from template CSS: %w", err)
-	}
-	defaultPage.Width = effectiveWidth
-	firstPage.Width = effectiveWidth
-	defaultPage.Height = effectiveHeight
-	firstPage.Height = effectiveHeight
-
-	i18nInst, err := resolveI18nInput(locale, input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize i18n: %w", err)
-	}
-	formatter := format.New(i18nInst, currencyCode)
-	l, err := pdfrender.NewLayoutPDFWithOptions(defaultPage, firstPage, i18nInst, formatter, pdfrender.LayoutOptions{
-		FontRegistrations:  toLayoutFontRegistrations(resolvedFontRegistrations),
-		ImageSearchDirs:    resolveImageSearchDirs(input),
-		StrictRenderErrors: !input.AllowPartialRender,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	source := input.SourceData
-	if source == nil {
-		source = assets.SourceData
-	}
-	if source == nil {
-		return nil, fmt.Errorf("source data is required")
-	}
-	sourceData, err := asJSONObject(source)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build source JSON payload: %w", err)
-	}
-
-	l.SetWarningFunc(warnf)
-
-	l.StartFlow()
-	l.SetDeferFlowPageNum(true)
-	pageNumberRenderError := configurePageNumberRenderer(l, assets, sourceData, input, warnf)
-
-	l.BeginPage(1)
-	if err := renderMainFlow(l, assets, sourceData, input); err != nil {
-		if policyErr := handleMainFlowError(err, input, warnf); policyErr != nil {
-			return nil, policyErr
-		}
-	}
-
-	if l.TotalPages() < l.PDF.PageNo() {
-		l.EnsureTotalPagesAtLeast(l.PDF.PageNo())
-	}
-	l.RenderFinalFlowPageNums()
-	if err := pageNumberRenderError(); err != nil {
-		return nil, err
-	}
-	return &renderArtifact{layout: l}, nil
-}
-
-func formatResolvedCSSLayers(layers []CSSLayer, hasLegacyCSS bool) string {
-	if len(layers) == 0 {
-		if hasLegacyCSS {
-			return "legacy-css"
-		}
-		return "none"
-	}
-	parts := make([]string, 0, len(layers)+1)
-	for idx, layer := range layers {
-		name := strings.TrimSpace(layer.Name)
-		if name == "" {
-			name = fmt.Sprintf("layer-%d", idx+1)
-		}
-		parts = append(parts, name)
-	}
-	if hasLegacyCSS {
-		parts = append(parts, "legacy-css")
-	}
-	return strings.Join(parts, " -> ")
-}
-
-type renderArtifact struct {
-	layout *pdfrender.LayoutPDF
+	return buildArtifactWithLimits(input)
 }
 
 func warningFunc(input RenderInput) func(string, ...any) {
@@ -276,55 +188,6 @@ func warningFunc(input RenderInput) func(string, ...any) {
 		}
 	}
 	return func(string, ...any) {}
-}
-
-func resolveRenderAssets(input RenderInput) (Assets, error) {
-	if baseDir := strings.TrimSpace(input.AssetBaseDir); baseDir != "" {
-		overrides := AssetInput{}
-		if input.AssetInput != nil {
-			overrides = *input.AssetInput
-		}
-		return overrides.ResolveWithBaseDir(baseDir)
-	}
-
-	if input.AssetInput != nil {
-		return input.AssetInput.ResolveAssets()
-	}
-	assets := input.Assets
-	assets.Flow = cloneFlow(input.Assets.Flow)
-	if _, err := effectiveTemplateHTML(assets); err != nil {
-		return Assets{}, err
-	}
-	if err := applyFlowDefaults(&assets.Flow, templateSourcesInRenderOrder(assets)); err != nil {
-		return Assets{}, err
-	}
-	if err := assets.Validate(); err != nil {
-		return Assets{}, err
-	}
-	return assets, nil
-}
-
-func resolveI18nInput(locale string, input RenderInput) (*i18n.I18n, error) {
-	i18nSource := input.I18nSource
-	if !i18nSource.IsSet() {
-		baseDir := strings.TrimSpace(input.AssetBaseDir)
-		if baseDir != "" {
-			candidate := filepath.Join(baseDir, "i18n.json")
-			if stat, err := os.Stat(candidate); err == nil && !stat.IsDir() {
-				i18nSource = JSONSource{FilePath: candidate}
-			}
-		}
-	}
-
-	if !i18nSource.IsSet() {
-		return i18n.New(locale)
-	}
-
-	var source map[string]any
-	if err := i18nSource.DecodeInto(&source, "i18n"); err != nil {
-		return nil, err
-	}
-	return i18n.NewFromSource(locale, source)
 }
 
 func resolveFontRegistrations(input RenderInput) ([]FontRegistration, error) {
@@ -521,14 +384,19 @@ func toLayoutFontRegistrations(registrations []FontRegistration) []pdfrender.Fon
 	return out
 }
 
-func renderMainFlow(layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, input RenderInput) error {
+func renderMainFlow(renderCtx context.Context, limits RenderLimits, complexity *flowrender.ComplexityBudget, layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, input RenderInput) error {
 	ctx := transformContext{
-		Layout: layout,
-		Source: source,
-		Input:  input,
+		Layout:  layout,
+		Source:  source,
+		Input:   input,
+		Context: renderCtx,
+		Limits:  limits,
 	}
 	templateSources := templateSourcesInRenderOrder(assets)
 	for _, section := range assets.Flow.MainFlow {
+		if err := renderCtx.Err(); err != nil {
+			return fmt.Errorf("render canceled before section %q: %w", section.Template, err)
+		}
 		payload, err := transformSectionPayload(section, ctx)
 		if err != nil {
 			return fmt.Errorf("failed to transform section %q via %q: %w", section.Template, section.Transformer, err)
@@ -539,20 +407,34 @@ func renderMainFlow(layout *pdfrender.LayoutPDF, assets Assets, source map[strin
 		}
 		funcs := buildFuncMap(input, strings.TrimSpace(input.DefaultLocale), requiredString(jsonData, "locale"))
 
-		elements, err := flowrender.BuildFlowElementsFromSourcesWithFuncs(templateSources, section.Template, assets.CSS, jsonData, funcs)
+		elements, err := flowrender.BuildFlowElementsFromSourcesWithOptions(templateSources, section.Template, assets.CSS, jsonData, funcs, flowrender.BuildOptions{
+			Context: renderCtx, MaxTemplateOutputBytes: limits.TemplateOutputBytes, MaxNodes: limits.Nodes, MaxDepth: limits.Depth, MaxRows: limits.Rows, Complexity: complexity,
+		})
 		if err != nil {
+			var outputLimit *templateload.OutputLimitError
+			if errors.As(err, &outputLimit) {
+				return &BudgetError{Stage: "template output bytes", Limit: outputLimit.Limit}
+			}
+			var complexityLimit *flowrender.ComplexityLimitError
+			if errors.As(err, &complexityLimit) {
+				return &BudgetError{Stage: complexityLimit.Kind, Limit: int64(complexityLimit.Limit), Actual: int64(complexityLimit.Actual)}
+			}
 			return err
 		}
 		if err := pdfrender.RenderDocTemplateFlow(layout, elements); err != nil {
+			var pageLimit *pdfrender.PageLimitError
+			if errors.As(err, &pageLimit) {
+				return &BudgetError{Stage: "pages", Limit: int64(pageLimit.Limit), Actual: int64(pageLimit.Requested)}
+			}
 			return &fatalFlowRenderError{err: fmt.Errorf("failed to render section %q flow: %w", section.Template, err)}
 		}
 	}
 	return nil
 }
 
-func pageNumberTemplateFlowElements(layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, page, total int, input RenderInput) ([]pdfdom.PDFElementNode, error) {
+func pageNumberTemplateFlowElements(renderCtx context.Context, limits RenderLimits, complexity *flowrender.ComplexityBudget, layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, page, total int, input RenderInput) ([]pdfdom.PDFElementNode, error) {
 	templateSources := templateSourcesInRenderOrder(assets)
-	payload, err := transformSectionPayload(assets.Flow.PageNumber, transformContext{Layout: layout, Source: source, Page: page, Total: total, Input: input})
+	payload, err := transformSectionPayload(assets.Flow.PageNumber, transformContext{Layout: layout, Source: source, Page: page, Total: total, Input: input, Context: renderCtx, Limits: limits})
 	if err != nil {
 		return nil, err
 	}
@@ -562,7 +444,21 @@ func pageNumberTemplateFlowElements(layout *pdfrender.LayoutPDF, assets Assets, 
 	}
 	funcs := buildFuncMap(input, layout.I18n.Locale(), requiredString(data, "locale"))
 
-	return flowrender.BuildFlowElementsFromSourcesWithFuncs(templateSources, assets.Flow.PageNumber.Template, assets.CSS, data, funcs)
+	elements, err := flowrender.BuildFlowElementsFromSourcesWithOptions(templateSources, assets.Flow.PageNumber.Template, assets.CSS, data, funcs, flowrender.BuildOptions{
+		Context: renderCtx, MaxTemplateOutputBytes: limits.TemplateOutputBytes, MaxNodes: limits.Nodes, MaxDepth: limits.Depth, MaxRows: limits.Rows, Complexity: complexity,
+	})
+	if err != nil {
+		var outputLimit *templateload.OutputLimitError
+		if errors.As(err, &outputLimit) {
+			return nil, &BudgetError{Stage: "template output bytes", Limit: outputLimit.Limit}
+		}
+		var complexityLimit *flowrender.ComplexityLimitError
+		if errors.As(err, &complexityLimit) {
+			return nil, &BudgetError{Stage: complexityLimit.Kind, Limit: int64(complexityLimit.Limit), Actual: int64(complexityLimit.Actual)}
+		}
+		return nil, err
+	}
+	return elements, nil
 }
 
 func templateSourcesInRenderOrder(assets Assets) []string {
@@ -606,11 +502,13 @@ func buildFuncMap(input RenderInput, defaultLocale, payloadLocale string) htmltm
 }
 
 type transformContext struct {
-	Layout *pdfrender.LayoutPDF
-	Source map[string]any
-	Page   int
-	Total  int
-	Input  RenderInput
+	Layout  *pdfrender.LayoutPDF
+	Source  map[string]any
+	Page    int
+	Total   int
+	Input   RenderInput
+	Context context.Context
+	Limits  RenderLimits
 }
 
 func transformSectionPayload(section Section, ctx transformContext) (map[string]any, error) {
@@ -651,11 +549,11 @@ func transformGenericSection(section Section, ctx transformContext) (map[string]
 				return nil, fmt.Errorf("failed to normalize macro payload: %w", err)
 			}
 			funcs := buildFuncMap(ctx.Input, strings.TrimSpace(ctx.Input.DefaultLocale), locale)
-			rendered, err := renderI18nTemplateNode(i18nData, funcs, map[string]any{
+			rendered, err := renderI18nTemplateNodeWithOptions(i18nData, funcs, map[string]any{
 				"Source":  ctx.Source,
 				"Payload": macroPayload,
 				"locale":  locale,
-			})
+			}, ctx.Context, ctx.Limits.TemplateOutputBytes)
 			if err != nil {
 				details := formatI18nMacroErrorDetails(err, ctx.Input)
 				return nil, fmt.Errorf("%w in section %q: %s", errI18nMacroExpansion, section.Template, details)
@@ -699,7 +597,12 @@ func buildImplicitPagePayload(ctx transformContext) map[string]any {
 }
 
 func renderI18nTemplateNode(node any, funcs htmltmpl.FuncMap, data any) (any, error) {
-	return renderI18nTemplateNodeAtPath(node, funcs, data, "root")
+	return renderI18nTemplateNodeWithOptions(node, funcs, data, context.Background(), 0)
+}
+
+func renderI18nTemplateNodeWithOptions(node any, funcs htmltmpl.FuncMap, data any, ctx context.Context, maxBytes int64) (any, error) {
+	remaining := maxBytes
+	return renderI18nTemplateNodeAtPath(node, funcs, data, "root", ctx, &remaining, maxBytes)
 }
 
 func formatI18nMacroErrorDetails(err error, input RenderInput) string {
@@ -866,13 +769,13 @@ func splitJSONLine(line string) (string, string, bool) {
 	return key, rest, true
 }
 
-func renderI18nTemplateNodeAtPath(node any, funcs htmltmpl.FuncMap, data any, path string) (any, error) {
+func renderI18nTemplateNodeAtPath(node any, funcs htmltmpl.FuncMap, data any, path string, ctx context.Context, remaining *int64, limit int64) (any, error) {
 	switch typed := node.(type) {
 	case map[string]any:
 		out := make(map[string]any, len(typed))
 		for key, value := range typed {
 			childPath := path + "." + key
-			rendered, err := renderI18nTemplateNodeAtPath(value, funcs, data, childPath)
+			rendered, err := renderI18nTemplateNodeAtPath(value, funcs, data, childPath, ctx, remaining, limit)
 			if err != nil {
 				return nil, err
 			}
@@ -883,7 +786,7 @@ func renderI18nTemplateNodeAtPath(node any, funcs htmltmpl.FuncMap, data any, pa
 		out := make([]any, len(typed))
 		for i, value := range typed {
 			childPath := fmt.Sprintf("%s[%d]", path, i)
-			rendered, err := renderI18nTemplateNodeAtPath(value, funcs, data, childPath)
+			rendered, err := renderI18nTemplateNodeAtPath(value, funcs, data, childPath, ctx, remaining, limit)
 			if err != nil {
 				return nil, err
 			}
@@ -904,12 +807,19 @@ func renderI18nTemplateNodeAtPath(node any, funcs htmltmpl.FuncMap, data any, pa
 			}
 		}
 		var buf bytes.Buffer
-		if err := parsed.Execute(&buf, data); err != nil {
+		writer := &budgetWriter{writer: &buf, remaining: *remaining, limit: limit, stage: "i18n template output bytes", ctx: ctx}
+		if limit <= 0 {
+			writer.remaining = math.MaxInt64
+		}
+		if err := parsed.Execute(writer, data); err != nil {
 			return nil, &i18nTemplateValueError{
 				Path:  path,
 				Value: typed,
 				Err:   fmt.Errorf("failed to execute i18n template value %q: %w", typed, err),
 			}
+		}
+		if limit > 0 {
+			*remaining = writer.remaining
 		}
 		return buf.String(), nil
 	default:
@@ -1039,9 +949,16 @@ func extractStringVarsFromSourcePaths(source map[string]any, paths map[string]st
 }
 
 func asJSONObject(data any) (map[string]any, error) {
+	return asJSONObjectWithLimit(data, 0)
+}
+
+func asJSONObjectWithLimit(data any, limit int64) (map[string]any, error) {
 	buf, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal data to JSON: %w", err)
+	}
+	if limit > 0 && int64(len(buf)) > limit {
+		return nil, &BudgetError{Stage: "source data bytes", Limit: limit, Actual: int64(len(buf))}
 	}
 	out := make(map[string]any)
 	if err := decodeJSON(buf, &out, false); err != nil {

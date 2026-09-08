@@ -28,7 +28,9 @@ func (state *docFlowState) renderPaginatedTable(node *pdfdom.ElemTable, initial 
 		fragmentRows, end, baseHeight := selectTableFragment(tableDef, rowHeights, headerCount, dataIndex, available, firstFragment)
 		if end == dataIndex {
 			if firstFragment && state.currentY > state.y {
-				state.nextPage()
+				if err := state.nextPage(); err != nil {
+					return err
+				}
 				var rebuildErr error
 				tableDef, xPos, yPos, rebuildErr = state.rebuildTableForCurrentPage(node)
 				if rebuildErr != nil {
@@ -51,7 +53,9 @@ func (state *docFlowState) renderPaginatedTable(node *pdfdom.ElemTable, initial 
 		dataIndex = end
 		firstFragment = false
 		if dataIndex < len(tableDef.Rows) {
-			state.nextPage()
+			if err := state.nextPage(); err != nil {
+				return err
+			}
 			var rebuildErr error
 			tableDef, xPos, yPos, rebuildErr = state.rebuildTableForCurrentPage(node)
 			if rebuildErr != nil {

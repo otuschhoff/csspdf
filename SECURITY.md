@@ -7,32 +7,36 @@ is the `docflowpdf` Go package and the Go commands under `cmd`. Root JavaScript
 utilities are retained as unsupported historical tools and are not covered by
 the Go dependency or CI policy.
 
-## Current Trust Boundary
+## Trust Boundary
 
-csspdf is currently designed for trusted local document authoring. The
-following inputs are trusted configuration, not sandboxed data:
+HTML/CSS templates, flow definitions, custom template functions, and
+caller-provided `io/fs` implementations are trusted executable configuration,
+not sandboxed tenant data. Source values are escaped by `html/template`, but
+escaping does not make templates or custom functions safe.
 
-- HTML and CSS templates
-- flow definitions
-- file paths, `io/fs` implementations, image paths, and font registrations
-- custom Go template functions and their returned values
+`WithConfinedResourceRoot` confines relative template, CSS, JSON, image, i18n,
+and font resources with `os.Root`. It rejects absolute/traversal paths,
+symlink escape, non-regular files, and unsupported image/font types. The
+default and `WithTrustedFileAccess` preserve unrestricted host-file behavior
+for trusted local authoring and must not be presented as confinement.
 
-Do not allow untrusted users or tenants to control those inputs in the same
-process as secrets or sensitive files. Resource lookup can read configured
-absolute paths and compatibility search locations outside an asset directory.
-The renderer does not currently provide hard limits for input bytes, expanded
-templates, DOM nodes, images, pages, output bytes, CPU time, or memory.
+`RenderLimits` bounds source and expanded-template bytes, compressed image
+bytes, decoded pixels, cumulative nodes/rows, nesting depth, pages, and output
+bytes. Context-aware APIs stop at preparation, source/template, layout/page,
+and emission checkpoints. They cannot preempt arbitrary custom functions or
+all backend operations and therefore do not provide hard CPU/memory isolation.
 
-Source data values are escaped by Go's `html/template` during normal template
-execution, but that does not sandbox custom functions, restrict filesystem
-access, or provide resource limits. The renderer does not fetch HTTP resources
-itself.
+For hostile or tenant workloads, use bounded worker concurrency and queue
+depth plus a dedicated process or container with a read-only minimal
+filesystem, no secrets, restricted network access, and OS-level CPU, memory,
+and time limits. The renderer does not fetch HTTP resources itself.
 
-For less-trusted workloads, use a dedicated process or container with a
-read-only minimal filesystem, no secrets, restricted network access, bounded
-CPU/memory/time, and application-level input limits. A confined resource
-resolver and built-in render budgets are planned but are not part of the
-current contract.
+## Vulnerability Exceptions
+
+The pinned `govulncheck` gate must pass by default. A temporary exception must
+record the advisory, reachable-call assessment, compensating control, owner,
+expiry date, and removal milestone. Exceptions are reviewed before expiry and
+must not be represented as an absence of vulnerability.
 
 ## Dependency and CI Policy
 

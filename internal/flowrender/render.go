@@ -1,6 +1,7 @@
 package flowrender
 
 import (
+	"errors"
 	"fmt"
 	htmltmpl "html/template"
 
@@ -26,22 +27,31 @@ func BuildFlowElementsWithFuncs(templateSource, templateName, cssStyle string, d
 }
 
 func BuildFlowElementsFromSourcesWithFuncs(templateSources []string, templateName, cssStyle string, data any, funcs htmltmpl.FuncMap) ([]pdfdom.PDFElementNode, error) {
+	return BuildFlowElementsFromSourcesWithOptions(templateSources, templateName, cssStyle, data, funcs, BuildOptions{})
+}
+
+func BuildFlowElementsFromSourcesWithOptions(templateSources []string, templateName, cssStyle string, data any, funcs htmltmpl.FuncMap, options BuildOptions) ([]pdfdom.PDFElementNode, error) {
 	var (
 		htmlStr string
 		err     error
 	)
-	if len(funcs) > 0 {
-		htmlStr, err = templateload.ExecuteNamedFromSourcesWithFuncs(templateSources, templateName, data, funcs)
-	} else {
-		htmlStr, err = templateload.ExecuteNamedFromSources(templateSources, templateName, data)
-	}
+	htmlStr, err = templateload.ExecuteNamedFromSourcesWithOptions(templateSources, templateName, data, funcs, templateload.ExecuteOptions{
+		Context: options.Context, MaxOutputBytes: options.MaxTemplateOutputBytes,
+	})
 	if err != nil {
+		var limitErr *templateload.OutputLimitError
+		if errors.As(err, &limitErr) {
+			return nil, limitErr
+		}
 		return nil, err
 	}
 
 	elements, err := pdfdom.ParseHTMLDocFlow(htmlStr, cssStyle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse %s template flow: %w", templateName, err)
+	}
+	if err := validateComplexity(elements, options); err != nil {
+		return nil, err
 	}
 
 	return elements, nil

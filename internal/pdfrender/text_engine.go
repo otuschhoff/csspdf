@@ -93,6 +93,7 @@ type PDFTextEngine struct {
 	defaultStyle    PDFTextStyle
 	glyphs          *FontGlyphRegistry
 	imageSearchDirs []string
+	imageLoader     ImageLoader
 }
 
 func NewPDFTextEngine(pdf *gofpdf.Fpdf, i18n Translator) *PDFTextEngine {
@@ -115,6 +116,10 @@ func (e *PDFTextEngine) SetImageSearchDirs(paths []string) {
 		return
 	}
 	e.imageSearchDirs = append([]string(nil), paths...)
+}
+
+func (e *PDFTextEngine) SetImageLoader(loader ImageLoader) {
+	e.imageLoader = loader
 }
 
 func (e *PDFTextEngine) SetDefaultStyle(style PDFTextStyle) {
@@ -171,6 +176,7 @@ type textPlan struct {
 	metrics          PDFTextMetrics
 	children         []*textPlan
 	imagePath        string
+	imageData        []byte
 	imageType        string
 	imageWidth       float64
 	imageHeight      float64
@@ -244,9 +250,20 @@ func (e *PDFTextEngine) layoutContainerNode(nodeStyle *PDFTextStyle, children []
 
 func (e *PDFTextEngine) layoutImageNode(node *ElemImg, parentStyle PDFTextStyle, box PDFTextBox) (*textPlan, PDFTextMetrics, error) {
 	style := parentStyle.Merge(node.ElementStyle())
-	path, width, height, marginTop, marginBottom, err := resolveImageElement(node, box.Width, e.imageSearchDirs)
+	path, width, height, marginTop, marginBottom, err := resolveImageElement(node, box.Width, e.imageSearchDirs, e.imageLoader != nil)
 	if err != nil {
 		return nil, PDFTextMetrics{}, err
+	}
+	imageType := imageTypeFromPath(path)
+	var imageData []byte
+	if e.imageLoader != nil {
+		resource, loadErr := e.imageLoader(path)
+		if loadErr != nil {
+			return nil, PDFTextMetrics{}, loadErr
+		}
+		path = resource.Name
+		imageType = resource.Type
+		imageData = resource.Data
 	}
 
 	align := TextAlignLeft
@@ -263,7 +280,8 @@ func (e *PDFTextEngine) layoutImageNode(node *ElemImg, parentStyle PDFTextStyle,
 		metrics:     PDFTextMetrics{Width: width, Height: marginTop + height + marginBottom, LineCount: 1},
 		children:    []*textPlan{},
 		imagePath:   path,
-		imageType:   imageTypeFromPath(path),
+		imageData:   imageData,
+		imageType:   imageType,
 		imageWidth:  width,
 		imageHeight: height,
 	}
@@ -543,56 +561,6 @@ func (e *PDFTextEngine) layoutChildren(plan *textPlan, style PDFTextStyle, box P
 	}, nil
 }
 
-func (e *PDFTextEngine) renderPlan(plan *textPlan) {
-	if plan == nil {
-		return
-	}
-
-	if plan.backgroundColor != "" && plan.backgroundHeight > 0 {
-		r, g, b := hexToRGB(plan.backgroundColor)
-		e.pdf.SetFillColor(r, g, b)
-		bgWidth := plan.backgroundWidth
-		if bgWidth <= 0 {
-			bgWidth = plan.metrics.Width
-		}
-		if bgWidth > 0 {
-			e.pdf.Rect(plan.box.X, plan.box.Y, bgWidth, plan.backgroundHeight, "F")
-		}
-	}
-
-	if plan.borderWidth > 0 && plan.borderStyle != "none" && plan.backgroundHeight > 0 {
-		r, g, b := hexToRGB(plan.borderColor)
-		e.pdf.SetDrawColor(r, g, b)
-		e.pdf.SetLineWidth(plan.borderWidth)
-		borderWidth := plan.backgroundWidth
-		if borderWidth <= 0 {
-			borderWidth = plan.metrics.Width
-		}
-		if borderWidth > 0 {
-			e.pdf.Rect(plan.box.X, plan.box.Y, borderWidth, plan.backgroundHeight, "D")
-		}
-	}
-
-	if plan.imagePath != "" && plan.imageWidth > 0 && plan.imageHeight > 0 {
-		e.pdf.ImageOptions(plan.imagePath, plan.box.X, plan.box.Y, plan.imageWidth, plan.imageHeight, false, gofpdf.ImageOptions{
-			ImageType: plan.imageType,
-			ReadDpi:   false,
-		}, 0, "")
-	}
-
-	e.applyStyle(plan.style)
-	y := plan.box.Y + plan.style.FontSize
-	for _, line := range plan.lines {
-		lineW := e.pdf.GetStringWidth(line)
-		x := alignedX(plan.style.Align, plan.box.X, plan.box.Width, lineW)
-		e.pdf.Text(x, y, line)
-		y += plan.lineHeight
-	}
-	for _, child := range plan.children {
-		e.renderPlan(child)
-	}
-}
-
 func (e *PDFTextEngine) layoutTextLines(text string, style PDFTextStyle, box PDFTextBox) ([]string, float64, bool) {
 	if text == "" {
 		return []string{""}, 0, false
@@ -769,7 +737,7 @@ func htmlLengthToFloat(node PDFElementNode, keys ...string) float64 {
 	return 0
 }
 
-func resolveImageElement(node PDFElementNode, fallbackWidth float64, searchDirs []string) (path string, width, height, marginTop, marginBottom float64, err error) {
+func resolveImageElement(node PDFElementNode, fallbackWidth float64, searchDirs []string, deferResolution bool) (path string, width, height, marginTop, marginBottom float64, err error) {
 	if node == nil {
 		return "", 0, 0, 0, 0, fmt.Errorf("image node cannot be nil")
 	}
@@ -777,9 +745,13 @@ func resolveImageElement(node PDFElementNode, fallbackWidth float64, searchDirs 
 	if !ok || strings.TrimSpace(src) == "" {
 		return "", 0, 0, 0, 0, fmt.Errorf("img missing src attribute")
 	}
-	path, ok = resolveImagePath(src, searchDirs)
-	if !ok {
-		return "", 0, 0, 0, 0, fmt.Errorf("image not found: %s", src)
+	if deferResolution {
+		path = strings.TrimSpace(src)
+	} else {
+		path, ok = resolveImagePath(src, searchDirs)
+		if !ok {
+			return "", 0, 0, 0, 0, fmt.Errorf("image not found: %s", src)
+		}
 	}
 	width = htmlLengthToFloat(node, "width")
 	if width <= 0 {

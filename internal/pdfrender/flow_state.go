@@ -1,5 +1,16 @@
 package pdfrender
 
+import "fmt"
+
+type PageLimitError struct {
+	Limit     int
+	Requested int
+}
+
+func (e *PageLimitError) Error() string {
+	return fmt.Sprintf("page limit exceeded: limit=%d requested=%d", e.Limit, e.Requested)
+}
+
 // CurrentFlowBox returns the current page's content box origin and width.
 func (l *LayoutPDF) CurrentFlowBox() (x, y, width float64) {
 	x = l.currentMargins.Left
@@ -23,16 +34,20 @@ func (l *LayoutPDF) StartFlow() {
 }
 
 // NextFlowPage advances to the next page in the flow.
-func (l *LayoutPDF) NextFlowPage() {
+func (l *LayoutPDF) NextFlowPage() error {
 	if l.currentPage < 1 {
 		l.currentPage = 1
 	}
-	l.currentPage++
+	nextPage := l.currentPage + 1
+	if err := l.BeginPage(nextPage); err != nil {
+		return err
+	}
+	l.currentPage = nextPage
 	if l.currentPage > l.totalPages {
 		l.totalPages = l.currentPage
 	}
-	l.BeginPage(l.currentPage)
 	if !l.deferFlowPageNum {
 		l.renderPageNum(l.currentPage, l.totalPages)
 	}
+	return nil
 }

@@ -1,6 +1,7 @@
 package docflowpdf
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -20,6 +21,15 @@ func Render(outputPath string, options ...RenderOption) error {
 		return err
 	}
 	return RenderWithInput(input)
+}
+
+// RenderContext builds a RenderInput from options and renders with ctx.
+func RenderContext(ctx context.Context, outputPath string, options ...RenderOption) error {
+	input, err := buildRenderInput(outputPath, options...)
+	if err != nil {
+		return err
+	}
+	return RenderWithInputContext(ctx, input)
 }
 
 func buildRenderInput(outputPath string, options ...RenderOption) (RenderInput, error) {
@@ -49,6 +59,32 @@ func buildRenderInput(outputPath string, options ...RenderOption) (RenderInput, 
 func WithAssetBaseDir(path string) RenderOption {
 	return func(input *RenderInput) error {
 		input.AssetBaseDir = path
+		return nil
+	}
+}
+
+// WithConfinedResourceRoot confines base-directory defaults, images, fonts,
+// and explicit relative file sources to root.
+func WithConfinedResourceRoot(root string) RenderOption {
+	return func(input *RenderInput) error {
+		input.AssetBaseDir = "."
+		input.ResourceResolver = ConfinedFileResolver{Root: root}
+		return nil
+	}
+}
+
+// WithTrustedFileAccess explicitly enables unrestricted host-file resources.
+func WithTrustedFileAccess() RenderOption {
+	return func(input *RenderInput) error {
+		input.ResourceResolver = TrustedFileResolver{}
+		return nil
+	}
+}
+
+// WithRenderLimits configures per-render operational budgets.
+func WithRenderLimits(limits RenderLimits) RenderOption {
+	return func(input *RenderInput) error {
+		input.Limits = limits
 		return nil
 	}
 }

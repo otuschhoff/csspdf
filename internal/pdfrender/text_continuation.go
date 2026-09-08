@@ -1,6 +1,7 @@
 package pdfrender
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 
@@ -38,7 +39,9 @@ func (state *docFlowState) renderBlockContinuation(node pdfdom.PDFElementNode, b
 			return nil
 		}
 		start = next
-		state.nextPage()
+		if err := state.nextPage(); err != nil {
+			return err
+		}
 		targetY = state.y
 	}
 }
@@ -115,6 +118,9 @@ func (e *PDFTextEngine) renderPlanWindow(plan *textPlan, originY, start, end, ta
 	e.renderPlanWindowDecoration(plan, windowTop, windowBottom, shiftY)
 
 	if plan.imagePath != "" && plan.imageHeight > 0 && plan.box.Y >= windowTop && plan.box.Y+plan.imageHeight <= windowBottom {
+		if len(plan.imageData) > 0 {
+			e.pdf.RegisterImageOptionsReader(plan.imagePath, gofpdf.ImageOptions{ImageType: plan.imageType}, bytes.NewReader(plan.imageData))
+		}
 		e.pdf.ImageOptions(plan.imagePath, plan.box.X, plan.box.Y+shiftY, plan.imageWidth, plan.imageHeight, false, gofpdf.ImageOptions{ImageType: plan.imageType}, 0, "")
 	}
 

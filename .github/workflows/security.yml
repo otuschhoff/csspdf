@@ -1,0 +1,28 @@
+name: security
+
+on:
+  pull_request:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.25.13'
+          cache-dependency-path: go.sum
+
+      - name: Run bounded fuzz campaign
+        env:
+          GOTOOLCHAIN: local
+          FUZZ_TIME: ${{ github.event_name == 'schedule' && '1m' || '5s' }}
+        run: scripts/check-security.sh

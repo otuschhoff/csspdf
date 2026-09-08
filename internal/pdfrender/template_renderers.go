@@ -69,11 +69,16 @@ func renderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode, persi
 
 	state := newDocFlowState(l, persistCursor)
 	for _, elem := range elements {
+		if err := l.ctx.Err(); err != nil {
+			return fmt.Errorf("layout canceled: %w", err)
+		}
 		if ShouldBreakPageBefore(elem) {
 			if !persistCursor {
 				return fmt.Errorf("page-local overlay cannot contain break-before: page")
 			}
-			state.nextPage()
+			if err := state.nextPage(); err != nil {
+				return err
+			}
 		}
 		skipPageAfter, err := state.renderElement(elem)
 		if err != nil {
@@ -87,7 +92,9 @@ func renderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode, persi
 			if !persistCursor {
 				return fmt.Errorf("page-local overlay cannot contain break-after: page")
 			}
-			state.nextPage()
+			if err := state.nextPage(); err != nil {
+				return err
+			}
 		}
 	}
 	state.persist()
@@ -132,11 +139,14 @@ func (state *docFlowState) persist() {
 	state.layout.flowCursorValid = true
 }
 
-func (state *docFlowState) nextPage() {
-	state.layout.NextFlowPage()
+func (state *docFlowState) nextPage() error {
+	if err := state.layout.NextFlowPage(); err != nil {
+		return err
+	}
 	state.x, state.y, state.maxWidth = state.layout.CurrentFlowBox()
 	state.currentY = state.y
 	state.pendingBottomMargin = 0
+	return nil
 }
 
 func (state *docFlowState) renderElement(elem pdfdom.PDFElementNode) (bool, error) {
@@ -169,7 +179,9 @@ func (state *docFlowState) renderBlock(node pdfdom.PDFElementNode) (bool, error)
 		}
 		contentHeight := max(0, metrics.Height-topMargin-bottomMargin)
 		if state.currentY > state.y && contentTop+contentHeight+bottomMargin > state.layout.CurrentFlowBottom() {
-			state.nextPage()
+			if err := state.nextPage(); err != nil {
+				return false, err
+			}
 			xPos, yPos, width, absolute = state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
 			contentTop = state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, collapseMargins)
 			yPos = contentTop - topMargin
@@ -212,7 +224,9 @@ func (state *docFlowState) renderImage(node *pdfdom.ElemImg) (bool, error) {
 		}
 		contentHeight := max(0, metrics.Height-topMargin-bottomMargin)
 		if state.currentY > state.y && contentTop+contentHeight+bottomMargin > state.layout.CurrentFlowBottom() {
-			state.nextPage()
+			if err := state.nextPage(); err != nil {
+				return false, err
+			}
 			xPos, yPos, width, absolute = state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
 			contentTop = state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, false)
 			yPos = contentTop - topMargin

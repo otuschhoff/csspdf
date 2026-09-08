@@ -2,7 +2,11 @@ package pdfrender
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"math"
 	"strings"
 	"testing"
@@ -10,6 +14,34 @@ import (
 	"github.com/otuschhoff/csspdf/internal/pdfdom"
 	templateload "github.com/otuschhoff/csspdf/internal/templating"
 )
+
+func TestRenderDocTemplateFlowCancelsDuringLayout(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	settings := templateload.PageSettings{Width: 300, Height: 400, Margins: templateload.PageMargins{Top: 20, Right: 20, Bottom: 20, Left: 20}}
+	var imageData bytes.Buffer
+	if err := png.Encode(&imageData, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatal(err)
+	}
+	layout, err := NewLayoutPDFWithOptions(settings, settings, nil, nil, LayoutOptions{
+		Context: ctx,
+		ImageLoader: func(string) (ImageResource, error) {
+			cancel()
+			return ImageResource{Name: "cancel.png", Type: "PNG", Data: imageData.Bytes()}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("create layout: %v", err)
+	}
+	layout.StartFlow()
+	imageNode := pdfdom.NewElemImg()
+	imageNode.SetAttribute("src", "cancel.png")
+	imageNode.SetAttribute("width", "10")
+	imageNode.SetAttribute("height", "10")
+	err = RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{imageNode, textDiv("must not render")})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected layout cancellation, got %v", err)
+	}
+}
 
 func TestRenderDocTemplateFlowPersistsCursorAcrossCalls(t *testing.T) {
 	layout := newFlowTestLayout(t)
