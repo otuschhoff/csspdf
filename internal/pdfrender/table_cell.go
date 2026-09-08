@@ -407,7 +407,8 @@ func renderElementOpenTag(node pdfdom.PDFElementNode) string {
 		return "<unknown>"
 	}
 	var builder strings.Builder
-	builder.WriteString("<" + node.ElementType())
+	builder.WriteByte('<')
+	builder.WriteString(node.ElementType())
 	for _, attribute := range node.ElementAttributes() {
 		fmt.Fprintf(&builder, " %s=\"%s\"", attribute.Name, attribute.Value)
 	}

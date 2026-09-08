@@ -1,12 +1,9 @@
 package flowrender
 
 import (
-	"errors"
-	"fmt"
 	htmltmpl "html/template"
 
 	"github.com/otuschhoff/csspdf/internal/pdfdom"
-	templateload "github.com/otuschhoff/csspdf/internal/templating"
 )
 
 // BuildFlowElements executes a named HTML template, applies CSS styling, and
@@ -31,30 +28,11 @@ func BuildFlowElementsFromSourcesWithFuncs(templateSources []string, templateNam
 }
 
 func BuildFlowElementsFromSourcesWithOptions(templateSources []string, templateName, cssStyle string, data any, funcs htmltmpl.FuncMap, options BuildOptions) ([]pdfdom.PDFElementNode, error) {
-	var (
-		htmlStr string
-		err     error
-	)
-	htmlStr, err = templateload.ExecuteNamedFromSourcesWithOptions(templateSources, templateName, data, funcs, templateload.ExecuteOptions{
-		Context: options.Context, MaxOutputBytes: options.MaxTemplateOutputBytes,
-	})
+	prepared, err := PrepareFlow(templateSources, cssStyle)
 	if err != nil {
-		var limitErr *templateload.OutputLimitError
-		if errors.As(err, &limitErr) {
-			return nil, limitErr
-		}
 		return nil, err
 	}
-
-	elements, err := pdfdom.ParseHTMLDocFlow(htmlStr, cssStyle)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse %s template flow: %w", templateName, err)
-	}
-	if err := validateComplexity(elements, options); err != nil {
-		return nil, err
-	}
-
-	return elements, nil
+	return prepared.Build(templateName, data, funcs, options)
 }
 
 // BuildNamedElements executes a named HTML template, applies CSS styling, and

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/otuschhoff/csspdf/internal/flowrender"
 	"github.com/otuschhoff/csspdf/internal/format"
@@ -130,10 +131,14 @@ func (b *artifactBuilder) prepareLayout(assets Assets, fonts []pdfrender.FontReg
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize i18n: %w", err)
 	}
+	var metadataTime time.Time
+	if b.input.Now != nil {
+		metadataTime = b.input.Now()
+	}
 	return pdfrender.NewLayoutPDFWithOptions(defaultPage, firstPage, i18nInst, format.New(i18nInst, currencyCode), pdfrender.LayoutOptions{
 		FontRegistrations: fonts, ImageSearchDirs: resolveImageSearchDirs(b.input),
 		ImageLoader: confinedImageLoader(b.ctx, b.input, b.limits), StrictRenderErrors: !b.input.AllowPartialRender,
-		Context: b.ctx, MaxPages: b.limits.Pages, TemplateFactories: legacyProfileTemplateFactories(),
+		Context: b.ctx, MaxPages: b.limits.Pages, TemplateFactories: legacyProfileTemplateFactories(), MetadataTime: metadataTime,
 	})
 }
 
@@ -169,15 +174,19 @@ func (b *artifactBuilder) prepareSourceData(assets Assets) (map[string]any, erro
 }
 
 func (b *artifactBuilder) renderArtifact(layout *pdfrender.LayoutPDF, assets Assets, sourceData map[string]any) (*renderArtifact, error) {
+	prepared, err := flowrender.PrepareFlow(templateSourcesInRenderOrder(assets), assets.CSS)
+	if err != nil {
+		return nil, &DiagnosticError{Code: DiagnosticTemplate, Stage: "flow-preparation", Err: err}
+	}
 	layout.SetWarningFunc(b.warnf)
 	layout.StartFlow()
 	layout.SetDeferFlowPageNum(true)
 	complexity := &flowrender.ComplexityBudget{}
-	pageNumberRenderError := configurePageNumberRenderer(b.ctx, b.limits, complexity, layout, assets, sourceData, b.input, b.warnf)
+	pageNumberRenderError := configurePageNumberRenderer(b.ctx, b.limits, complexity, prepared, layout, assets, sourceData, b.input, b.warnf)
 	if err := layout.BeginPage(1); err != nil {
 		return nil, err
 	}
-	if err := renderMainFlow(b.ctx, b.limits, complexity, layout, assets, sourceData, b.input); err != nil {
+	if err := renderMainFlowPrepared(b.ctx, b.limits, complexity, prepared, layout, assets, sourceData, b.input); err != nil {
 		if policyErr := handleMainFlowError(err, b.input, b.warnf); policyErr != nil {
 			return nil, policyErr
 		}

@@ -90,28 +90,7 @@ func ParseHTMLDocFlow(htmlStr, cssStyle string) ([]PDFElementNode, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	body := tmpl.FindFirst(doc, "body")
-	if body == nil {
-		return nil, fmt.Errorf("no <body> element found in HTML fragment")
-	}
-
-	out := make([]PDFElementNode, 0)
-	for _, child := range tmpl.ElemChildren(body) {
-		element, supported, err := htmlBuildRootElement(child)
-		if err != nil {
-			return nil, err
-		}
-		if supported {
-			out = append(out, element)
-		}
-	}
-
-	if len(out) == 0 {
-		return nil, fmt.Errorf("no supported top-level elements found in HTML fragment")
-	}
-
-	return out, nil
+	return parseHTMLDocFlow(doc)
 }
 
 func htmlBuildRootElement(node *html.Node) (PDFElementNode, bool, error) {

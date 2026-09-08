@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/otuschhoff/gofpdf"
 )
@@ -38,6 +39,7 @@ type LayoutOptions struct {
 	Context            context.Context
 	MaxPages           int
 	TemplateFactories  map[string]TemplateFactory
+	MetadataTime       time.Time
 }
 
 func loadDefaultFontSet(pdf *gofpdf.Fpdf, fonts []FontRegistration) error {

@@ -79,12 +79,14 @@ type RenderInput struct {
 	DefaultLocale            string
 	DefaultCurrencyCode      string
 	DefaultMargins           PageMargins
-	Now                      func() time.Time
-	FuncMapFactoryEx         FuncMapFactoryWithContext
-	FuncMapFactory           FuncMapFactory
-	Logger                   Logger
-	ResourceResolver         ResourceResolver
-	Limits                   RenderLimits
+	// Now supplies template time and, when non-nil, fixes PDF creation and
+	// modification metadata for byte-reproducible rendering.
+	Now              func() time.Time
+	FuncMapFactoryEx FuncMapFactoryWithContext
+	FuncMapFactory   FuncMapFactory
+	Logger           Logger
+	ResourceResolver ResourceResolver
+	Limits           RenderLimits
 	// AllowPartialRender preserves the legacy behavior of logging recoverable
 	// template and element errors while emitting a potentially incomplete PDF.
 	AllowPartialRender bool
@@ -216,6 +218,14 @@ func toLayoutFontRegistrations(registrations []FontRegistration) []pdfrender.Fon
 }
 
 func renderMainFlow(renderCtx context.Context, limits RenderLimits, complexity *flowrender.ComplexityBudget, layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, input RenderInput) error {
+	prepared, err := flowrender.PrepareFlow(templateSourcesInRenderOrder(assets), assets.CSS)
+	if err != nil {
+		return err
+	}
+	return renderMainFlowPrepared(renderCtx, limits, complexity, prepared, layout, assets, source, input)
+}
+
+func renderMainFlowPrepared(renderCtx context.Context, limits RenderLimits, complexity *flowrender.ComplexityBudget, prepared *flowrender.PreparedFlow, layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, input RenderInput) error {
 	ctx := transformContext{
 		Layout:  layout,
 		Source:  source,
@@ -223,7 +233,6 @@ func renderMainFlow(renderCtx context.Context, limits RenderLimits, complexity *
 		Context: renderCtx,
 		Limits:  limits,
 	}
-	templateSources := templateSourcesInRenderOrder(assets)
 	for _, section := range assets.Flow.MainFlow {
 		if err := renderCtx.Err(); err != nil {
 			return fmt.Errorf("render canceled before section %q: %w", section.Template, err)
@@ -242,7 +251,7 @@ func renderMainFlow(renderCtx context.Context, limits RenderLimits, complexity *
 		}
 		funcs := buildFuncMap(input, strings.TrimSpace(input.DefaultLocale), requiredString(jsonData, "locale"))
 
-		elements, err := flowrender.BuildFlowElementsFromSourcesWithOptions(templateSources, section.Template, assets.CSS, jsonData, funcs, flowrender.BuildOptions{
+		elements, err := prepared.Build(section.Template, jsonData, funcs, flowrender.BuildOptions{
 			Context: renderCtx, MaxTemplateOutputBytes: limits.TemplateOutputBytes, MaxNodes: limits.Nodes, MaxDepth: limits.Depth, MaxRows: limits.Rows, Complexity: complexity,
 		})
 		if err != nil {
@@ -268,7 +277,14 @@ func renderMainFlow(renderCtx context.Context, limits RenderLimits, complexity *
 }
 
 func pageNumberTemplateFlowElements(renderCtx context.Context, limits RenderLimits, complexity *flowrender.ComplexityBudget, layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, page, total int, input RenderInput) ([]pdfdom.PDFElementNode, error) {
-	templateSources := templateSourcesInRenderOrder(assets)
+	prepared, err := flowrender.PrepareFlow(templateSourcesInRenderOrder(assets), assets.CSS)
+	if err != nil {
+		return nil, err
+	}
+	return pageNumberTemplateFlowElementsPrepared(renderCtx, limits, complexity, prepared, layout, assets, source, page, total, input)
+}
+
+func pageNumberTemplateFlowElementsPrepared(renderCtx context.Context, limits RenderLimits, complexity *flowrender.ComplexityBudget, prepared *flowrender.PreparedFlow, layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, page, total int, input RenderInput) ([]pdfdom.PDFElementNode, error) {
 	payload, err := transformSectionPayload(assets.Flow.PageNumber, transformContext{Layout: layout, Source: source, Page: page, Total: total, Input: input, Context: renderCtx, Limits: limits})
 	if err != nil {
 		return nil, err
@@ -279,7 +295,7 @@ func pageNumberTemplateFlowElements(renderCtx context.Context, limits RenderLimi
 	}
 	funcs := buildFuncMap(input, layout.I18n.Locale(), requiredString(data, "locale"))
 
-	elements, err := flowrender.BuildFlowElementsFromSourcesWithOptions(templateSources, assets.Flow.PageNumber.Template, assets.CSS, data, funcs, flowrender.BuildOptions{
+	elements, err := prepared.Build(assets.Flow.PageNumber.Template, data, funcs, flowrender.BuildOptions{
 		Context: renderCtx, MaxTemplateOutputBytes: limits.TemplateOutputBytes, MaxNodes: limits.Nodes, MaxDepth: limits.Depth, MaxRows: limits.Rows, Complexity: complexity,
 	})
 	if err != nil {

@@ -8,13 +8,13 @@ import (
 	"github.com/otuschhoff/csspdf/internal/pdfrender"
 )
 
-func configurePageNumberRenderer(ctx context.Context, limits RenderLimits, complexity *flowrender.ComplexityBudget, layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, input RenderInput, warnf func(string, ...any)) func() error {
+func configurePageNumberRenderer(ctx context.Context, limits RenderLimits, complexity *flowrender.ComplexityBudget, prepared *flowrender.PreparedFlow, layout *pdfrender.LayoutPDF, assets Assets, source map[string]any, input RenderInput, warnf func(string, ...any)) func() error {
 	var renderErr error
 	layout.SetPageNumRenderer(func(layout *pdfrender.LayoutPDF, page, pageCount int) {
 		if page <= 1 {
 			return
 		}
-		elements, err := pageNumberTemplateFlowElements(ctx, limits, complexity, layout, assets, source, page, pageCount, input)
+		elements, err := pageNumberTemplateFlowElementsPrepared(ctx, limits, complexity, prepared, layout, assets, source, page, pageCount, input)
 		if err != nil {
 			if (!input.AllowPartialRender || isOperationalBoundaryError(err)) && renderErr == nil {
 				renderErr = &DiagnosticError{Code: diagnosticCode(err, DiagnosticTemplate), Stage: "page-number-template", Section: assets.Flow.PageNumber.Template, Page: page, Err: err}

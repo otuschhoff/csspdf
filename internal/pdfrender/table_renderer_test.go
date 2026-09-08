@@ -8,6 +8,30 @@ import (
 	"github.com/otuschhoff/gofpdf"
 )
 
+func TestTableHexToRGB(t *testing.T) {
+	tests := []struct {
+		color            string
+		red, green, blue int
+	}{
+		{color: "#123", red: 17, green: 34, blue: 51},
+		{color: "#12AbEF", red: 18, green: 171, blue: 239},
+		{color: " lightgrey ", red: 211, green: 211, blue: 211},
+		{color: "invalid", red: 0, green: 0, blue: 0},
+	}
+	for _, test := range tests {
+		red, green, blue := tableHexToRGB(test.color)
+		if red != test.red || green != test.green || blue != test.blue {
+			t.Fatalf("tableHexToRGB(%q) = (%d,%d,%d), want (%d,%d,%d)", test.color, red, green, blue, test.red, test.green, test.blue)
+		}
+	}
+}
+
+func TestTableEncodePDFTextLatin1(t *testing.T) {
+	if got, want := tableEncodePDFTextLatin1("Grüße € — 漢"), "Gr\xfc\xdfe \x80 \x97 ?"; got != want {
+		t.Fatalf("encoded text = %q, want %q", got, want)
+	}
+}
+
 func TestResolveTableLayout_AutoPrefersWiderDescriptionColumn(t *testing.T) {
 	pdf := gofpdf.New("P", "pt", "A4", "")
 	pdf.AddPage()

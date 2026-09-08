@@ -397,9 +397,15 @@ current boundary.
 
 ## Deterministic Rendering Support
 
-RenderInput.Now can inject a custom clock.
+`RenderInput.Now` can inject a custom clock. When it is non-nil, the returned
+time also fixes the PDF creation and modification metadata. The renderer emits
+resource catalogs in stable order, so repeated renders are byte-identical when
+templates, data, resources, options, and custom functions are themselves
+deterministic.
 
-When FuncMapFactoryEx is used, the function context receives Now, enabling deterministic template function behavior in tests and reproducible builds.
+When `FuncMapFactoryEx` is used, the function context receives `Now`. With no
+clock configured, metadata uses the current time and only semantic output is
+expected to be stable; byte identity is not part of the default contract.
 
 ## Invoice Profile
 
@@ -431,6 +437,15 @@ Run the changed-code maintainability ratchet with:
 go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
 ./scripts/check-maintainability.sh
 ```
+
+Run the measured performance corpus with:
+
+```bash
+./scripts/benchmark-phase5.sh
+```
+
+Reference results, workload definitions, the regression budget, and the
+determinism contract are recorded in `docs/phase5-performance.md`.
 
 ## Tasks
 

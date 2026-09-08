@@ -14,3 +14,4 @@ pdfdump.go
 letter.pdf
 gen_inv
 output/test.html
+output/phase5/invoice-legacy.pdf

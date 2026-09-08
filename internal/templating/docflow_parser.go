@@ -12,27 +12,31 @@ import (
 )
 
 func ParseStyledFragment(htmlStr, cssText string) (*html.Node, error) {
-	doc, err := html.Parse(strings.NewReader("<html><body>" + htmlStr + "</body></html>"))
+	stylesheet, err := PrepareStylesheet(cssText)
 	if err != nil {
-		return nil, fmt.Errorf("html parse: %w", err)
-	}
-	if err := ApplyStylesheet(doc, cssText); err != nil {
 		return nil, err
 	}
-	return doc, nil
+	return ParsePreparedStyledFragment(htmlStr, stylesheet)
 }
 
-func ApplyStylesheet(root *html.Node, cssText string) error {
-	if strings.TrimSpace(cssText) == "" {
-		return nil
-	}
+type PreparedStylesheet struct {
+	rules []preparedCSSRule
+}
 
-	inlineAttrs := CaptureAttrNames(root)
+type preparedCSSRule struct {
+	selector     cascadia.SelectorGroup
+	declarations []*css.Declaration
+}
+
+func PrepareStylesheet(cssText string) (*PreparedStylesheet, error) {
+	prepared := &PreparedStylesheet{}
+	if strings.TrimSpace(cssText) == "" {
+		return prepared, nil
+	}
 	sheet, err := parser.Parse(cssText)
 	if err != nil {
-		return fmt.Errorf("css parse: %w", err)
+		return nil, fmt.Errorf("css parse: %w", err)
 	}
-
 	for _, rule := range sheet.Rules {
 		if len(rule.Selectors) == 0 || len(rule.Declarations) == 0 {
 			continue
@@ -40,15 +44,45 @@ func ApplyStylesheet(root *html.Node, cssText string) error {
 		for _, selectorText := range rule.Selectors {
 			selector, err := cascadia.ParseGroup(selectorText)
 			if err != nil {
-				return fmt.Errorf("css selector parse %q: %w", selectorText, err)
+				return nil, fmt.Errorf("css selector parse %q: %w", selectorText, err)
 			}
-			for _, node := range cascadia.QueryAll(root, selector) {
-				if node.Type != html.ElementNode {
-					continue
-				}
-				for _, decl := range rule.Declarations {
-					ApplyCSSDeclaration(node, decl, inlineAttrs[node])
-				}
+			prepared.rules = append(prepared.rules, preparedCSSRule{selector: selector, declarations: rule.Declarations})
+		}
+	}
+	return prepared, nil
+}
+
+func ParsePreparedStyledFragment(htmlStr string, stylesheet *PreparedStylesheet) (*html.Node, error) {
+	doc, err := html.Parse(strings.NewReader("<html><body>" + htmlStr + "</body></html>"))
+	if err != nil {
+		return nil, fmt.Errorf("html parse: %w", err)
+	}
+	if err := ApplyPreparedStylesheet(doc, stylesheet); err != nil {
+		return nil, err
+	}
+	return doc, nil
+}
+
+func ApplyStylesheet(root *html.Node, cssText string) error {
+	stylesheet, err := PrepareStylesheet(cssText)
+	if err != nil {
+		return err
+	}
+	return ApplyPreparedStylesheet(root, stylesheet)
+}
+
+func ApplyPreparedStylesheet(root *html.Node, stylesheet *PreparedStylesheet) error {
+	if stylesheet == nil || len(stylesheet.rules) == 0 {
+		return nil
+	}
+	inlineAttrs := CaptureAttrNames(root)
+	for _, rule := range stylesheet.rules {
+		for _, node := range cascadia.QueryAll(root, rule.selector) {
+			if node.Type != html.ElementNode {
+				continue
+			}
+			for _, declaration := range rule.declarations {
+				ApplyCSSDeclaration(node, declaration, inlineAttrs[node])
 			}
 		}
 	}

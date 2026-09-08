@@ -75,6 +75,11 @@ func NewLayoutPDFWithOptions(defaultPage, firstPage templateload.PageSettings, i
 		return nil, err
 	}
 	pdf := gofpdf.New("P", "pt", "A4", "")
+	pdf.SetCatalogSort(true)
+	if !options.MetadataTime.IsZero() {
+		pdf.SetCreationDate(options.MetadataTime)
+		pdf.SetModificationDate(options.MetadataTime)
+	}
 	pdf.SetMargins(0, 0, 0)
 	pdf.SetAutoPageBreak(false, 0)
 	pdf.AddPageFormat("P", gofpdf.SizeType{Wd: firstPage.Width, Ht: firstPage.Height})

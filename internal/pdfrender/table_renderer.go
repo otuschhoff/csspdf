@@ -21,13 +21,17 @@ type CellFormatter interface {
 
 // TableRenderer handles rendering tables in PDF documents.
 type TableRenderer struct {
-	pdf       *gofpdf.Fpdf
-	formatter CellFormatter
+	pdf              *gofpdf.Fpdf
+	formatter        CellFormatter
+	colorCache       map[string]tableRGB
+	encodedTextCache map[string]string
 }
+
+type tableRGB struct{ red, green, blue int }
 
 // NewTableRenderer creates a new table renderer.
 func NewTableRenderer(pdf *gofpdf.Fpdf, formatter CellFormatter) *TableRenderer {
-	return &TableRenderer{pdf: pdf, formatter: formatter}
+	return &TableRenderer{pdf: pdf, formatter: formatter, colorCache: make(map[string]tableRGB), encodedTextCache: make(map[string]string)}
 }
 
 // TableDef defines a table structure.
@@ -234,7 +238,12 @@ func (tr *TableRenderer) normalizeTableTextForCurrentFont(text string) string {
 	if tr.pdf.CurrentFontIsUTF8() {
 		return text
 	}
-	return tableEncodePDFTextLatin1(text)
+	if encoded, ok := tr.encodedTextCache[text]; ok {
+		return encoded
+	}
+	encoded := tableEncodePDFTextLatin1(text)
+	tr.encodedTextCache[text] = encoded
+	return encoded
 }
 
 func (tr *TableRenderer) renderCell(cell *CellDef, x, y, width, height, padding float64) {
@@ -242,7 +251,7 @@ func (tr *TableRenderer) renderCell(cell *CellDef, x, y, width, height, padding 
 		return
 	}
 	if strings.TrimSpace(cell.Background) != "" {
-		r, g, b := tableHexToRGB(cell.Background)
+		r, g, b := tr.tableColor(cell.Background)
 		tr.pdf.SetFillColor(r, g, b)
 		tr.pdf.Rect(x, y, width, height, "F")
 	}
@@ -298,7 +307,7 @@ func (tr *TableRenderer) renderCellSubText(cell *CellDef, align string, x, width
 	}
 	tr.pdf.SetFont(normalizeTableFontFace(face), "", size)
 	if len(color) >= 4 && color[0] == '#' {
-		red, green, blue := tableHexToRGB(color)
+		red, green, blue := tr.tableColor(color)
 		tr.pdf.SetTextColor(red, green, blue)
 	}
 	tr.renderCellTextLines(cell.SubText, align, cell.NoWrap, x, width, left, right, contentWidth, baseline, size*1.2)
@@ -346,7 +355,7 @@ func (tr *TableRenderer) applyCellStyle(cell *CellDef) (fontSize float64, lineHe
 
 	tr.pdf.SetFont(normalizeTableFontFace(fontFace), normalizeTableFontStyle(fontStyle), fontSize)
 	if len(fontColor) >= 4 && fontColor[0] == '#' {
-		r, g, b := tableHexToRGB(fontColor)
+		r, g, b := tr.tableColor(fontColor)
 		tr.pdf.SetTextColor(r, g, b)
 	} else {
 		tr.pdf.SetTextColor(0, 0, 0)
@@ -460,7 +469,7 @@ func (tr *TableRenderer) getColumnWidth(colWidths []float64, colIdx int) float64
 func (tr *TableRenderer) drawRowBackground(x, y, width, height float64, bgColor string, drawStroke bool) {
 	style := ""
 	if strings.TrimSpace(bgColor) != "" {
-		r, g, b := tableHexToRGB(bgColor)
+		r, g, b := tr.tableColor(bgColor)
 		tr.pdf.SetFillColor(r, g, b)
 		style = "F"
 	}
@@ -490,7 +499,7 @@ func (tr *TableRenderer) drawTableBackgroundAndBorder(x, y, width, height float6
 	}
 	style := ""
 	if hasFill {
-		r, g, b := tableHexToRGB(table.Background)
+		r, g, b := tr.tableColor(table.Background)
 		tr.pdf.SetFillColor(r, g, b)
 		style = "F"
 	}
@@ -499,7 +508,7 @@ func (tr *TableRenderer) drawTableBackgroundAndBorder(x, y, width, height float6
 		if strings.TrimSpace(bc) == "" {
 			bc = "#000"
 		}
-		r, g, b := tableHexToRGB(bc)
+		r, g, b := tr.tableColor(bc)
 		tr.pdf.SetDrawColor(r, g, b)
 		bw := table.BorderWidth
 		if bw <= 0 {
@@ -513,66 +522,4 @@ func (tr *TableRenderer) drawTableBackgroundAndBorder(x, y, width, height float6
 		}
 	}
 	tr.pdf.Rect(x, y, width, height, style)
-}
-
-// tableHexToRGB parses a CSS hex color string and returns r, g, b in [0,255].
-func tableHexToRGB(hex string) (int, int, int) {
-	hex = strings.ToLower(strings.TrimSpace(hex))
-	if hex == "" {
-		return 0, 0, 0
-	}
-	named := map[string][3]int{
-		"black": {0, 0, 0}, "white": {255, 255, 255},
-		"gray": {128, 128, 128}, "grey": {128, 128, 128},
-		"lightgray": {211, 211, 211}, "lightgrey": {211, 211, 211},
-		"darkgray": {169, 169, 169}, "darkgrey": {169, 169, 169},
-		"red": {255, 0, 0}, "green": {0, 128, 0}, "blue": {0, 0, 255},
-	}
-	if v, ok := named[hex]; ok {
-		return v[0], v[1], v[2]
-	}
-	h := hex
-	if len(h) > 0 && h[0] == '#' {
-		h = h[1:]
-	}
-	var r, g, b int
-	if len(h) == 3 {
-		fmt.Sscanf(h, "%1x%1x%1x", &r, &g, &b)
-		r, g, b = r*17, g*17, b*17
-	} else if len(h) == 6 {
-		fmt.Sscanf(h, "%02x%02x%02x", &r, &g, &b)
-	}
-	return r, g, b
-}
-
-// tableEncodePDFTextLatin1 converts a UTF-8 string to a CP-1252/Latin-1 byte
-// string suitable for gofpdf's standard fonts.
-func tableEncodePDFTextLatin1(text string) string {
-	if text == "" {
-		return ""
-	}
-	cp1252 := map[rune]byte{
-		8364: 0x80, 8218: 0x82, 8222: 0x84, 8230: 0x85, 8224: 0x86, 8225: 0x87,
-		710: 0x88, 8240: 0x89, 352: 0x8A, 8249: 0x8B, 338: 0x8C, 381: 0x8E,
-		8216: 0x91, 8217: 0x92, 8220: 0x93, 8221: 0x94,
-		8226: 0x95, 8211: 0x96, 8212: 0x97, 732: 0x98, 8482: 0x99,
-		353: 0x9A, 8250: 0x9B, 339: 0x9C, 382: 0x9E, 376: 0x9F,
-	}
-	var sb strings.Builder
-	sb.Grow(len(text))
-	for _, r := range text {
-		switch {
-		case r == '\n' || r == '\r' || r == '\t':
-			sb.WriteRune(r)
-		case r <= 0xFF:
-			sb.WriteByte(byte(r))
-		default:
-			if b, ok := cp1252[r]; ok {
-				sb.WriteByte(b)
-			} else {
-				sb.WriteByte('?')
-			}
-		}
-	}
-	return sb.String()
 }

@@ -7,6 +7,7 @@ import (
 	htmltmpl "html/template"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -61,6 +62,90 @@ func TestRenderToBytes_ReturnsPDFBytes(t *testing.T) {
 	if !bytes.HasPrefix(b, []byte("%PDF")) {
 		t.Fatalf("expected PDF header, got %q", string(b[:4]))
 	}
+}
+
+func TestRenderToBytes_FixedClockIsProcessDeterministic(t *testing.T) {
+	fixedNow := func() time.Time { return time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC) }
+	input := RenderInput{Assets: minimalAssets(), Now: fixedNow}
+	if outputPath := os.Getenv("CSSPDF_DETERMINISM_OUTPUT"); outputPath != "" {
+		pdf, err := RenderToBytes(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(outputPath, pdf, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+
+	first, err := RenderToBytes(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := RenderToBytes(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(first, second) {
+		t.Fatal("fixed-clock renders differ within one process")
+	}
+
+	paths := []string{filepath.Join(t.TempDir(), "first.pdf"), filepath.Join(t.TempDir(), "second.pdf")}
+	for _, outputPath := range paths {
+		command := exec.Command(os.Args[0], "-test.run=^TestRenderToBytes_FixedClockIsProcessDeterministic$")
+		command.Env = append(os.Environ(), "CSSPDF_DETERMINISM_OUTPUT="+outputPath)
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("determinism subprocess failed: %v\n%s", err, output)
+		}
+	}
+	processFirst, err := os.ReadFile(paths[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	processSecond, err := os.ReadFile(paths[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(processFirst, processSecond) || !bytes.Equal(first, processFirst) {
+		t.Fatal("fixed-clock renders differ across processes")
+	}
+}
+
+func TestRenderToBytes_ComplexLayoutsAreDeterministic(t *testing.T) {
+	fixedNow := func() time.Time { return time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC) }
+	workloads := map[string]RenderInput{
+		"layered-multi-section": benchmarkLayeredDocument(fixedNow),
+		"long-table":            benchmarkLongTable(fixedNow, 50),
+	}
+	for name, input := range workloads {
+		t.Run(name, func(t *testing.T) {
+			var expected []byte
+			for iteration := 0; iteration < 3; iteration++ {
+				pdf, err := RenderToBytes(input)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if iteration == 0 {
+					expected = pdf
+					continue
+				}
+				if !bytes.Equal(expected, pdf) {
+					offset := firstDifferentByte(expected, pdf)
+					t.Fatalf("render %d differs from the first fixed-clock render at byte %d (lengths %d and %d)", iteration+1, offset, len(expected), len(pdf))
+				}
+			}
+		})
+	}
+}
+
+func firstDifferentByte(left, right []byte) int {
+	limit := min(len(left), len(right))
+	for index := 0; index < limit; index++ {
+		if left[index] != right[index] {
+			return index
+		}
+	}
+	return limit
 }
 
 func TestRender_OptionsAPI_WritesPDF(t *testing.T) {

@@ -7,6 +7,10 @@ import (
 	"html/template"
 )
 
+type PreparedTemplates struct {
+	template *template.Template
+}
+
 type ExecuteOptions struct {
 	Context        context.Context
 	MaxOutputBytes int64
@@ -37,8 +41,16 @@ func ExecuteNamedFromSourcesWithFuncs(templateSources []string, templateName str
 }
 
 func ExecuteNamedFromSourcesWithOptions(templateSources []string, templateName string, data any, funcs template.FuncMap, options ExecuteOptions) (string, error) {
+	prepared, err := PrepareTemplates(templateSources, funcs)
+	if err != nil {
+		return "", err
+	}
+	return prepared.Execute(templateName, data, funcs, options)
+}
+
+func PrepareTemplates(templateSources []string, funcs template.FuncMap) (*PreparedTemplates, error) {
 	if len(templateSources) == 0 {
-		return "", fmt.Errorf("failed to parse template source: no template sources provided")
+		return nil, fmt.Errorf("failed to parse template source: no template sources provided")
 	}
 
 	tmpl := template.New("doc").Option("missingkey=error")
@@ -52,10 +64,24 @@ func ExecuteNamedFromSourcesWithOptions(templateSources []string, templateName s
 		parsed, err = parsed.Parse(source)
 		if err != nil {
 			if len(templateSources) == 1 {
-				return "", fmt.Errorf("failed to parse template source: %w", err)
+				return nil, fmt.Errorf("failed to parse template source: %w", err)
 			}
-			return "", fmt.Errorf("failed to parse template source[%d]: %w", idx, err)
+			return nil, fmt.Errorf("failed to parse template source[%d]: %w", idx, err)
 		}
+	}
+	return &PreparedTemplates{template: parsed}, nil
+}
+
+func (prepared *PreparedTemplates) Execute(templateName string, data any, funcs template.FuncMap, options ExecuteOptions) (string, error) {
+	if prepared == nil || prepared.template == nil {
+		return "", fmt.Errorf("prepared template is nil")
+	}
+	parsed, err := prepared.template.Clone()
+	if err != nil {
+		return "", fmt.Errorf("failed to clone prepared template: %w", err)
+	}
+	if len(funcs) > 0 {
+		parsed = parsed.Funcs(funcs)
 	}
 
 	var buf bytes.Buffer
