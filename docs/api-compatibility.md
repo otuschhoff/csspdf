@@ -13,6 +13,11 @@ implementation details, examples, and repository scripts are not public Go
 APIs. Supported commands and their exit-code contracts are listed in the
 README.
 
+The root `pdfdump.go` command is the single supported PDF inspection entry
+point. The duplicate `gen-example dump-pdf` subcommand was removed before a
+stable CLI release; `gen-example` remains focused on rendering repository
+examples.
+
 Every intentional public behavior change must include:
 
 - a regression test for the new contract;

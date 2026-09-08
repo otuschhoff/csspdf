@@ -42,7 +42,10 @@ func (b *baseElementNode) ElementChildLineBreaks() []bool {
 func (b *baseElementNode) ElementAttributes() []PDFNodeAttribute { return b.attributes }
 
 func (b *baseElementNode) SetAttribute(name, value string) PDFElementNode {
-	if b == nil || b.owner == nil || name == "" {
+	if b == nil {
+		return nil
+	}
+	if b.owner == nil || name == "" {
 		return b.owner
 	}
 	for idx := range b.attributes {

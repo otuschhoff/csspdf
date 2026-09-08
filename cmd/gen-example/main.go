@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/otuschhoff/csspdf/docflowpdf"
-	"github.com/otuschhoff/csspdf/internal/pdfdump"
 )
 
 const version = "0.1.0"
@@ -28,8 +27,6 @@ func Run(programName string, args []string) int {
 		return runLayered(programName, args[1:])
 	case "office-suite":
 		return runOfficeSuite(programName, args[1:])
-	case "dump-pdf":
-		return runDumpPDF(programName, args[1:])
 	case "version", "-version", "--version":
 		fmt.Printf("%s version %s\n", programName, version)
 		return 0
@@ -95,38 +92,9 @@ func printUsage(w io.Writer, programName string) {
 	fmt.Fprintln(w, "Subcommands:")
 	fmt.Fprintln(w, "  layered     Generate layered-css concept example")
 	fmt.Fprintln(w, "  office-suite Render or verify 20 office and business documents")
-	fmt.Fprintln(w, "  dump-pdf    Display PDF structure with binary streams hidden")
 	fmt.Fprintln(w, "  version     Print version and exit")
 	fmt.Fprintln(w, "")
 	fmt.Fprintf(w, "Use '%s <subcommand> -h' for command-specific options.\n", programName)
-}
-func runDumpPDF(programName string, args []string) int {
-	dumpCmd := flag.NewFlagSet("dump-pdf", flag.ContinueOnError)
-	dumpCmd.SetOutput(os.Stderr)
-
-	dumpCmd.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Usage:")
-		fmt.Fprintf(os.Stderr, "  %s dump-pdf <file.pdf>\n", programName)
-	}
-
-	if err := dumpCmd.Parse(args); err != nil {
-		return 2
-	}
-
-	if len(dumpCmd.Args()) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: PDF file path is required\n\n")
-		dumpCmd.Usage()
-		return 2
-	}
-
-	pdfPath := dumpCmd.Args()[0]
-
-	if err := pdfdump.DumpPDF(pdfPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Error dumping PDF: %v\n", err)
-		return 1
-	}
-
-	return 0
 }
 
 func runLayered(programName string, args []string) int {

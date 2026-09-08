@@ -17,12 +17,11 @@ public API is consumable from an external module, and the quality gate covers
 build, vet, format, tests, coverage floors, race, fuzz, and vulnerability
 scanning.
 
-The remaining work is consolidation, not repair. Phases 7 and 8 closed the
-static-analysis, dead-code, error-taxonomy, panic, and legacy-policy findings.
-The highest-value remaining items are deeper tests in the four core packages
-where most under-tested functions live and headroom under the complexity
-ratchet before it forces waivers. Neither requires a redesign, and neither
-should be bundled with unrelated behavior changes.
+The remaining work is consolidation, not repair. Phases 7 through 9 closed the
+static-analysis, dead-code, error-taxonomy, panic, legacy-policy, and core-test
+depth findings. The highest-value remaining item is headroom under the
+complexity ratchet before it forces waivers. It does not require a redesign and
+should not be bundled with unrelated behavior changes.
 
 This report covers code quality, structure, maintainability, test coverage,
 and error handling. It is an engineering assessment, not a security
@@ -454,9 +453,8 @@ The Phase 0-6 contract remains in force. This review adds:
 
 ## Phased Remediation
 
-Use small pull requests. Each row is one bounded work item. Phases 7 and 8 are
-complete. Phase 9 can now deepen characterization coverage on the cleaned and
-strict error contract. Phase 10 depends on Phase 9's characterization tests.
+Use small pull requests. Each row is one bounded work item. Phases 7 through 9
+are complete. Phase 10 builds on Phase 9's characterization tests.
 
 ### Phase 7: Static Analysis and Hygiene (completed 2026-09-08)
 
@@ -491,21 +489,22 @@ target on HTML input finds no panics. Verified by the public render fuzz target
 and a 67,301-execution local campaign on 2026-09-08; the bounded target runs in
 the security workflow.
 
-### Phase 9: Core Package Test Depth
+### Phase 9: Core Package Test Depth (completed 2026-09-08)
 
 **Goal:** Unit-level confidence in parsing and layout.
 **Covers:** N01, N10.
 
-| Work item | Scope and dependencies | Completion gate |
-| --- | --- | --- |
-| 9A Option table test | `docflowpdf/render_options_test.go`. | Every `With*` asserted; 100% of `render_options.go`. |
-| 9B Templating characterization | `docflow_parser.go` exports, `page_css.go` edge cases. | `internal/templating` at or above 60%. |
-| 9C PDFDOM characterization | `span_style.go`, `html_parser.go` branches, `elements.go` validation. | `internal/pdfdom` at or above 65%. |
-| 9D Renderer characterization | Table layout, text continuation, use-template, flow margins. | `internal/pdfrender` at or above 72%. |
-| 9E Dumper tests and consolidation | Synthetic-PDF golden tests; one CLI entry point. | `internal/pdfdump` at or above 50%; `dump-pdf` duplication removed. |
-| 9F Test file split | `render_test.go`, `sources_test.go` by concern. | No test file above 600 lines. |
+| Work item | Scope and dependencies | Completion gate | Result |
+| --- | --- | --- | --- |
+| 9A Option table test | `docflowpdf/render_options_test.go`. | Every `With*` asserted; 100% of `render_options.go`. | Every public option is asserted, including defensive-copy behavior; all functions in `render_options.go` measure 100%. |
+| 9B Templating characterization | `docflow_parser.go` exports, `page_css.go` edge cases. | `internal/templating` at or above 60%. | Selector application, prepared stylesheets, node helpers, CSS support diagnostics, page sizes, margins, and invalid declarations are characterized; coverage is 92.4%. |
+| 9C PDFDOM characterization | `span_style.go`, `html_parser.go` branches, `elements.go` validation. | `internal/pdfdom` at or above 65%. | All element families, child validation, formatting, style inheritance, strict/legacy spans, and prepared parsing are covered; coverage is 76.2%. A nil-receiver panic in `SetAttribute` was fixed. |
+| 9D Renderer characterization | Table layout, text continuation, use-template, flow margins. | `internal/pdfrender` at or above 72%. | Text/image helpers, table-cell parsing, flow bounds, page metadata, callbacks, and cancellation are characterized; coverage is 75.6%. |
+| 9E Dumper tests and consolidation | Synthetic-PDF golden tests; one CLI entry point. | `internal/pdfdump` at or above 50%; `dump-pdf` duplication removed. | Dictionary, PNG predictor, xref, text-array, binary, bounded-I/O, and synthetic compressed-PDF paths are covered at 90.6%. Root `pdfdump.go` is the sole inspection CLI. |
+| 9F Test file split | `render_test.go`, `sources_test.go` by concern. | No test file above 600 lines. | Renderer and source tests are split by concern; the largest test file is 597 lines. |
 
-**Exit:** Overall coverage at or above 68%; floors re-recorded.
+**Exit:** Overall coverage is 78.7%. Package floors were re-recorded from the
+Phase 9 profile and all exceed their required targets.
 
 ### Phase 10: Complexity Headroom and Backend Module
 
@@ -532,17 +531,10 @@ report exact commands and results; do not bundle dependency upgrades,
 mechanical extraction, and behavior changes. The human owner approves any
 compatibility decision before implementation starts.
 
-## Decisions Needed From the Maintainer
+## Remaining Maintainer Decision
 
-1. Builder panics (N04): change the `pdfdom` builder API to return errors, or
-   keep it internal and add a facade `recover` boundary?
-2. Legacy partial rendering (N11): name a removal release, or record a
-   rationale for indefinite support?
-3. Dump tooling (N10): keep root `pdfdump` and drop `gen-example dump-pdf`, or
-   consolidate into one `cmd/csspdf` tool?
-4. Coverage targets (N01): accept the proposed per-package targets, or set
-   different ones?
-5. Backend module (N07): align `third_party/gofpdf` to the root Go minimum,
-   or to the lowest version with per-iteration loop semantics (1.22)?
-
-These decisions gate Phases 8-10; Phase 7 can start immediately.
+Phase 8 resolved the builder-error and legacy-rendering decisions. Phase 9
+retained root `pdfdump.go` as the sole inspection command and adopted the
+proposed coverage targets. One decision remains for Phase 10: align
+`third_party/gofpdf` to the root Go minimum, or to the lowest version with
+per-iteration loop semantics (Go 1.22).

@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"image/draw"
 	"image/png"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -61,13 +62,7 @@ func runOfficeSuite(programName string, args []string) int {
 		return 2
 	}
 	if *list {
-		for _, example := range cases {
-			kind := "renders"
-			if example.ExpectedError != "" {
-				kind = "expected error"
-			}
-			fmt.Printf("%-24s %-8s %-14s %s\n", example.ID, example.Complexity, kind, example.Title)
-		}
+		listOfficeSuiteCases(os.Stdout, cases)
 		return 0
 	}
 
@@ -109,6 +104,16 @@ func runOfficeSuite(programName string, args []string) int {
 		return 1
 	}
 	return 0
+}
+
+func listOfficeSuiteCases(out io.Writer, cases []officeSuiteCase) {
+	for _, example := range cases {
+		kind := "renders"
+		if example.ExpectedError != "" {
+			kind = "expected error"
+		}
+		fmt.Fprintf(out, "%-24s %-8s %-14s %s\n", example.ID, example.Complexity, kind, example.Title)
+	}
 }
 
 func resolveOfficeSuiteBaseDir() (string, error) {

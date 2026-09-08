@@ -26,24 +26,24 @@ lowest observed value across supported Go/OS cells because instrumentation and
 platform-specific code change statement totals. They are package-specific so
 high coverage in one package cannot conceal a regression in another.
 
-The Phase 6 baseline was re-recorded in Phase 7 after dead-code removal and
-the invoice example's deletion changed statement totals. Values are the minimum
-across Linux/macOS at Go 1.26.6 and Go 1.27.1; Windows amd64 is required to
-meet the same floors:
+The coverage baseline was re-recorded in Phase 9 after direct core-package
+characterization and CLI consolidation changed statement totals. Values are
+the observed Go 1.27.1 results and are enforced unchanged across the supported
+Linux, macOS, and Windows amd64 matrix on Go 1.26.6 and Go 1.27.x:
 
 | Package | Floor |
 | --- | ---: |
-| root diagnostic command | 66.7% |
-| `cmd/dom-parse` | 74.5% |
-| `cmd/gen-example` | 48.0% |
-| `docflowpdf` | 73.6% |
-| `internal/flowrender` | 66.7% |
+| root diagnostic command | 88.9% |
+| `cmd/dom-parse` | 76.0% |
+| `cmd/gen-example` | 68.2% |
+| `docflowpdf` | 78.8% |
+| `internal/flowrender` | 67.1% |
 | `internal/format` | 57.1% |
-| `internal/i18n` | 88.2% |
-| `internal/pdfdom` | 48.9% |
-| `internal/pdfdump` | 25.2% |
-| `internal/pdfrender` | 63.4% |
-| `internal/templating` | 46.3% |
+| `internal/i18n` | 88.6% |
+| `internal/pdfdom` | 76.2% |
+| `internal/pdfdump` | 90.6% |
+| `internal/pdfrender` | 75.6% |
+| `internal/templating` | 92.4% |
 
 Floors may increase with reviewed behavior tests. Lowering one requires an
 explicit rationale in the change and updated evidence here. Tests must assert

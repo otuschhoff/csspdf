@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -37,5 +39,16 @@ func TestRunOfficeSuiteRendersImageCase(t *testing.T) {
 func TestRunOfficeSuiteVerifiesExpectedFailure(t *testing.T) {
 	if exitCode := Run("gen-example", []string{"office-suite", "-case", "18-invalid-font-size", "-o", t.TempDir()}); exitCode != 0 {
 		t.Fatalf("Run exit code = %d, want 0 for caught expected failure", exitCode)
+	}
+}
+
+func TestListOfficeSuiteCasesLabelsOutcomes(t *testing.T) {
+	var output bytes.Buffer
+	listOfficeSuiteCases(&output, []officeSuiteCase{
+		{ID: "renders", Complexity: "simple", Title: "Success"},
+		{ID: "fails", Complexity: "fault", Title: "Failure", ExpectedError: "expected"},
+	})
+	if got := output.String(); !strings.Contains(got, "renders") || !strings.Contains(got, "expected error") {
+		t.Fatalf("list output = %q", got)
 	}
 }
