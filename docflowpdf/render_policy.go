@@ -48,6 +48,5 @@ func handleMainFlowError(err error, input RenderInput, warnf func(string, ...any
 }
 
 func isOperationalBoundaryError(err error) bool {
-	var budgetErr *BudgetError
-	return errors.As(err, &budgetErr) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+	return errors.Is(err, ErrLimitExceeded) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }

@@ -127,6 +127,9 @@ func TestRenderBudgetsRejectSourceTemplateNodesRowsPagesAndOutput(t *testing.T) 
 			if !errors.As(err, &budgetErr) {
 				t.Fatalf("expected typed BudgetError, got %T: %v", err, err)
 			}
+			if !errors.Is(err, ErrLimitExceeded) {
+				t.Fatalf("expected ErrLimitExceeded, got %T: %v", err, err)
+			}
 		})
 	}
 }

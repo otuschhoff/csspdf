@@ -33,7 +33,7 @@ Current public compatibility path:
 | API | Replacement | Removal status |
 | --- | --- | --- |
 | `RenderInput.WarningWriter` and `WithWarningWriter` | `RenderInput.Logger` and `WithLogger` | Deprecated in the first tagged release (v0.1.0); retained through v0.2.x; removed in v0.3.0 |
-| `RenderInput.AllowPartialRender` and `WithLegacyPartialRendering` | Strict rendering, the default | Retained migration path; removal decision tracked as N11 in `docs/code-quality-review.md` |
+| `RenderInput.AllowPartialRender` and `WithLegacyPartialRendering` | Strict rendering, the default | Deprecated in the first tagged release (v0.1.0); retained through v0.2.x; removed in v0.3.0 |
 | `FuncMapFactory` | `FuncMapFactoryEx` | Supported legacy hook, not deprecated; no removal release scheduled |
 
 Every deprecated public symbol carries a Go `Deprecated:` comment naming its

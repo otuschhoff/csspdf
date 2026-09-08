@@ -59,7 +59,10 @@ func (prepared *PreparedFlow) Build(templateName string, data any, funcs htmltmp
 		}
 		return nil, err
 	}
-	elements, err := pdfdom.ParseHTMLDocFlowPrepared(htmlString, prepared.stylesheet)
+	elements, err := pdfdom.ParseHTMLDocFlowPreparedWithOptions(htmlString, prepared.stylesheet, pdfdom.ParseOptions{
+		AllowInvalidSpanAttributes: options.AllowInvalidAttributes,
+		Warnf:                      options.Warnf,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse %s template flow: %w", templateName, err)
 	}

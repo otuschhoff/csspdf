@@ -330,7 +330,36 @@ type testLogger struct {
 }
 
 func (l *testLogger) Warnf(format string, args ...any) {
-	l.warnings = append(l.warnings, format)
+	l.warnings = append(l.warnings, fmt.Sprintf(format, args...))
+}
+
+func TestRender_InvalidSpanAttributeFailsStrictAndWarnsInLegacyMode(t *testing.T) {
+	assets := minimalAssets()
+	assets.HTML = `
+{{define "doc"}}<div><span font-size="large">text</span></div>{{end}}
+{{define "page-number"}}<div>{{.Page}}/{{.Total}}</div>{{end}}`
+
+	_, err := RenderToBytes(RenderInput{Assets: assets})
+	var diagnosticErr *DiagnosticError
+	if !errors.As(err, &diagnosticErr) || diagnosticErr.Code != DiagnosticTemplate {
+		t.Fatalf("expected template diagnostic for invalid span attribute, got %T: %v", err, err)
+	}
+	if !strings.Contains(err.Error(), `font-size=&#34;large&#34;`) && !strings.Contains(err.Error(), `font-size="large"`) {
+		t.Fatalf("strict error does not identify invalid attribute: %v", err)
+	}
+
+	logger := &testLogger{}
+	_, err = RenderToBytes(RenderInput{Assets: assets, AllowPartialRender: true, Logger: logger})
+	if err != nil {
+		t.Fatalf("legacy render returned error: %v", err)
+	}
+	found := false
+	for _, warning := range logger.warnings {
+		found = found || strings.Contains(warning, `invalid span attribute font-size="large"`)
+	}
+	if !found {
+		t.Fatalf("unexpected legacy warnings: %q", logger.warnings)
+	}
 }
 
 func TestRender_LegacyPartialRenderingUsesLoggerForRecoverableErrors(t *testing.T) {

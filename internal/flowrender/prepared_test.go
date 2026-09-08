@@ -4,10 +4,35 @@ import (
 	"context"
 	"fmt"
 	htmltmpl "html/template"
+	"strings"
 	"testing"
 
 	"github.com/otuschhoff/csspdf/internal/pdfdom"
 )
+
+func TestPreparedFlowBuildAppliesSpanErrorPolicy(t *testing.T) {
+	prepared, err := PrepareFlow([]string{`{{define "doc"}}<div><span font-size="invalid">text</span></div>{{end}}`}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	options := BuildOptions{Context: context.Background(), MaxTemplateOutputBytes: 1024, MaxNodes: 100, MaxDepth: 10}
+	if _, err := prepared.Build("doc", nil, nil, options); err == nil || !strings.Contains(err.Error(), "invalid span attribute") {
+		t.Fatalf("expected strict span error, got %v", err)
+	}
+
+	var warnings []string
+	options.AllowInvalidAttributes = true
+	options.Warnf = func(format string, args ...any) {
+		warnings = append(warnings, fmt.Sprintf(format, args...))
+	}
+	elements, err := prepared.Build("doc", nil, nil, options)
+	if err != nil {
+		t.Fatalf("legacy build returned error: %v", err)
+	}
+	if len(elements) != 1 || len(warnings) != 1 || !strings.Contains(warnings[0], "invalid span attribute") {
+		t.Fatalf("unexpected legacy result: elements=%d warnings=%q", len(elements), warnings)
+	}
+}
 
 func TestPreparedFlowReusesTemplateAndStylesheetParsing(t *testing.T) {
 	prepared, err := PrepareFlow([]string{`{{define "doc"}}<div>{{value}}</div>{{end}}`}, `div { color: #123456; }`)

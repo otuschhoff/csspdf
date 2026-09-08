@@ -19,3 +19,29 @@ func FuzzDecodeJSONAndFlowValidation(f *testing.F) {
 		}
 	})
 }
+
+func FuzzRenderHTMLDoesNotPanic(f *testing.F) {
+	f.Add(`<div>Hello <span font-size="12pt">world</span></div>`, false)
+	f.Add(`<div><span font-size="invalid">text</span></div>`, false)
+	f.Add(`<div><span border-width="NaN">text</span></div>`, true)
+	f.Add(`<create-template name="x"><div><img src="missing.png"></div></create-template>`, true)
+	f.Fuzz(func(t *testing.T, body string, allowPartial bool) {
+		if len(body) > 16<<10 {
+			t.Skip()
+		}
+		assets := minimalAssets()
+		assets.HTML = `{{define "doc"}}` + body + `{{end}}{{define "page-number"}}<div>{{.Page}}</div>{{end}}`
+		_, _ = RenderToBytes(RenderInput{
+			Assets:             assets,
+			AllowPartialRender: allowPartial,
+			Limits: RenderLimits{
+				TemplateOutputBytes: 64 << 10,
+				OutputBytes:         1 << 20,
+				Nodes:               2_000,
+				Depth:               64,
+				Rows:                500,
+				Pages:               20,
+			},
+		})
+	})
+}

@@ -329,12 +329,20 @@ interface. Typed render failures use `DiagnosticError`; applications that need
 structured logs should inspect those errors with `errors.As` and adapt warning
 messages at their boundary rather than parsing error strings.
 
+All configured resource and processing limit failures match
+`docflowpdf.ErrLimitExceeded` through wrapping. Use
+`errors.Is(err, docflowpdf.ErrLimitExceeded)` for the general category and
+`errors.As` with `BudgetError` or `LimitError` when concrete limit details are
+required. File-source errors preserve their underlying causes, including
+`fs.ErrNotExist` and `fs.ErrPermission`.
+
 Rendering is strict by default. Missing templates, missing map values, missing
-images, and element-rendering failures return errors instead of producing an
-incomplete PDF. Applications that temporarily require the previous behavior
-can set `RenderInput.AllowPartialRender` or use
+images, invalid numeric span attributes, and element-rendering failures return
+errors instead of producing an incomplete PDF. Applications that temporarily
+require the previous behavior can set `RenderInput.AllowPartialRender` or use
 `WithLegacyPartialRendering(true)`; recoverable failures are then sent to the
-warning sink while rendering continues.
+warning sink while rendering continues. This legacy path is deprecated and
+scheduled for removal in v0.3.0.
 
 `RenderToFile` renders before touching the destination and replaces it through
 a temporary file in the destination directory. Existing file permissions are

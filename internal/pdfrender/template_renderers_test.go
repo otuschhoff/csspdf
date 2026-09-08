@@ -38,7 +38,7 @@ func TestRenderDocTemplateFlowCancelsDuringLayout(t *testing.T) {
 	imageNode.SetAttribute("src", "cancel.png")
 	imageNode.SetAttribute("width", "10")
 	imageNode.SetAttribute("height", "10")
-	err = RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{imageNode, textDiv("must not render")})
+	err = RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{imageNode, textDiv(t, "must not render")})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected layout cancellation, got %v", err)
 	}
@@ -80,8 +80,8 @@ func TestGenericLayoutHasNoProfileTemplates(t *testing.T) {
 
 func TestRenderDocTemplateFlowPersistsCursorAcrossCalls(t *testing.T) {
 	layout := newFlowTestLayout(t)
-	first := textDiv("FIRST")
-	second := textDiv("SECOND")
+	first := textDiv(t, "FIRST")
+	second := textDiv(t, "SECOND")
 
 	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{first}); err != nil {
 		t.Fatalf("render first section: %v", err)
@@ -103,7 +103,7 @@ func TestRenderDocTemplateFlowEmptySectionDoesNotAdvanceCursor(t *testing.T) {
 	if layout.flowCursorY != 20 || layout.flowBottomMargin != 0 {
 		t.Fatalf("empty section changed flow state: cursor=%f margin=%f", layout.flowCursorY, layout.flowBottomMargin)
 	}
-	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{textDiv("AFTER-EMPTY")}); err != nil {
+	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{textDiv(t, "AFTER-EMPTY")}); err != nil {
 		t.Fatalf("render section after empty section: %v", err)
 	}
 	if layout.flowCursorY <= 20 {
@@ -113,12 +113,12 @@ func TestRenderDocTemplateFlowEmptySectionDoesNotAdvanceCursor(t *testing.T) {
 
 func TestRenderDocTemplateOverlayDoesNotAdvancePersistentCursor(t *testing.T) {
 	layout := newFlowTestLayout(t)
-	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{textDiv("FLOW")}); err != nil {
+	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{textDiv(t, "FLOW")}); err != nil {
 		t.Fatalf("render flow: %v", err)
 	}
 	wantCursor := layout.flowCursorY
 	wantMargin := layout.flowBottomMargin
-	overlay := textDiv("OVERLAY")
+	overlay := textDiv(t, "OVERLAY")
 	overlay.SetAttribute("position", "absolute")
 	overlay.SetAttribute("top", "200")
 	if err := RenderDocTemplateOverlay(layout, []pdfdom.PDFElementNode{overlay}); err != nil {
@@ -131,7 +131,7 @@ func TestRenderDocTemplateOverlayDoesNotAdvancePersistentCursor(t *testing.T) {
 
 func TestRenderDocTemplateOverlayRejectsPageBreaksWithoutChangingPageState(t *testing.T) {
 	layout := newFlowTestLayout(t)
-	block := textDiv("OVERLAY")
+	block := textDiv(t, "OVERLAY")
 	block.SetAttribute("breakBefore", "page")
 	err := RenderDocTemplateOverlay(layout, []pdfdom.PDFElementNode{block})
 	if err == nil || !strings.Contains(err.Error(), "overlay cannot contain break-before") {
@@ -156,7 +156,7 @@ func TestNextPlanWindowMovesFinalLineWhenBottomSpacingDoesNotFit(t *testing.T) {
 
 func TestRenderDocTemplateFlowRejectsOutOfBoundsAbsoluteBlock(t *testing.T) {
 	layout := newFlowTestLayout(t)
-	block := textDiv("OUTSIDE")
+	block := textDiv(t, "OUTSIDE")
 	block.SetAttribute("position", "absolute")
 	block.SetAttribute("top", "395")
 	err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{block})
@@ -167,7 +167,7 @@ func TestRenderDocTemplateFlowRejectsOutOfBoundsAbsoluteBlock(t *testing.T) {
 
 func TestRenderDocTemplateFlowRejectsOutOfBoundsAbsoluteTable(t *testing.T) {
 	layout := newFlowTestLayout(t)
-	table := paginationTestTable([]float64{20})
+	table := paginationTestTable(t, []float64{20})
 	table.SetAttribute("position", "absolute")
 	table.SetAttribute("left", "50")
 	table.SetAttribute("width", "260")
@@ -196,16 +196,17 @@ func newFlowTestLayout(t *testing.T) *LayoutPDF {
 	return layout
 }
 
-func textDiv(text string) *pdfdom.ElemDiv {
+func textDiv(t testing.TB, text string) *pdfdom.ElemDiv {
+	t.Helper()
 	div := pdfdom.NewElemDiv()
-	div.Add(&pdfdom.PDFTextNode{Text: text})
+	mustAddNode(t, div, &pdfdom.PDFTextNode{Text: text})
 	return div
 }
 
 func TestRenderDocTemplateFlowPaginatesHundredTableRows(t *testing.T) {
 	layout := newFlowTestLayout(t)
 	layout.PDF.SetCompression(false)
-	table := paginationTestTable(make([]float64, 100))
+	table := paginationTestTable(t, make([]float64, 100))
 	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{table}); err != nil {
 		t.Fatalf("render table: %v", err)
 	}
@@ -236,7 +237,7 @@ func TestRenderDocTemplateFlowPaginatesMixedHeightRows(t *testing.T) {
 			heights[row] = 55
 		}
 	}
-	table := paginationTestTable(heights)
+	table := paginationTestTable(t, heights)
 	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{table}); err != nil {
 		t.Fatalf("render mixed rows: %v", err)
 	}
@@ -247,7 +248,7 @@ func TestRenderDocTemplateFlowPaginatesMixedHeightRows(t *testing.T) {
 
 func TestRenderDocTemplateFlowRejectsOversizedTableRow(t *testing.T) {
 	layout := newFlowTestLayout(t)
-	table := paginationTestTable([]float64{500})
+	table := paginationTestTable(t, []float64{500})
 	err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{table})
 	if err == nil || !strings.Contains(err.Error(), "table row 1") || !strings.Contains(err.Error(), "exceeds available content height") {
 		t.Fatalf("expected contextual oversized-row error, got %v", err)
@@ -257,7 +258,7 @@ func TestRenderDocTemplateFlowRejectsOversizedTableRow(t *testing.T) {
 func TestRenderDocTemplateFlowRendersHeaderOnlyTableOnce(t *testing.T) {
 	layout := newFlowTestLayout(t)
 	layout.PDF.SetCompression(false)
-	table := paginationTestTable(nil)
+	table := paginationTestTable(t, nil)
 	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{table}); err != nil {
 		t.Fatalf("render header-only table: %v", err)
 	}
@@ -273,7 +274,7 @@ func TestRenderDocTemplateFlowRendersHeaderOnlyTableOnce(t *testing.T) {
 func TestRenderDocTemplateFlowPaginatesTableWithoutHeader(t *testing.T) {
 	layout := newFlowTestLayout(t)
 	layout.PDF.SetCompression(false)
-	table := paginationTestTableWithHeader(make([]float64, 40), false)
+	table := paginationTestTableWithHeader(t, make([]float64, 40), false)
 	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{table}); err != nil {
 		t.Fatalf("render table without header: %v", err)
 	}
@@ -305,7 +306,7 @@ func TestRenderDocTemplateFlowContinuesLongTextWithoutLoss(t *testing.T) {
 		}
 		fmt.Fprintf(&text, "LINE-%03d", line)
 	}
-	block := textDiv(text.String())
+	block := textDiv(t, text.String())
 	block.SetAttribute("marginTop", "12")
 	block.SetAttribute("marginBottom", "14")
 	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{block}); err != nil {
@@ -335,7 +336,7 @@ func TestRenderDocTemplateFlowContinuesLongTextWithoutLoss(t *testing.T) {
 func TestRenderDocTemplateFlowPaintsBorderOnTextContinuationFragments(t *testing.T) {
 	layout := newFlowTestLayout(t)
 	layout.PDF.SetCompression(false)
-	block := textDiv(strings.Repeat("bordered continuation content\n", 80))
+	block := textDiv(t, strings.Repeat("bordered continuation content\n", 80))
 	block.SetAttribute("border", "1 solid #123456")
 	block.SetAttribute("width", "260")
 	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{block}); err != nil {
@@ -359,7 +360,7 @@ func TestRenderDocTemplateFlowContinuationPersistsExactFinalCursor(t *testing.T)
 	for index := range lines {
 		lines[index] = fmt.Sprintf("CURSOR-%02d", index)
 	}
-	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{textDiv(strings.Join(lines, "\n"))}); err != nil {
+	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{textDiv(t, strings.Join(lines, "\n"))}); err != nil {
 		t.Fatalf("render cursor continuation: %v", err)
 	}
 	if layout.totalPages != 2 {
@@ -371,27 +372,29 @@ func TestRenderDocTemplateFlowContinuationPersistsExactFinalCursor(t *testing.T)
 	}
 }
 
-func paginationTestTable(rowHeights []float64) *pdfdom.ElemTable {
-	return paginationTestTableWithHeader(rowHeights, true)
+func paginationTestTable(t testing.TB, rowHeights []float64) *pdfdom.ElemTable {
+	t.Helper()
+	return paginationTestTableWithHeader(t, rowHeights, true)
 }
 
-func paginationTestTableWithHeader(rowHeights []float64, includeHeader bool) *pdfdom.ElemTable {
+func paginationTestTableWithHeader(t testing.TB, rowHeights []float64, includeHeader bool) *pdfdom.ElemTable {
+	t.Helper()
 	table := pdfdom.NewElemTable()
 	table.SetAttribute("width", "260")
 	table.SetAttribute("padding", "2")
 	table.SetAttribute("rowHeightMin", "14")
 	columns := pdfdom.NewElemColgroup()
-	columns.Add(pdfdom.NewElemCol().SetAttribute("width", "80"))
-	columns.Add(pdfdom.NewElemCol().SetAttribute("width", "180"))
-	table.Add(columns)
+	mustAddNode(t, columns, pdfdom.NewElemCol().SetAttribute("width", "80"))
+	mustAddNode(t, columns, pdfdom.NewElemCol().SetAttribute("width", "180"))
+	mustAddNode(t, table, columns)
 
 	if includeHeader {
 		header := pdfdom.NewElemThead()
 		headerRow := pdfdom.NewElemTr()
-		headerRow.Add(pdfdom.NewElemTh().Add(&pdfdom.PDFTextNode{Text: "HEADER"}))
-		headerRow.Add(pdfdom.NewElemTh().Add(&pdfdom.PDFTextNode{Text: "VALUE"}))
-		header.Add(headerRow)
-		table.Add(header)
+		mustAddNode(t, headerRow, mustAddNode(t, pdfdom.NewElemTh(), &pdfdom.PDFTextNode{Text: "HEADER"}))
+		mustAddNode(t, headerRow, mustAddNode(t, pdfdom.NewElemTh(), &pdfdom.PDFTextNode{Text: "VALUE"}))
+		mustAddNode(t, header, headerRow)
+		mustAddNode(t, table, header)
 	}
 
 	body := pdfdom.NewElemTbody()
@@ -400,11 +403,11 @@ func paginationTestTableWithHeader(rowHeights []float64, includeHeader bool) *pd
 		if height > 0 {
 			rowElem.SetAttribute("height", fmt.Sprintf("%.2f", height))
 		}
-		rowElem.Add(pdfdom.NewElemTd().Add(&pdfdom.PDFTextNode{Text: fmt.Sprintf("ROW-%03d", row)}))
-		rowElem.Add(pdfdom.NewElemTd().Add(&pdfdom.PDFTextNode{Text: "value"}))
-		body.Add(rowElem)
+		mustAddNode(t, rowElem, mustAddNode(t, pdfdom.NewElemTd(), &pdfdom.PDFTextNode{Text: fmt.Sprintf("ROW-%03d", row)}))
+		mustAddNode(t, rowElem, mustAddNode(t, pdfdom.NewElemTd(), &pdfdom.PDFTextNode{Text: "value"}))
+		mustAddNode(t, body, rowElem)
 	}
-	table.Add(body)
+	mustAddNode(t, table, body)
 	return table
 }
 

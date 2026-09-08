@@ -45,7 +45,7 @@ func (l *LayoutPDF) RenderCreateTemplateElement(elem *pdfdom.ElemCreateTemplate)
 					X: x, Y: currentY, Width: width, Fit: pdfdom.TextFitWrap,
 				})
 				if err != nil {
-					templateErr = l.recoverableRenderError("create-template %q: failed to render child", err, name)
+					templateErr = fmt.Errorf("create-template %q: failed to render child: %w", name, err)
 					continue
 				}
 				currentY += metrics.Height

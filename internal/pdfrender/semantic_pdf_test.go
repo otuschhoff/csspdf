@@ -19,10 +19,10 @@ import (
 func TestSemanticPDFPreservesSectionPlacement(t *testing.T) {
 	layout := newFlowTestLayout(t)
 	layout.PDF.SetCompression(false)
-	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{textDiv("FIRST")}); err != nil {
+	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{textDiv(t, "FIRST")}); err != nil {
 		t.Fatalf("render first section: %v", err)
 	}
-	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{textDiv("SECOND")}); err != nil {
+	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{textDiv(t, "SECOND")}); err != nil {
 		t.Fatalf("render second section: %v", err)
 	}
 	pdfBytes := outputLayoutPDF(t, layout)
@@ -44,9 +44,9 @@ func TestSemanticPDFHonorsExplicitBreakAndSubsequentPageMargin(t *testing.T) {
 	}
 	layout.StartFlow()
 	layout.PDF.SetCompression(false)
-	first := textDiv("FIRST-PAGE")
+	first := textDiv(t, "FIRST-PAGE")
 	first.SetAttribute("breakAfter", "page")
-	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{first, textDiv("SECOND-PAGE")}); err != nil {
+	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{first, textDiv(t, "SECOND-PAGE")}); err != nil {
 		t.Fatalf("render explicit break: %v", err)
 	}
 	pages := validateAndExtractPDF(t, outputLayoutPDF(t, layout), 2)
@@ -60,14 +60,14 @@ func TestSemanticPDFHonorsExplicitBreakAndSubsequentPageMargin(t *testing.T) {
 func TestSemanticPDFRunningFooterPersistsAcrossPages(t *testing.T) {
 	layout := newFlowTestLayout(t)
 	layout.PDF.SetCompression(false)
-	footer := textDiv("RUNNING-FOOTER")
+	footer := textDiv(t, "RUNNING-FOOTER")
 	footer.SetAttribute("position", "running(site-footer)")
 	footer.SetAttribute("height", "20")
 	var text strings.Builder
 	for line := 0; line < 80; line++ {
 		fmt.Fprintf(&text, "FOOTER-LINE-%03d\n", line)
 	}
-	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{footer, textDiv(text.String())}); err != nil {
+	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{footer, textDiv(t, text.String())}); err != nil {
 		t.Fatalf("render running footer document: %v", err)
 	}
 	if layout.runningFooterTemplate == nil || layout.totalPages < 2 {
@@ -84,7 +84,7 @@ func TestSemanticPDFRunningFooterPersistsAcrossPages(t *testing.T) {
 func TestSemanticPDFValidatesPaginatedTableAndText(t *testing.T) {
 	layout := newFlowTestLayout(t)
 	layout.PDF.SetCompression(false)
-	table := paginationTestTable(make([]float64, 100))
+	table := paginationTestTable(t, make([]float64, 100))
 	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{table}); err != nil {
 		t.Fatalf("render table: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestSemanticPDFValidatesLongTextContinuation(t *testing.T) {
 		}
 		fmt.Fprintf(&text, "SEMANTIC-%03d", line)
 	}
-	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{textDiv(text.String())}); err != nil {
+	if err := RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{textDiv(t, text.String())}); err != nil {
 		t.Fatalf("render long text: %v", err)
 	}
 	pdfBytes := outputLayoutPDF(t, layout)

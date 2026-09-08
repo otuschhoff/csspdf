@@ -89,6 +89,8 @@ type RenderInput struct {
 	Limits           RenderLimits
 	// AllowPartialRender preserves the legacy behavior of logging recoverable
 	// template and element errors while emitting a potentially incomplete PDF.
+	// Deprecated: use strict rendering, the default. Scheduled for removal in
+	// v0.3.0.
 	AllowPartialRender bool
 	// Deprecated: use Logger. Scheduled for removal in v0.3.0.
 	WarningWriter io.Writer
@@ -249,6 +251,7 @@ func renderMainFlowPrepared(renderCtx context.Context, limits RenderLimits, comp
 
 		elements, err := prepared.Build(section.Template, jsonData, funcs, flowrender.BuildOptions{
 			Context: renderCtx, MaxTemplateOutputBytes: limits.TemplateOutputBytes, MaxNodes: limits.Nodes, MaxDepth: limits.Depth, MaxRows: limits.Rows, Complexity: complexity,
+			AllowInvalidAttributes: input.AllowPartialRender, Warnf: warningFunc(input),
 		})
 		if err != nil {
 			var outputLimit *templateload.OutputLimitError
@@ -293,6 +296,7 @@ func pageNumberTemplateFlowElementsPrepared(renderCtx context.Context, limits Re
 
 	elements, err := prepared.Build(assets.Flow.PageNumber.Template, data, funcs, flowrender.BuildOptions{
 		Context: renderCtx, MaxTemplateOutputBytes: limits.TemplateOutputBytes, MaxNodes: limits.Nodes, MaxDepth: limits.Depth, MaxRows: limits.Rows, Complexity: complexity,
+		AllowInvalidAttributes: input.AllowPartialRender, Warnf: warningFunc(input),
 	})
 	if err != nil {
 		var outputLimit *templateload.OutputLimitError

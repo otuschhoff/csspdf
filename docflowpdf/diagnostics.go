@@ -70,10 +70,8 @@ func diagnostic(code DiagnosticCode, stage string, err error) error {
 }
 
 func diagnosticCode(err error, fallback DiagnosticCode) DiagnosticCode {
-	var budgetErr *BudgetError
-	var limitErr *LimitError
 	switch {
-	case errors.As(err, &budgetErr), errors.As(err, &limitErr):
+	case errors.Is(err, ErrLimitExceeded):
 		return DiagnosticLimit
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return DiagnosticCanceled

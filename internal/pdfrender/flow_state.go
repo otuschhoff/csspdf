@@ -1,6 +1,10 @@
 package pdfrender
 
-import "fmt"
+import (
+	"fmt"
+
+	limitmarker "github.com/otuschhoff/csspdf/internal/limit"
+)
 
 type PageLimitError struct {
 	Limit     int
@@ -9,6 +13,10 @@ type PageLimitError struct {
 
 func (e *PageLimitError) Error() string {
 	return fmt.Sprintf("page limit exceeded: limit=%d requested=%d", e.Limit, e.Requested)
+}
+
+func (e *PageLimitError) Is(target error) bool {
+	return target == limitmarker.ErrExceeded
 }
 
 // CurrentFlowBox returns the current page's content box origin and width.

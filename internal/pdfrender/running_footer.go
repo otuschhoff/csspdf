@@ -58,11 +58,7 @@ func (l *LayoutPDF) renderRunningFooterChildren(t *gofpdf.Tpl, children []pdfdom
 		}
 		metrics, err := engine.RenderInBox(element, &pdfdom.PDFTextBox{X: x, Y: y, Width: childWidth, Fit: pdfdom.TextFitWrap})
 		if err != nil {
-			if l.strictRenderErrors {
-				return fmt.Errorf("running footer %q: failed to render child: %w", name, err)
-			}
-			l.warnf("running footer %q: failed to render child: %v", name, err)
-			continue
+			return fmt.Errorf("running footer %q: failed to render child: %w", name, err)
 		}
 		if !absolute {
 			currentY += metrics.Height
@@ -78,11 +74,7 @@ func (l *LayoutPDF) renderRunningFooterUseTemplate(t *gofpdf.Tpl, element *pdfdo
 	}
 	template, err := l.TemplateByName(name)
 	if err != nil {
-		if l.strictRenderErrors {
-			return 0, fmt.Errorf("running footer %q: %w", footerName, err)
-		}
-		l.warnf("running footer %q: %v", footerName, err)
-		return 0, nil
+		return 0, fmt.Errorf("running footer %q: %w", footerName, err)
 	}
 	_, nativeSize := template.Size()
 	width := floatAttributeOrDefault(element, "width", nativeSize.Wd, true)

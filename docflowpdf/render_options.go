@@ -133,6 +133,8 @@ func WithI18nTemplateMacros(enabled bool) RenderOption {
 // WithLegacyPartialRendering allows recoverable template and element failures
 // to be logged while emitting a potentially incomplete PDF. Strict rendering
 // is the default.
+// Deprecated: use strict rendering, the default. Scheduled for removal in
+// v0.3.0.
 func WithLegacyPartialRendering(enabled bool) RenderOption {
 	return func(input *RenderInput) error {
 		input.AllowPartialRender = enabled

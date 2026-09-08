@@ -1,6 +1,7 @@
 package pdfdom
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -11,6 +12,48 @@ table tbody td.num-col {
 	text-align: right;
 }
 `
+
+func TestParseHTMLDocFlowRejectsInvalidNumericSpanAttributes(t *testing.T) {
+	for _, attribute := range []string{`font-size="large"`, `border-width="wide"`, `font-size="NaN"`, `font-size="-1"`} {
+		t.Run(attribute, func(t *testing.T) {
+			_, err := ParseHTMLDocFlow(`<div><span `+attribute+`>text</span></div>`, "")
+			if err == nil || !strings.Contains(err.Error(), "invalid span attribute") {
+				t.Fatalf("expected contextual span attribute error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestParseHTMLDocFlowAcceptsUnitLengths(t *testing.T) {
+	elements, err := ParseHTMLDocFlow(`<div><span font-size="12pt" border-width="1px">text</span></div>`, "")
+	if err != nil {
+		t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
+	}
+	span := elements[0].ElementChildren()[0].(*PDFTextNode)
+	if span.Style == nil || span.Style.FontSize != 12 || span.Style.BorderWidth != 1 {
+		t.Fatalf("unexpected parsed span style: %+v", span.Style)
+	}
+}
+
+func TestParseHTMLDocFlowLegacyWarnsAndIgnoresInvalidSpanAttribute(t *testing.T) {
+	var warnings []string
+	elements, err := ParseHTMLDocFlowPreparedWithOptions(
+		`<div><span font-size="large">text</span></div>`,
+		nil,
+		ParseOptions{
+			AllowInvalidSpanAttributes: true,
+			Warnf: func(format string, args ...any) {
+				warnings = append(warnings, fmt.Sprintf(format, args...))
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("legacy parse returned error: %v", err)
+	}
+	if len(elements) != 1 || len(warnings) != 1 || !strings.Contains(warnings[0], `font-size="large"`) {
+		t.Fatalf("unexpected legacy result: elements=%d warnings=%q", len(elements), warnings)
+	}
+}
 
 func TestParseHTMLTableElem_AppliesNumColHeaderAlignment(t *testing.T) {
 	table, err := ParseHTMLTableElem(

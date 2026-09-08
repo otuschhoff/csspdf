@@ -8,7 +8,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-func htmlBuildTable(node *html.Node) (*ElemTable, error) {
+func htmlBuildTable(node *html.Node, options ParseOptions) (*ElemTable, error) {
 	table := NewElemTable()
 	htmlSetAttrs(table, node.Attr)
 	for _, child := range tmpl.ElemChildren(node) {
@@ -18,14 +18,16 @@ func htmlBuildTable(node *html.Node) (*ElemTable, error) {
 		case "colgroup":
 			element, err = htmlBuildColgroup(child)
 		case "thead", "tbody":
-			element, err = htmlBuildTableSection(child)
+			element, err = htmlBuildTableSection(child, options)
 		default:
 			continue
 		}
 		if err != nil {
 			return nil, err
 		}
-		table.Add(element)
+		if err := table.Add(element); err != nil {
+			return nil, wrapHTMLNodeError(child, err)
+		}
 	}
 	return table, nil
 }
@@ -36,13 +38,15 @@ func htmlBuildColgroup(node *html.Node) (*ElemColgroup, error) {
 		if child.Data == "col" {
 			column := NewElemCol()
 			htmlSetAttrs(column, child.Attr)
-			group.Add(column)
+			if err := group.Add(column); err != nil {
+				return nil, wrapHTMLNodeError(child, err)
+			}
 		}
 	}
 	return group, nil
 }
 
-func htmlBuildTableSection(node *html.Node) (PDFElementNode, error) {
+func htmlBuildTableSection(node *html.Node, options ParseOptions) (PDFElementNode, error) {
 	var section PDFElementNode
 	switch node.Data {
 	case "thead":
@@ -56,32 +60,36 @@ func htmlBuildTableSection(node *html.Node) (PDFElementNode, error) {
 		if child.Data != "tr" {
 			continue
 		}
-		row, err := htmlBuildTr(child)
+		row, err := htmlBuildTr(child, options)
 		if err != nil {
 			return nil, err
 		}
-		section.Add(row)
+		if err := section.Add(row); err != nil {
+			return nil, wrapHTMLNodeError(child, err)
+		}
 	}
 	return section, nil
 }
 
-func htmlBuildTr(node *html.Node) (*ElemTr, error) {
+func htmlBuildTr(node *html.Node, options ParseOptions) (*ElemTr, error) {
 	row := NewElemTr()
 	htmlSetAttrs(row, node.Attr)
 	for _, child := range tmpl.ElemChildren(node) {
 		if child.Data != "td" && child.Data != "th" {
 			continue
 		}
-		cell, err := htmlBuildTableCell(child)
+		cell, err := htmlBuildTableCell(child, options)
 		if err != nil {
 			return nil, err
 		}
-		row.Add(cell)
+		if err := row.Add(cell); err != nil {
+			return nil, wrapHTMLNodeError(child, err)
+		}
 	}
 	return row, nil
 }
 
-func htmlBuildTableCell(node *html.Node) (PDFElementNode, error) {
+func htmlBuildTableCell(node *html.Node, options ParseOptions) (PDFElementNode, error) {
 	var cell PDFElementNode
 	switch node.Data {
 	case "td":
@@ -94,7 +102,7 @@ func htmlBuildTableCell(node *html.Node) (PDFElementNode, error) {
 	htmlSetAttrs(cell, node.Attr)
 	first := true
 	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		content, err := htmlBuildTableCellChild(child)
+		content, err := htmlBuildTableCellChild(child, options)
 		if err != nil {
 			return nil, err
 		}
@@ -102,16 +110,20 @@ func htmlBuildTableCell(node *html.Node) (PDFElementNode, error) {
 			continue
 		}
 		if first {
-			cell.Add(content)
+			if err := cell.Add(content); err != nil {
+				return nil, wrapHTMLNodeError(child, err)
+			}
 			first = false
 		} else {
-			cell.AddLine(content)
+			if err := cell.AddLine(content); err != nil {
+				return nil, wrapHTMLNodeError(child, err)
+			}
 		}
 	}
 	return cell, nil
 }
 
-func htmlBuildTableCellChild(node *html.Node) (PDFNode, error) {
+func htmlBuildTableCellChild(node *html.Node, options ParseOptions) (PDFNode, error) {
 	if node.Type == html.TextNode {
 		text := strings.TrimSpace(node.Data)
 		if text == "" {
@@ -126,9 +138,9 @@ func htmlBuildTableCellChild(node *html.Node) (PDFNode, error) {
 	case "br":
 		return NewElemBr(), nil
 	case "span":
-		return htmlBuildSpan(node), nil
+		return htmlBuildSpan(node, options)
 	case "ul":
-		return htmlBuildUnorderedList(node), nil
+		return htmlBuildUnorderedList(node, options)
 	case "currency-value":
 		return htmlBuildCurrencyValue(node)
 	case "date-value":
@@ -142,14 +154,17 @@ func htmlBuildTableCellChild(node *html.Node) (PDFNode, error) {
 	}
 }
 
-func htmlBuildUnorderedList(node *html.Node) *PDFTextNode {
+func htmlBuildUnorderedList(node *html.Node, options ParseOptions) (*PDFTextNode, error) {
 	items := make([]string, 0)
 	var itemStyle *PDFTextStyle
 	for _, child := range tmpl.ElemChildren(node) {
 		if child.Data != "li" {
 			continue
 		}
-		text, style := htmlListItem(child)
+		text, style, err := htmlListItem(child, options)
+		if err != nil {
+			return nil, wrapHTMLNodeError(child, err)
+		}
 		if text == "" {
 			continue
 		}
@@ -159,17 +174,20 @@ func htmlBuildUnorderedList(node *html.Node) *PDFTextNode {
 		items = append(items, "• "+text)
 	}
 	if len(items) == 0 {
-		return nil
+		return nil, nil
 	}
-	return &PDFTextNode{Text: strings.Join(items, "\n"), Style: itemStyle}
+	return &PDFTextNode{Text: strings.Join(items, "\n"), Style: itemStyle}, nil
 }
 
-func htmlListItem(node *html.Node) (string, *PDFTextStyle) {
+func htmlListItem(node *html.Node, options ParseOptions) (string, *PDFTextStyle, error) {
 	for child := node.FirstChild; child != nil; child = child.NextSibling {
 		if child.Type == html.ElementNode && child.Data == "span" {
-			span := htmlBuildSpan(child)
-			return strings.TrimSpace(strings.TrimPrefix(span.Text, "- ")), span.Style
+			span, err := htmlBuildSpan(child, options)
+			if err != nil {
+				return "", nil, err
+			}
+			return strings.TrimSpace(strings.TrimPrefix(span.Text, "- ")), span.Style, nil
 		}
 	}
-	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(tmpl.CollectText(node)), "- ")), nil
+	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(tmpl.CollectText(node)), "- ")), nil, nil
 }

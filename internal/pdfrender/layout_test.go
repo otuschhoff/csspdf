@@ -12,6 +12,14 @@ import (
 	"github.com/otuschhoff/gofpdf"
 )
 
+func mustAddNode(t testing.TB, parent pdfdom.PDFElementNode, child pdfdom.PDFNode) pdfdom.PDFElementNode {
+	t.Helper()
+	if err := parent.Add(child); err != nil {
+		t.Fatalf("add %T to %T: %v", child, parent, err)
+	}
+	return parent
+}
+
 func TestNewLayoutPDFRejectsInvalidContentGeometry(t *testing.T) {
 	valid := templateload.PageSettings{Width: 200, Height: 300, Margins: templateload.PageMargins{Top: 10, Right: 10, Bottom: 10, Left: 10}}
 	testCases := []struct {
@@ -48,10 +56,10 @@ func TestTableDefFromElement_AllowsFlexibleColWithoutWidth(t *testing.T) {
 	col3 := pdfdom.NewElemCol()
 	col3.SetAttribute("width", "83")
 
-	colgroup.Add(col1)
-	colgroup.Add(col2)
-	colgroup.Add(col3)
-	table.Add(colgroup)
+	mustAddNode(t, colgroup, col1)
+	mustAddNode(t, colgroup, col2)
+	mustAddNode(t, colgroup, col3)
+	mustAddNode(t, table, colgroup)
 
 	layout := &LayoutPDF{}
 	def, err := layout.TableDefFromElement(table, 500)
@@ -78,9 +86,9 @@ func TestTableDefFromElementInfersOccupiedColumnsFromColspan(t *testing.T) {
 	table.SetAttribute("padding", "4")
 	table.SetAttribute("rowHeightMin", "20")
 	row := pdfdom.NewElemTr()
-	row.Add(pdfdom.NewElemTd().SetAttribute("colspan", "2").SetAttribute("width", "200"))
-	row.Add(pdfdom.NewElemTd().SetAttribute("width", "100"))
-	table.Add(row)
+	mustAddNode(t, row, pdfdom.NewElemTd().SetAttribute("colspan", "2").SetAttribute("width", "200"))
+	mustAddNode(t, row, pdfdom.NewElemTd().SetAttribute("width", "100"))
+	mustAddNode(t, table, row)
 
 	layout := &LayoutPDF{}
 	definition, err := layout.TableDefFromElement(table, 300)
@@ -104,8 +112,8 @@ func TestTableDefFromElement_InvalidColWidthHasHighlightedDiagnostic(t *testing.
 	colgroup := pdfdom.NewElemColgroup()
 	col := pdfdom.NewElemCol()
 	col.SetAttribute("width", "abc")
-	colgroup.Add(col)
-	table.Add(colgroup)
+	mustAddNode(t, colgroup, col)
+	mustAddNode(t, table, colgroup)
 
 	layout := &LayoutPDF{}
 	_, err := layout.TableDefFromElement(table, 500)
@@ -142,7 +150,7 @@ func TestH1MeasureInBox_IncludesDefaultBlockMargins(t *testing.T) {
 	engine := NewPDFTextEngine(pdf, nil)
 
 	heading := pdfdom.NewElemH1()
-	heading.Add(&pdfdom.PDFTextNode{Text: "Leistungsnachweis"})
+	mustAddNode(t, heading, &pdfdom.PDFTextNode{Text: "Leistungsnachweis"})
 
 	metrics, err := engine.MeasureInBox(heading, &pdfdom.PDFTextBox{X: 0, Y: 0, Width: 500, Fit: pdfdom.TextFitWrap})
 	if err != nil {
@@ -164,8 +172,8 @@ func TestDivMeasureInBox_IncludesInlineCurrencyValue(t *testing.T) {
 	engine.SetValueFormatter(format.New(i18nInst, "EUR"))
 
 	div := pdfdom.NewElemDiv()
-	div.Add(&pdfdom.PDFTextNode{Text: "Total: "})
-	div.Add(pdfdom.NewElemCurrencyValue(22500))
+	mustAddNode(t, div, &pdfdom.PDFTextNode{Text: "Total: "})
+	mustAddNode(t, div, pdfdom.NewElemCurrencyValue(22500))
 
 	metrics, err := engine.MeasureInBox(div, &pdfdom.PDFTextBox{X: 0, Y: 0, Width: 500, Fit: pdfdom.TextFitWrap})
 	if err != nil {

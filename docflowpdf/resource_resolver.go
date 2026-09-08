@@ -132,6 +132,9 @@ func (e *LimitError) Error() string {
 }
 
 func (e *LimitError) Is(target error) bool {
+	if target == ErrLimitExceeded {
+		return true
+	}
 	var other *LimitError
 	return errors.As(target, &other)
 }

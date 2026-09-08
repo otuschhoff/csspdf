@@ -2,8 +2,10 @@ package docflowpdf
 
 import (
 	"errors"
+	"io/fs"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
 
 func TestDiagnosticErrorPreservesCauseAndProvenance(t *testing.T) {
@@ -31,5 +33,21 @@ func TestMissingCSSLayerHasStructuredProvenance(t *testing.T) {
 	}
 	if diagnosticErr.Code != DiagnosticAsset || diagnosticErr.Stage != "css-layer" || diagnosticErr.Layer != "customer" {
 		t.Fatalf("unexpected layer diagnostic: %+v", diagnosticErr)
+	}
+}
+
+func TestRenderPreservesMissingFileCauseThroughFacade(t *testing.T) {
+	_, err := RenderToBytes(RenderInput{AssetInput: &AssetInput{
+		HTML:       TextSource{FS: fstest.MapFS{}, FSPath: "missing.html"},
+		CSS:        TextSource{Text: `@page { size: A4; }`},
+		Flow:       JSONSource{Text: `{"mainFlow":[{"template":"doc","transformer":"generic"}]}`},
+		SourceData: JSONSource{Text: `{}`},
+	}})
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("expected fs.ErrNotExist through facade, got %T: %v", err, err)
+	}
+	var diagnosticErr *DiagnosticError
+	if !errors.As(err, &diagnosticErr) || diagnosticErr.Code != DiagnosticInvalidInput || diagnosticErr.Stage != "preparation" {
+		t.Fatalf("unexpected diagnostic: %+v", diagnosticErr)
 	}
 }

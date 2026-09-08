@@ -21,8 +21,8 @@ type PDFElementNode interface {
 	ElementAttributes() []PDFNodeAttribute
 	SetAttribute(name, value string) PDFElementNode
 	Attribute(name string) (string, bool)
-	Add(child PDFNode) PDFElementNode
-	AddLine(child PDFNode) PDFElementNode
+	Add(child PDFNode) error
+	AddLine(child PDFNode) error
 	validateChild(child PDFNode) error
 }
 
@@ -67,28 +67,28 @@ func (b *baseElementNode) Attribute(name string) (string, bool) {
 	return "", false
 }
 
-func (b *baseElementNode) Add(child PDFNode) PDFElementNode {
+func (b *baseElementNode) Add(child PDFNode) error {
 	if b == nil || b.owner == nil || child == nil {
-		return b.owner
+		return nil
 	}
 	if err := b.owner.validateChild(child); err != nil {
-		panic(err)
+		return err
 	}
 	b.children = append(b.children, child)
 	b.childLineBreaks = append(b.childLineBreaks, false)
-	return b.owner
+	return nil
 }
 
-func (b *baseElementNode) AddLine(child PDFNode) PDFElementNode {
+func (b *baseElementNode) AddLine(child PDFNode) error {
 	if b == nil || b.owner == nil || child == nil {
-		return b.owner
+		return nil
 	}
 	if err := b.owner.validateChild(child); err != nil {
-		panic(err)
+		return err
 	}
 	b.children = append(b.children, child)
 	b.childLineBreaks = append(b.childLineBreaks, true)
-	return b.owner
+	return nil
 }
 
 // --- Element type declarations ---

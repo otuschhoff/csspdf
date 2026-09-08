@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+
+	limitmarker "github.com/otuschhoff/csspdf/internal/limit"
 )
 
 type PreparedTemplates struct {
@@ -22,6 +24,10 @@ type OutputLimitError struct {
 
 func (e *OutputLimitError) Error() string {
 	return fmt.Sprintf("template output exceeds byte limit %d", e.Limit)
+}
+
+func (e *OutputLimitError) Is(target error) bool {
+	return target == limitmarker.ErrExceeded
 }
 
 func ExecuteNamedWithFuncs(templateSource, templateName string, data any, funcs template.FuncMap) (string, error) {

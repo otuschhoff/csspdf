@@ -7,15 +7,24 @@ import (
 	"golang.org/x/net/html"
 )
 
+type ParseOptions struct {
+	AllowInvalidSpanAttributes bool
+	Warnf                      func(string, ...any)
+}
+
 func ParseHTMLDocFlowPrepared(htmlString string, stylesheet *tmpl.PreparedStylesheet) ([]PDFElementNode, error) {
+	return ParseHTMLDocFlowPreparedWithOptions(htmlString, stylesheet, ParseOptions{})
+}
+
+func ParseHTMLDocFlowPreparedWithOptions(htmlString string, stylesheet *tmpl.PreparedStylesheet, options ParseOptions) ([]PDFElementNode, error) {
 	document, err := tmpl.ParsePreparedStyledFragment(htmlString, stylesheet)
 	if err != nil {
 		return nil, err
 	}
-	return parseHTMLDocFlow(document)
+	return parseHTMLDocFlow(document, options)
 }
 
-func parseHTMLDocFlow(document *html.Node) ([]PDFElementNode, error) {
+func parseHTMLDocFlow(document *html.Node, options ParseOptions) ([]PDFElementNode, error) {
 	body := tmpl.FindFirst(document, "body")
 	if body == nil {
 		return nil, fmt.Errorf("no <body> element found in HTML fragment")
@@ -23,7 +32,7 @@ func parseHTMLDocFlow(document *html.Node) ([]PDFElementNode, error) {
 
 	elements := make([]PDFElementNode, 0)
 	for _, child := range tmpl.ElemChildren(body) {
-		element, supported, err := htmlBuildRootElement(child)
+		element, supported, err := htmlBuildRootElement(child, options)
 		if err != nil {
 			return nil, err
 		}

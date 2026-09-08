@@ -1,7 +1,8 @@
 package pdfdom
 
 import (
-	"strconv"
+	"fmt"
+	"math"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -24,11 +25,22 @@ var normalizedHTMLAttributes = map[string]string{
 	"break-after": "breakAfter", "white-space": "whiteSpace", "table-layout": "tableLayout",
 }
 
-func htmlBuildSpan(n *html.Node) *PDFTextNode {
+func htmlBuildSpan(n *html.Node, options ParseOptions) (*PDFTextNode, error) {
 	style := &PDFTextStyle{}
 	fontStyle, fontWeight, fontStyleSet := "", "", false
 	for _, attribute := range n.Attr {
-		if applySpanFontAttribute(style, attribute) {
+		handled, err := applySpanFontAttribute(style, attribute)
+		if err != nil {
+			err = fmt.Errorf("invalid span attribute %s=%q: %w", attribute.Key, attribute.Val, err)
+			if !options.AllowInvalidSpanAttributes {
+				return nil, err
+			}
+			if options.Warnf != nil {
+				options.Warnf("ignored %v", err)
+			}
+			continue
+		}
+		if handled {
 			if attribute.Key == "font-style" {
 				fontStyle = attribute.Val
 			}
@@ -38,7 +50,15 @@ func htmlBuildSpan(n *html.Node) *PDFTextNode {
 			fontStyleSet = fontStyleSet || attribute.Key == "font-style" || attribute.Key == "font-weight"
 			continue
 		}
-		applySpanBoxAttribute(style, attribute)
+		if err := applySpanBoxAttribute(style, attribute); err != nil {
+			err = fmt.Errorf("invalid span attribute %s=%q: %w", attribute.Key, attribute.Val, err)
+			if !options.AllowInvalidSpanAttributes {
+				return nil, err
+			}
+			if options.Warnf != nil {
+				options.Warnf("ignored %v", err)
+			}
+		}
 	}
 	if fontStyleSet {
 		style.FontStyle = htmlNormaliseFontStyle(fontStyle + " " + fontWeight)
@@ -47,28 +67,32 @@ func htmlBuildSpan(n *html.Node) *PDFTextNode {
 	if emptyTextStyle(style) {
 		style = nil
 	}
-	return &PDFTextNode{Text: tmpl.CollectText(n), Style: style}
+	return &PDFTextNode{Text: tmpl.CollectText(n), Style: style}, nil
 }
 
-func applySpanFontAttribute(style *PDFTextStyle, attribute html.Attribute) bool {
+func applySpanFontAttribute(style *PDFTextStyle, attribute html.Attribute) (bool, error) {
 	switch attribute.Key {
 	case "font-style", "font-weight":
-		return true
+		return true, nil
 	case "font-face":
 		style.FontFace = attribute.Val
 	case "font-size":
-		style.FontSize, _ = strconv.ParseFloat(attribute.Val, 64)
+		value, ok := tmpl.ParseLengthValue(attribute.Val)
+		if !ok || math.IsNaN(value) || math.IsInf(value, 0) || value <= 0 {
+			return true, fmt.Errorf("font-size must be a positive finite length")
+		}
+		style.FontSize = value
 	case "font-color":
 		style.FontColor = attribute.Val
 	case "align":
 		style.Align = htmlNormaliseTextAlign(attribute.Val)
 	default:
-		return false
+		return false, nil
 	}
-	return true
+	return true, nil
 }
 
-func applySpanBoxAttribute(style *PDFTextStyle, attribute html.Attribute) {
+func applySpanBoxAttribute(style *PDFTextStyle, attribute html.Attribute) error {
 	switch attribute.Key {
 	case "background-color", "backgroundColor":
 		style.BackgroundColor = strings.TrimSpace(attribute.Val)
@@ -77,10 +101,15 @@ func applySpanBoxAttribute(style *PDFTextStyle, attribute html.Attribute) {
 	case "border-style", "borderStyle":
 		style.BorderStyle = strings.ToLower(strings.TrimSpace(attribute.Val))
 	case "border-width", "borderWidth":
-		style.BorderWidth, _ = tmpl.ParseLengthValue(attribute.Val)
+		value, ok := tmpl.ParseLengthValue(attribute.Val)
+		if !ok || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+			return fmt.Errorf("border-width must be a non-negative finite length")
+		}
+		style.BorderWidth = value
 	case "border":
 		applySpanBorder(style, attribute.Val)
 	}
+	return nil
 }
 
 func applySpanBorder(style *PDFTextStyle, value string) {

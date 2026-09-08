@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	limitmarker "github.com/otuschhoff/csspdf/internal/limit"
 )
 
 type Limits struct {
@@ -22,6 +24,10 @@ type InspectionLimitError struct {
 
 func (e *InspectionLimitError) Error() string {
 	return fmt.Sprintf("%s exceeds byte limit %d (actual=%d)", e.Stage, e.Limit, e.Actual)
+}
+
+func (e *InspectionLimitError) Is(target error) bool {
+	return target == limitmarker.ErrExceeded
 }
 
 var defaultLimits = Limits{InputBytes: 128 << 20, DecompressedBytes: 64 << 20}

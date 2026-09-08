@@ -17,13 +17,12 @@ public API is consumable from an external module, and the quality gate covers
 build, vet, format, tests, coverage floors, race, fuzz, and vulnerability
 scanning.
 
-The remaining work is consolidation, not repair. The highest-value items are:
-deepen tests in the four core packages where most under-tested functions live,
-unify the fragmented error taxonomy and remove panicking builders from library
-code, delete dead and deprecated code that static analysis would have caught,
-and create headroom under the complexity ratchet before it forces waivers.
-None of these require a redesign, and none should be bundled with behavior
-changes.
+The remaining work is consolidation, not repair. Phases 7 and 8 closed the
+static-analysis, dead-code, error-taxonomy, panic, and legacy-policy findings.
+The highest-value remaining items are deeper tests in the four core packages
+where most under-tested functions live and headroom under the complexity
+ratchet before it forces waivers. Neither requires a redesign, and neither
+should be bundled with unrelated behavior changes.
 
 This report covers code quality, structure, maintainability, test coverage,
 and error handling. It is an engineering assessment, not a security
@@ -455,10 +454,9 @@ The Phase 0-6 contract remains in force. This review adds:
 
 ## Phased Remediation
 
-Use small pull requests. Each row is one bounded work item. Phases 7 and 8
-do not change public behavior and can proceed in parallel. Phase 9 depends on
-Phase 7's analyzer to confirm dead-code removal. Phase 10 depends on Phase 9's
-characterization tests.
+Use small pull requests. Each row is one bounded work item. Phases 7 and 8 are
+complete. Phase 9 can now deepen characterization coverage on the cleaned and
+strict error contract. Phase 10 depends on Phase 9's characterization tests.
 
 ### Phase 7: Static Analysis and Hygiene (completed 2026-09-08)
 
@@ -475,21 +473,23 @@ characterization tests.
 **Exit:** A reintroduced unused function or discarded error fails CI. Verified
 by probe on 2026-09-08.
 
-### Phase 8: Error-Handling Consistency
+### Phase 8: Error-Handling Consistency (completed 2026-09-08)
 
 **Goal:** One error policy across all packages.
 **Covers:** N03, N04, N05, N11.
 
-| Work item | Scope and dependencies | Completion gate |
-| --- | --- | --- |
-| 8A Limit marker | Internal marker interface/sentinel; facade mapping; per-limit tests. | `errors.Is` identifies every limit failure. |
-| 8B Wrap audit | `pdfdom`, `pdfrender`, `i18n` error sites; classify leaf versus wrapped in PR description. | Causes preserved; `errors.Is(err, fs.ErrNotExist)` works through the facade for file sources. |
-| 8C Builder errors | `pdfdom` `Add`/`AddLine` and 33 call sites, or facade `recover` boundary. | Invalid child yields `DiagnosticError`; no panic reaches callers. |
-| 8D Span attribute strictness | `span_style.go` and tests. | Invalid numeric attributes fail in strict mode, warn in legacy mode. |
-| 8E Legacy path decision | Owner decision; both-modes tests at each `recoverableRenderError` site. | Removal release named or rationale recorded. |
+| Work item | Scope and dependencies | Completion gate | Result |
+| --- | --- | --- | --- |
+| 8A Limit marker | Internal marker interface/sentinel; facade mapping; per-limit tests. | `errors.Is` identifies every limit failure. | `internal/limit.ErrExceeded` is re-exported as `docflowpdf.ErrLimitExceeded`; all six concrete limit error families match it through wrapping. Diagnostic and operational-boundary classification use the sentinel rather than concrete type lists. |
+| 8B Wrap audit | `pdfdom`, `pdfrender`, `i18n` error sites; classify leaf versus wrapped in PR description. | Causes preserved; `errors.Is(err, fs.ErrNotExist)` works through the facade for file sources. | Delegated parse, I/O, cancellation, template, layout, and rendering errors use `%w` or direct return; messages created solely from invalid local values remain leaf errors. A facade regression test proves `fs.ErrNotExist` survives `DiagnosticError` wrapping. |
+| 8C Builder errors | `pdfdom` `Add`/`AddLine` and 33 call sites, or facade `recover` boundary. | Invalid child yields `DiagnosticError`; no panic reaches callers. | `PDFElementNode.Add` and `AddLine` return validation errors without mutation. Every parser call site propagates the error, checked test builders replace fluent panic-prone construction, and create-template parsing no longer discards nested errors. |
+| 8D Span attribute strictness | `span_style.go` and tests. | Invalid numeric attributes fail in strict mode, warn in legacy mode. | `font-size` and `border-width` use the shared length parser and reject invalid, non-finite, or out-of-range values. Strict parsing returns contextual errors; legacy rendering warns and ignores only the invalid declaration. Unit-suffixed values are tested. |
+| 8E Legacy path decision | Owner decision; both-modes tests at each `recoverableRenderError` site. | Removal release named or rationale recorded. | `AllowPartialRender` and `WithLegacyPartialRendering` are deprecated for removal in v0.3.0. Nested template/footer renderers return wrapped causes to one policy boundary; a strict/legacy matrix covers every recoverable renderer branch. |
 
 **Exit:** Public documentation states the single error contract; a fuzz
-target on HTML input finds no panics.
+target on HTML input finds no panics. Verified by the public render fuzz target
+and a 67,301-execution local campaign on 2026-09-08; the bounded target runs in
+the security workflow.
 
 ### Phase 9: Core Package Test Depth
 

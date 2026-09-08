@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	limitmarker "github.com/otuschhoff/csspdf/internal/limit"
 	"github.com/otuschhoff/csspdf/internal/pdfdom"
 )
 
@@ -14,6 +15,8 @@ type BuildOptions struct {
 	MaxRows                int
 	MaxDepth               int
 	Complexity             *ComplexityBudget
+	AllowInvalidAttributes bool
+	Warnf                  func(string, ...any)
 }
 
 type ComplexityBudget struct {
@@ -29,6 +32,10 @@ type ComplexityLimitError struct {
 
 func (e *ComplexityLimitError) Error() string {
 	return fmt.Sprintf("%s limit exceeded: limit=%d actual=%d", e.Kind, e.Limit, e.Actual)
+}
+
+func (e *ComplexityLimitError) Is(target error) bool {
+	return target == limitmarker.ErrExceeded
 }
 
 type complexityValidator struct {

@@ -45,6 +45,9 @@ func TestConfinedFileResolverEnforcesByteLimitAndCancellation(t *testing.T) {
 	if !errors.As(err, &limitErr) || limitErr.Limit != 4 {
 		t.Fatalf("expected limit error, got %v", err)
 	}
+	if !errors.Is(err, ErrLimitExceeded) {
+		t.Fatalf("expected ErrLimitExceeded, got %v", err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

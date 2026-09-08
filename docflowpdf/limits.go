@@ -1,8 +1,15 @@
 package docflowpdf
 
 import (
+	"errors"
 	"fmt"
+
+	limitmarker "github.com/otuschhoff/csspdf/internal/limit"
 )
+
+// ErrLimitExceeded identifies failures caused by a configured resource or
+// rendering limit.
+var ErrLimitExceeded = limitmarker.ErrExceeded
 
 // RenderLimits bounds resource use during one render. Zero values select the
 // documented defaults; negative values are invalid.
@@ -98,4 +105,12 @@ func (e *BudgetError) Error() string {
 		return fmt.Sprintf("%s budget exceeded: limit=%d actual=%d", e.Stage, e.Limit, e.Actual)
 	}
 	return fmt.Sprintf("%s budget exceeded: limit=%d", e.Stage, e.Limit)
+}
+
+func (e *BudgetError) Is(target error) bool {
+	if target == ErrLimitExceeded {
+		return true
+	}
+	var other *BudgetError
+	return errors.As(target, &other)
 }
