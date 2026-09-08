@@ -1,0 +1,52 @@
+# API Compatibility and Deprecations
+
+## Release Line
+
+csspdf is currently pre-v1 and has no published release tags. Until v1.0.0,
+minor releases may contain documented compatibility changes when required for
+correctness or security. Patch releases must remain backward compatible within
+the current minor line.
+
+The supported Go API is the exported surface of
+`github.com/otuschhoff/csspdf/docflowpdf`. Packages below `internal/`, command
+implementation details, examples, and repository scripts are not public Go
+APIs. Supported commands and their exit-code contracts are listed in the
+README.
+
+Every intentional public behavior change must include:
+
+- a regression test for the new contract;
+- a migration note in `docs/phase1-migration.md` or release notes;
+- a compatibility classification in the release checklist; and
+- a major-version decision once the project reaches v1.
+
+## Deprecation Policy
+
+Public deprecations use the Go `Deprecated:` doc-comment convention and name a
+replacement. A deprecated public API remains available for at least the next
+minor release unless retaining it creates a confirmed security or correctness
+hazard. Removal must be announced in release notes and requires either a major
+release or an explicit pre-v1 compatibility notice.
+
+Current public compatibility path:
+
+| API | Replacement | Removal status |
+| --- | --- | --- |
+| `RenderInput.WarningWriter` and `WithWarningWriter` | `RenderInput.Logger` and `WithLogger` | Retained; no removal release scheduled |
+| `RenderInput.AllowPartialRender` and `WithLegacyPartialRendering` | Strict rendering, the default | Retained migration path; no removal release scheduled |
+| `FuncMapFactory` | `FuncMapFactoryEx` | Supported legacy hook; no removal release scheduled |
+
+Deprecated symbols under `internal/` are migration aids for repository-owned
+callers and carry no external compatibility promise.
+
+## Supported Toolchains and Platforms
+
+The minimum supported toolchain is Go 1.25.13. CI tests Go 1.25.13, Go 1.26.x,
+and Go 1.27.x on current GitHub-hosted Linux and macOS runners. New Go release
+lines enter the matrix after a green quality and race run. A minimum-version
+change requires vulnerability or dependency evidence, documentation, and a
+release note.
+
+Windows is not currently in the supported CI matrix. File replacement and path
+policy follow host OS behavior documented in `docs/phase1-migration.md` and
+`docs/phase3-security.md`.

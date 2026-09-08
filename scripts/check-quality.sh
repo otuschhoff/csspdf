@@ -44,7 +44,7 @@ go vet ./...
 )
 
 echo "[quality] Running all tests..."
-go test ./... -count=1
+scripts/check-coverage.sh
 (
   cd third_party/gofpdf
   go test ./... -count=1

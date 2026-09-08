@@ -7,6 +7,25 @@ on:
   workflow_dispatch:
 
 jobs:
+  vulnerabilities:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.25.13'
+          cache-dependency-path: go.sum
+
+      - name: Scan reachable dependencies
+        env:
+          GOTOOLCHAIN: local
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+
   fuzz:
     runs-on: ubuntu-latest
     permissions:

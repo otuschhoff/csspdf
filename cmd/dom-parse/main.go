@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,35 +24,40 @@ const (
 )
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s <input-html-file>\n", filepath.Base(os.Args[0]))
-		os.Exit(2)
+	os.Exit(run(os.Args[0], os.Args[1:], os.Stdout, os.Stderr))
+}
+
+func run(program string, args []string, stdout, stderr io.Writer) int {
+	if len(args) != 1 {
+		fmt.Fprintf(stderr, "Usage: %s <input-html-file>\n", filepath.Base(program))
+		return 2
 	}
 
-	input := os.Args[1]
+	input := args[0]
 	tmpl, err := template.ParseFiles(input)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing template %q: %v\n", input, err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Error parsing template %q: %v\n", input, err)
+		return 1
 	}
 
 	var rendered bytes.Buffer
 	if err := tmpl.Execute(&rendered, nil); err != nil {
-		fmt.Fprintf(os.Stderr, "Error executing template %q: %v\n", input, err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Error executing template %q: %v\n", input, err)
+		return 1
 	}
 
 	doc, err := html.Parse(&rendered)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing rendered DOM %q: %v\n", input, err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Error parsing rendered DOM %q: %v\n", input, err)
+		return 1
 	}
 
-	fmt.Printf("%sDOM%s %s(%s)%s\n", colorType, colorReset, colorDim, input, colorReset)
-	printNode(doc, 0)
+	fmt.Fprintf(stdout, "%sDOM%s %s(%s)%s\n", colorType, colorReset, colorDim, input, colorReset)
+	printNode(stdout, doc, 0)
+	return 0
 }
 
-func printNode(n *html.Node, depth int) {
+func printNode(writer io.Writer, n *html.Node, depth int) {
 	if n == nil {
 		return
 	}
@@ -61,29 +67,29 @@ func printNode(n *html.Node, depth int) {
 
 	switch n.Type {
 	case html.DocumentNode:
-		fmt.Printf("%s%s%s%s\n", indent, colorType, kind, colorReset)
+		fmt.Fprintf(writer, "%s%s%s%s\n", indent, colorType, kind, colorReset)
 	case html.DoctypeNode:
-		fmt.Printf("%s%s%s%s %s%s%s\n", indent, colorType, kind, colorReset, colorTag, n.Data, colorReset)
+		fmt.Fprintf(writer, "%s%s%s%s %s%s%s\n", indent, colorType, kind, colorReset, colorTag, n.Data, colorReset)
 	case html.ElementNode:
-		fmt.Printf("%s%s%s%s %s<%s%s%s%s", indent, colorType, kind, colorReset, colorDim, colorTag, n.Data, colorReset, colorDim)
+		fmt.Fprintf(writer, "%s%s%s%s %s<%s%s%s%s", indent, colorType, kind, colorReset, colorDim, colorTag, n.Data, colorReset, colorDim)
 		for _, attr := range n.Attr {
-			fmt.Printf(" %s%s%s=%s\"%s\"%s", colorAttr, attr.Key, colorDim, colorAttrVal, attr.Val, colorDim)
+			fmt.Fprintf(writer, " %s%s%s=%s\"%s\"%s", colorAttr, attr.Key, colorDim, colorAttrVal, attr.Val, colorDim)
 		}
-		fmt.Printf(">%s\n", colorReset)
+		fmt.Fprintf(writer, ">%s\n", colorReset)
 	case html.TextNode:
 		text := strings.TrimSpace(n.Data)
 		if text == "" {
 			break
 		}
-		fmt.Printf("%s%s%s%s \"%s%s%s\"\n", indent, colorType, kind, colorReset, colorText, text, colorReset)
+		fmt.Fprintf(writer, "%s%s%s%s \"%s%s%s\"\n", indent, colorType, kind, colorReset, colorText, text, colorReset)
 	case html.CommentNode:
-		fmt.Printf("%s%s%s%s %s<!-- %s -->%s\n", indent, colorType, kind, colorReset, colorComment, n.Data, colorReset)
+		fmt.Fprintf(writer, "%s%s%s%s %s<!-- %s -->%s\n", indent, colorType, kind, colorReset, colorComment, n.Data, colorReset)
 	default:
-		fmt.Printf("%s%s%s%s\n", indent, colorType, kind, colorReset)
+		fmt.Fprintf(writer, "%s%s%s%s\n", indent, colorType, kind, colorReset)
 	}
 
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		printNode(child, depth+1)
+		printNode(writer, child, depth+1)
 	}
 }
 

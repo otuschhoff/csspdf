@@ -22,6 +22,12 @@ are not all available from the fork's published branch. Its exact source
 revision, local patch set, and retained test scope are documented in
 `third_party/gofpdf/PATCHES.md`.
 
+Supported release lines, compatibility rules, deprecations, provenance, and
+release checks are documented in [API compatibility](docs/api-compatibility.md),
+[asset provenance](docs/provenance.md), and the
+[release procedure](docs/release.md). Public redistribution remains blocked
+until the repository owner adds a root license.
+
 ## Status
 
 This repository now separates:
@@ -36,33 +42,27 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"github.com/otuschhoff/csspdf/docflowpdf"
 )
 
 func main() {
-	assets, err := (docflowpdf.AssetInput{
-		HTML: docflowpdf.TextSource{FilePath: "templates/doc.html.tmpl"},
-		CSS:  docflowpdf.TextSource{FilePath: "templates/doc.css"},
-		Flow: docflowpdf.JSONSource{FilePath: "templates/doc.flow.json"},
-		SourceData: docflowpdf.JSONSource{FilePath: "data/doc.data.json"},
-	}).ResolveAssets()
-	if err != nil {
-		log.Fatal(err)
+	assets := docflowpdf.Assets{
+		HTML: `{{define "document"}}<div>Hello {{.Source.Name}}</div>{{end}}`,
+		CSS:  `@page { size: A4; margin: 20pt; }`,
+		Flow: docflowpdf.Flow{MainFlow: []docflowpdf.Section{{
+			Template:    "document",
+			Transformer: "generic",
+			Payload:     docflowpdf.PayloadConfig{IncludeSource: true},
+		}}},
+		SourceData: map[string]any{"Name": "Docflow", "locale": "en"},
 	}
 
-	f, err := os.Create("output.pdf")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	err = docflowpdf.RenderToWriter(docflowpdf.RenderInput{
+	err := docflowpdf.RenderToFile(docflowpdf.RenderInput{
 		Assets:              assets,
 		DefaultLocale:       "en",
 		DefaultCurrencyCode: "EUR",
-	}, f)
+	}, "output.pdf")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -426,10 +426,14 @@ Run the complete local quality gate:
 ```
 
 The gate checks module tidiness, dependency checksums, formatting, builds,
-static analysis, all root and backend tests, and reachable vulnerabilities.
+static analysis, all root and backend tests, package coverage floors, and
+reachable vulnerabilities.
 The vulnerability tool is pinned; set `RUN_VULN_CHECK=false` only for a fast
 local iteration after an unchanged successful scan. The initial scan and
 clean-checkout evidence are recorded in `docs/phase0-baseline.md`.
+
+Release-readiness evidence and troubleshooting guidance are recorded in
+`docs/phase6-release-readiness.md` and `docs/troubleshooting.md`.
 
 Run the changed-code maintainability ratchet with:
 

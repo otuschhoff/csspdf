@@ -44,11 +44,7 @@ func testUTF8FontAssets() Assets {
 }
 
 func TestUTF8Type0Font_ToUnicodeIsExplicitAndParsable(t *testing.T) {
-	fixtureDir, err := os.MkdirTemp(".", ".font-fixture-")
-	if err != nil {
-		t.Fatalf("create font fixture directory: %v", err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(fixtureDir) })
+	fixtureDir := t.TempDir()
 	fontPath := filepath.Join(fixtureDir, "Go-Regular.ttf")
 	if err := os.WriteFile(fontPath, goregular.TTF, 0600); err != nil {
 		t.Fatalf("write font fixture: %v", err)
@@ -58,6 +54,7 @@ func TestUTF8Type0Font_ToUnicodeIsExplicitAndParsable(t *testing.T) {
 		Assets:              testUTF8FontAssets(),
 		DefaultLocale:       "de",
 		DefaultCurrencyCode: "EUR",
+		ResourceResolver:    TrustedFileResolver{},
 		FontRegistrations: []FontRegistration{{
 			Family:  "GoSans",
 			Style:   "",
