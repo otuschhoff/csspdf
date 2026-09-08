@@ -178,7 +178,7 @@ func imagePathCandidates(source string, searchDirs []string) []string {
 			candidates = append(candidates, filepath.Join(directory, source), filepath.Join(directory, base))
 		}
 	}
-	for _, prefix := range []string{"examples/invoice", "resources", "..", "../examples/invoice", "../resources", "../..", "../../examples/invoice", "../../resources"} {
+	for _, prefix := range []string{"resources", "..", "../resources", "../..", "../../resources"} {
 		candidates = append(candidates, filepath.Join(prefix, source), filepath.Join(prefix, base))
 	}
 	return candidates

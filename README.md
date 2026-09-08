@@ -12,7 +12,7 @@ The reusable public package is:
 
 ## Requirements and Dependency Policy
 
-- Go 1.25.13 or newer
+- Go 1.26.6 or newer
 - No sibling repositories or local Go workspace are required
 - Dependencies are pinned in `go.mod` and `go.sum`
 
@@ -33,7 +33,7 @@ until the repository owner adds a root license.
 This repository now separates:
 - Generic rendering engine: docflowpdf
 - Rendering internals: internal/pdfrender, internal/pdfdom, internal/templating, internal/flowrender
-- Invoice profile/example: examples/invoice
+- Layered CSS example: examples/layered
 
 ## Quick Start
 
@@ -407,15 +407,12 @@ When `FuncMapFactoryEx` is used, the function context receives `Now`. With no
 clock configured, metadata uses the current time and only semantic output is
 expected to be stable; byte identity is not part of the default contract.
 
-## Invoice Profile
+## Example Profile
 
-Invoice assets and helper functions live in:
-- examples/invoice
-
-Layered CSS concept/example assets live in:
+Layered CSS concept assets live in:
 - examples/layered
 
-This keeps docflowpdf generic while preserving an invoice profile implementation.
+This keeps docflowpdf generic while demonstrating layered style composition.
 
 ## Testing
 
@@ -466,11 +463,11 @@ go build -o bin/dom-parse ./cmd/dom-parse
 
 ### render-sample
 
-Build and render the sample invoice document.
+Build and render the layered sample document.
 
 ```sh
 go build -o bin/gen-example ./cmd/gen-example
-./bin/gen-example invoice -o output/invoice.pdf
+./bin/gen-example layered -o output/layered.pdf
 ```
 
 ### test
@@ -488,8 +485,6 @@ go test ./... -count=1
 - `cmd/gen-example` and `cmd/dom-parse` are supported repository tools.
 - The root `pdfdump.go` diagnostic command is supported for bounded inspection;
 	it is not a PDF conformance validator.
-- `examples/invoice` and `examples/layered` are reference assets, not stable Go APIs.
-- Root JavaScript files (`genXml.js`, `mkDoc.js`, and `mkQuote.js`) are legacy,
-	unsupported utilities. They have no maintained package manifest or CI gate.
+- `examples/layered` contains reference assets, not stable Go APIs.
 - Generated binaries and output files are unsupported artifacts and are ignored
 	by version control.

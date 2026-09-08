@@ -13,19 +13,7 @@ import (
 
 const version = "0.1.0"
 
-const (
-	defaultLocale         = "de"
-	defaultCurrencyCode   = "EUR"
-	defaultPageMarginTop  = 30.0
-	defaultPageMarginLeft = 55.0
-)
-
-// RenderInvoiceOptions holds all parameters for the invoice PDF rendering use case.
-type RenderInvoiceOptions struct {
-	OutputPath      string
-	PageFormat      string
-	PageOrientation string
-}
+const defaultCurrencyCode = "EUR"
 
 // Run executes the CLI for a specific program name with argv without the
 // executable name itself.
@@ -36,8 +24,6 @@ func Run(programName string, args []string) int {
 	}
 
 	switch args[0] {
-	case "invoice":
-		return runInvoice(programName, args[1:])
 	case "layered":
 		return runLayered(programName, args[1:])
 	case "dump-pdf":
@@ -67,7 +53,7 @@ func renderLayeredPDF(outputPath string) error {
 	assetInput := docflowpdf.AssetInput{
 		HTML:       docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "doc.html")},
 		Flow:       docflowpdf.JSONSource{FilePath: filepath.Join(baseDir, "flow.json")},
-		SourceData: docflowpdf.JSONSource{FilePath: filepath.Join(baseDir, "data.json")},
+		SourceData: docflowpdf.JSONSource{FilePath: filepath.Join(baseDir, "source.json")},
 		CSSLayers: []docflowpdf.CSSLayerInput{
 			{Name: "corporate-base", Source: docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "styles", "corporate", "base.css")}},
 			{Name: "document", Source: docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "styles", "document", "doc.css")}},
@@ -94,116 +80,23 @@ func resolveLayeredTemplateBaseDir() (string, error) {
 	for _, candidate := range candidates {
 		dir := filepath.Clean(candidate)
 		if stat, err := os.Stat(dir); err == nil && stat.IsDir() {
-			return dir, nil
+			return filepath.Abs(dir)
 		}
 	}
 
 	return "", os.ErrNotExist
 }
-
-// RenderInvoice generates the invoice PDF and writes it to opts.OutputPath.
-func RenderInvoice(opts RenderInvoiceOptions) error {
-	return renderInvoicePDF(opts.OutputPath, opts.PageFormat, opts.PageOrientation)
-}
-
-func renderInvoicePDF(outputPath, pageFormat, pageOrientation string) error {
-	baseDir, err := resolveTemplateBaseDir()
-	if err != nil {
-		return err
-	}
-
-	if pageFormat == "" {
-		pageFormat = docflowpdf.DefaultPageFormat
-	}
-	if pageOrientation == "" {
-		pageOrientation = docflowpdf.PageOrientationPortrait
-	}
-
-	return docflowpdf.Render(
-		outputPath,
-		docflowpdf.WithAssetBaseDir(baseDir),
-		docflowpdf.WithI18nTemplateMacros(true),
-		docflowpdf.WithPageFormat(pageFormat),
-		docflowpdf.WithPageOrientation(pageOrientation),
-		docflowpdf.WithDefaultLocale(defaultLocale),
-		docflowpdf.WithDefaultCurrencyCode(defaultCurrencyCode),
-		docflowpdf.WithPageMarginsTopBottom(defaultPageMarginTop),
-		docflowpdf.WithPageMarginsLeftRight(defaultPageMarginLeft),
-		docflowpdf.WithFuncMapFactoryEx(docflowpdf.DefaultTemplateFuncMapWithContext),
-	)
-}
-
-func resolveTemplateBaseDir() (string, error) {
-	candidates := []string{
-		filepath.Join("examples", "invoice"),
-		filepath.Join("..", "examples", "invoice"),
-		filepath.Join("..", "..", "examples", "invoice"),
-		".",
-	}
-
-	for _, candidate := range candidates {
-		dir := filepath.Clean(candidate)
-		if stat, err := os.Stat(dir); err == nil && stat.IsDir() {
-			return dir, nil
-		}
-	}
-
-	return "", os.ErrNotExist
-}
-
 func printUsage(w io.Writer, programName string) {
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintf(w, "  %s <subcommand> [options]\n", programName)
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Subcommands:")
-	fmt.Fprintln(w, "  invoice     Generate intro layout plus table with service line items")
 	fmt.Fprintln(w, "  layered     Generate layered-css concept example")
 	fmt.Fprintln(w, "  dump-pdf    Display PDF structure with binary streams hidden")
 	fmt.Fprintln(w, "  version     Print version and exit")
 	fmt.Fprintln(w, "")
 	fmt.Fprintf(w, "Use '%s <subcommand> -h' for command-specific options.\n", programName)
 }
-
-func runInvoice(programName string, args []string) int {
-	cmd := flag.NewFlagSet("invoice", flag.ContinueOnError)
-	cmd.SetOutput(os.Stderr)
-
-	var (
-		outputPath      = cmd.String("o", "output/invoice.pdf", "Output PDF path")
-		pageFormat      = cmd.String("page-format", docflowpdf.DefaultPageFormat, "Named page format (e.g. A4, A3, A5, letter, legal)")
-		pageOrientation = cmd.String("page-orientation", docflowpdf.PageOrientationPortrait, "Page orientation: portrait or landscape")
-	)
-
-	cmd.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Usage:")
-		fmt.Fprintf(os.Stderr, "  %s invoice [options]\n", programName)
-		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintln(os.Stderr, "Options:")
-		cmd.PrintDefaults()
-	}
-
-	if err := cmd.Parse(args); err != nil {
-		return 2
-	}
-
-	if err := os.MkdirAll(filepath.Dir(*outputPath), 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
-		return 1
-	}
-
-	if err := RenderInvoice(RenderInvoiceOptions{
-		OutputPath:      *outputPath,
-		PageFormat:      *pageFormat,
-		PageOrientation: *pageOrientation,
-	}); err != nil {
-		fmt.Fprintf(os.Stderr, "Error rendering invoice PDF: %s\n", formatCommandError(err))
-		return 1
-	}
-
-	fmt.Printf("✓ Invoice PDF generated successfully: %s\n", *outputPath)
-	return 0
-}
-
 func runDumpPDF(programName string, args []string) int {
 	dumpCmd := flag.NewFlagSet("dump-pdf", flag.ContinueOnError)
 	dumpCmd.SetOutput(os.Stderr)

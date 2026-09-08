@@ -124,7 +124,7 @@ Source and payload values are marshaled and unmarshaled into `map[string]any`, c
 
 Evidence: [resolveI18nInput](../docflowpdf/render.go#L384) and [translation search paths](../internal/i18n/i18n.go#L48).
 
-With no explicit translation source, the renderer searches the working directory and ancestors, including the invoice example. Running otherwise valid in-memory renders from the temporary probe directory failed with a missing `../../examples/invoice/i18n.json`. Supplying an explicit in-memory translation source allowed them to proceed. Library tests inside the checkout can hide this dependency.
+With no explicit translation source, the renderer searched the working directory and ancestors for a legacy example profile. Supplying an explicit in-memory translation source allowed otherwise valid in-memory renders to proceed. Library tests inside the checkout could hide this dependency.
 
 **Remediation:** Make no-translation rendering self-contained, with explicit generic formatting defaults. Put invoice translations in the example's configuration. Either remove ambient lookup from the library or retain it only through an explicitly named compatibility option.
 
@@ -262,7 +262,7 @@ The README correctly says this is mapped-property styling, not a browser cascade
 
 **P2 | Inspection | Maintainability, tooling correctness**
 
-Evidence: [root dumper](../pdfdump.go#L1), [internal dumper](../internal/pdfdump/dumper.go#L1), [document script](../mkDoc.js#L1), [quote script](../mkQuote.js#L1), and [XML script](../genXml.js#L1).
+Evidence: [root dumper](../pdfdump.go#L1) and [internal dumper](../internal/pdfdump/dumper.go#L1).
 
 The two PDF dump implementations duplicate substantial logic. They locate PDF objects/streams with regular expressions and are not a general PDF parser or conformance validator; arbitrary binary streams and more complex PDF structures require a real parser. Their results should not be the only correctness oracle. The three root JavaScript utilities total 3,729 lines and import numerous packages, but the repository has no package manifest/lockfile or JS test workflow. Their runtime behavior and dependency vulnerability status were not exhaustively audited here.
 

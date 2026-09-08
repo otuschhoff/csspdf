@@ -6,28 +6,22 @@ import (
 	"testing"
 )
 
-func TestRun_InvoiceRendersBundledProfile(t *testing.T) {
-	outputPath := filepath.Join(t.TempDir(), "invoice.pdf")
-	if exitCode := Run("gen-example", []string{"invoice", "-o", outputPath}); exitCode != 0 {
+func TestRun_LayeredRendersBundledProfile(t *testing.T) {
+	outputPath := filepath.Join(t.TempDir(), "layered.pdf")
+	if exitCode := Run("gen-example", []string{"layered", "-o", outputPath}); exitCode != 0 {
 		t.Fatalf("Run exit code = %d, want 0", exitCode)
 	}
 	info, err := os.Stat(outputPath)
 	if err != nil {
-		t.Fatalf("stat rendered invoice: %v", err)
+		t.Fatalf("stat rendered layered example: %v", err)
 	}
 	if info.Size() == 0 {
-		t.Fatal("rendered invoice is empty")
+		t.Fatal("rendered layered example is empty")
 	}
 }
 
-func TestRun_InvoiceRenderFailureReturnsNonzero(t *testing.T) {
-	outputPath := filepath.Join(t.TempDir(), "invoice.pdf")
-	exitCode := Run("gen-example", []string{
-		"invoice",
-		"-o", outputPath,
-		"-page-format", "not-a-page-format",
-	})
-	if exitCode != 1 {
-		t.Fatalf("Run exit code = %d, want 1 for render failure", exitCode)
+func TestRun_UnknownSubcommandReturnsUsageError(t *testing.T) {
+	if exitCode := Run("gen-example", []string{"unknown"}); exitCode != 2 {
+		t.Fatalf("Run exit code = %d, want 2 for usage error", exitCode)
 	}
 }

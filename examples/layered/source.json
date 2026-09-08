@@ -1,0 +1,8 @@
+{
+  "locale": "en",
+  "Document": {
+    "Title": "Layered CSS Example",
+    "Subtitle": "Corporate, document, and customer styles",
+    "Body": "This synthetic document demonstrates deterministic CSS layer precedence."
+  }
+}

@@ -41,11 +41,10 @@ callers and carry no external compatibility promise.
 
 ## Supported Toolchains and Platforms
 
-The minimum supported toolchain is Go 1.25.13. CI tests Go 1.25.13, Go 1.26.x,
-and Go 1.27.x on current GitHub-hosted Linux and macOS runners. New Go release
-lines enter the matrix after a green quality and race run. A minimum-version
-change requires vulnerability or dependency evidence, documentation, and a
-release note.
+The minimum supported toolchain is Go 1.26.6. CI tests Go 1.26.6 and Go 1.27.x
+on current GitHub-hosted Linux and macOS runners. New Go release lines enter the
+matrix after a green quality and race run. A minimum-version change requires
+vulnerability or dependency evidence, documentation, and a release note.
 
 Windows is not currently in the supported CI matrix. File replacement and path
 policy follow host OS behavior documented in `docs/phase1-migration.md` and

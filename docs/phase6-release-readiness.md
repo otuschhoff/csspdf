@@ -6,12 +6,11 @@ of every finding from the original review.
 
 ## Supported Matrix and Sustained Gates
 
-The quality workflow tests Go 1.25.13, Go 1.26.x, and Go 1.27.x on Linux and
-macOS. The minimum version is exact because earlier Go 1.25 patch releases have
-reachable standard-library vulnerabilities. The full root and nested-module
-race suite runs on Linux. Root tests include integration fixtures, the pdfcpu
-semantic PDF suite, and an external-consumer module that builds and renders
-from an unrelated empty working directory.
+The quality workflow tests Go 1.26.6 and Go 1.27.x on Linux and macOS. The
+minimum version is exact and matches the module directive. The full root and
+nested-module race suite runs on Linux. Root tests include integration fixtures,
+the pdfcpu semantic PDF suite, and an external-consumer module that builds and
+renders from an unrelated empty working directory.
 
 The security workflow runs bounded fuzzing on pull requests and for one minute
 on its weekly schedule. The same schedule performs the pinned reachable-code

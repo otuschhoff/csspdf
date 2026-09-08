@@ -21,23 +21,10 @@ The UTF-8 integration fixture comes from
 generated into a test-owned temporary directory and is not copied into release
 artifacts.
 
-The previously bundled `examples/invoice/fonts/Futura-Medium.ttf` declared
-"ALL RIGHTS RESERVED" and had no redistribution grant in this repository. It
-was removed in Phase 6 and the example now uses a standard PDF font.
-
 ## Example Data and Images
 
-`examples/invoice/data.json` is synthetic demonstration data. Names,
-addresses, contact details, tax and banking identifiers, customer references,
-and work descriptions use explicit example values and reserved domains. It
-must not be replaced with production invoice or timesheet data.
-
-Signature image derivatives and their XCF/SVG sources previously under
-`examples/invoice/images` had no recorded redistribution provenance and were
-removed in Phase 6. The invoice example no longer renders a signature image.
-
 `examples/layered` contains text-only synthetic demonstration content authored
-for this repository. Neither example directory is a stable API.
+for this repository. The example directory is not a stable API.
 
 When adding an asset or fixture, record its origin, immutable source or author,
 license, required attribution, redistribution approval, and whether it contains
@@ -49,8 +36,7 @@ outside version control and release archives.
 | Component | Status | Validation |
 | --- | --- | --- |
 | `docflowpdf` | Supported public Go package | Full tests, external-consumer build/render, race and coverage gates |
-| `cmd/gen-example` | Supported repository tool | Invoice/layered smoke tests and rollout script |
+| `cmd/gen-example` | Supported repository tool | Layered smoke test and rollout script |
 | `cmd/dom-parse` | Supported repository tool | Writer-injected usage, error, and DOM output tests |
 | root `pdfdump.go` | Supported bounded diagnostic tool, not a conformance validator | CLI tests and shared `internal/pdfdump` fuzzing |
-| `genXml.js`, `mkDoc.js`, `mkQuote.js` | Unsupported legacy utilities | No dependency manifest or CI; excluded from release support claims |
 | generated files under `bin/` and `output/` | Unsupported artifacts | Excluded from source releases |
