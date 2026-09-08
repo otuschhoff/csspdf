@@ -8,6 +8,8 @@ that are enforced by `scripts/check-maintainability.sh`.
 - `docflowpdf`
 - Public API, input normalization, and render orchestration.
 - May compose internal packages; internal packages must not import it.
+- Owns public compatibility adapters, including legacy profile-template names;
+	generic internal layout remains profile-neutral.
 
 - `internal/templating`
 - Template execution/parsing and CSS/page/docflow parsing only.
@@ -41,10 +43,13 @@ that are enforced by `scripts/check-maintainability.sh`.
 
 - `internal/templating` must not import:
 - `internal/pdfrender`
-- `docflowpdf`
 
-- `internal/flowrender` must not import:
-- `docflowpdf`
+- `examples/` contains reference profile data and assets, not a Go package or
+	a dependency layer.
+
+Go's `internal` package rule prevents external consumers from importing any
+internal package. The external-consumer fixture additionally compiles the
+supported `docflowpdf` API from a separate module at the minimum Go version.
 
 ## Maintainability Budgets
 
@@ -65,6 +70,9 @@ The default `worktree` scope checks modified and untracked project Go files.
 CI uses `CHECK_SCOPE=changed` with an explicit base revision. Use
 `CHECK_SCOPE=all` to inspect all owned Go files; existing debt above the ratchet
 will be reported.
+
+All scopes include root-level Go files when those files are selected. Third-party
+backend source is excluded from these budgets and validated by the quality gate.
 
 Run the complete build/test/security gate separately:
 

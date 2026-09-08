@@ -187,396 +187,6 @@ func (tr *TableRenderer) MeasureTableHeight(table *TableDef) (float64, error) {
 	return height, nil
 }
 
-type resolvedTableLayout struct {
-	tableWidth   float64
-	padding      float64
-	rowHeightMin float64
-	colWidths    []float64
-}
-
-func (tr *TableRenderer) resolveTableLayout(table *TableDef) resolvedTableLayout {
-	padding := table.Padding
-	if padding <= 0 {
-		padding = 5.0
-	}
-	rowHeightMin := table.RowHeightMin
-	if rowHeightMin <= 0 {
-		rowHeightMin = 20.0
-	}
-
-	fixedTotal, minFlexTotal := 0.0, 0.0
-	flexIndices := make([]int, 0, len(table.Columns))
-	widths := make([]float64, len(table.Columns))
-
-	for i, col := range table.Columns {
-		if col.Width > 0 {
-			widths[i] = col.Width
-			fixedTotal += col.Width
-			continue
-		}
-		minW := col.MinWidth
-		if minW < 0 {
-			minW = 0
-		}
-		widths[i] = minW
-		minFlexTotal += minW
-		flexIndices = append(flexIndices, i)
-	}
-
-	requestedWidth := table.Width
-	tableWidth := requestedWidth
-	if tableWidth <= 0 {
-		if len(flexIndices) == 0 {
-			tableWidth = fixedTotal
-		} else {
-			pageW, _ := tr.pdf.GetPageSize()
-			left, _, right, _ := tr.pdf.GetMargins()
-			tableWidth = pageW - left - right
-		}
-	}
-	if reqMin := fixedTotal + minFlexTotal; requestedWidth <= 0 && tableWidth < reqMin {
-		tableWidth = reqMin
-	}
-
-	if strings.EqualFold(strings.TrimSpace(table.TableLayout), "auto") && len(flexIndices) > 0 {
-		preferred := tr.preferredColumnWidths(table, widths, padding)
-		availFlex := tableWidth - fixedTotal
-		if availFlex < 0 {
-			availFlex = 0
-		}
-		minTotal := 0.0
-		desiredExtra := 0.0
-		for _, idx := range flexIndices {
-			minW := widths[idx]
-			minTotal += minW
-			target := preferred[idx]
-			if target < minW {
-				target = minW
-			}
-			desiredExtra += target - minW
-		}
-
-		extraAvail := availFlex - minTotal
-		if extraAvail < 0 {
-			extraAvail = 0
-		}
-
-		for _, idx := range flexIndices {
-			minW := widths[idx]
-			target := preferred[idx]
-			if target < minW {
-				target = minW
-			}
-			extra := target - minW
-			if desiredExtra > 0 && extraAvail > 0 {
-				widths[idx] = minW + extra*(extraAvail/desiredExtra)
-			} else {
-				widths[idx] = minW
-			}
-		}
-	}
-
-	remaining := tableWidth - fixedTotal - minFlexTotal
-	if remaining > 0 && len(flexIndices) > 0 {
-		if !strings.EqualFold(strings.TrimSpace(table.TableLayout), "auto") {
-			extra := remaining / float64(len(flexIndices))
-			for _, idx := range flexIndices {
-				widths[idx] += extra
-			}
-		}
-	}
-
-	// Honour MaxWidth by redistributing excess to uncapped flex columns.
-	for {
-		cappedAny := false
-		reclaim := 0.0
-		avail := make([]int, 0, len(flexIndices))
-		for _, idx := range flexIndices {
-			maxW := table.Columns[idx].MaxWidth
-			if maxW > 0 && widths[idx] > maxW {
-				reclaim += widths[idx] - maxW
-				widths[idx] = maxW
-				cappedAny = true
-				continue
-			}
-			avail = append(avail, idx)
-		}
-		if !cappedAny || reclaim <= 0 || len(avail) == 0 {
-			break
-		}
-		extra := reclaim / float64(len(avail))
-		for _, idx := range avail {
-			widths[idx] += extra
-		}
-	}
-
-	tr.enforceNoWrapColumnWidths(table, widths, padding)
-
-	actual := 0.0
-	for _, w := range widths {
-		actual += w
-	}
-	if actual <= 0 {
-		actual = tableWidth
-	}
-
-	// If columns don't fill the table width, scale them all up proportionally
-	// so the table is always greedy and uses the full available width.
-	if actual < tableWidth && actual > 0 {
-		scale := tableWidth / actual
-		for i := range widths {
-			widths[i] *= scale
-		}
-		actual = tableWidth
-	}
-
-	return resolvedTableLayout{tableWidth: actual, padding: padding, rowHeightMin: rowHeightMin, colWidths: widths}
-}
-
-func (tr *TableRenderer) preferredColumnWidths(table *TableDef, currentWidths []float64, defaultPadding float64) []float64 {
-	preferred := append([]float64(nil), currentWidths...)
-	for _, row := range table.Rows {
-		colIdx := 0
-		for _, cell := range row.Cells {
-			if colIdx >= len(preferred) {
-				break
-			}
-			span := normalizedColspan(cell.Colspan)
-			if colIdx+span > len(preferred) {
-				break
-			}
-			required := tr.measureNoWrapCellRequiredWidth(&cell, defaultPadding)
-			if !cell.NoWrap {
-				required = math.Min(required*0.65, 420)
-			}
-			current := 0.0
-			for idx := colIdx; idx < colIdx+span; idx++ {
-				current += preferred[idx]
-			}
-			if required > current {
-				extra := (required - current) / float64(span)
-				for idx := colIdx; idx < colIdx+span; idx++ {
-					preferred[idx] += extra
-				}
-			}
-			colIdx += span
-		}
-	}
-	return preferred
-}
-
-func (tr *TableRenderer) enforceNoWrapColumnWidths(table *TableDef, widths []float64, defaultPadding float64) {
-	if table == nil || len(widths) == 0 {
-		return
-	}
-
-	// First pass: calculate required widths for each column and identify nowrap columns
-	requiredWidths := make([]float64, len(widths))
-	hasNoWrap := make([]bool, len(widths))
-
-	for _, row := range table.Rows {
-		colIdx := 0
-		for _, cell := range row.Cells {
-			if colIdx >= len(widths) {
-				break
-			}
-			span := cell.Colspan
-			if span < 1 {
-				span = 1
-			}
-			if span == 1 {
-				required := tr.measureNoWrapCellRequiredWidth(&cell, defaultPadding)
-				if required > requiredWidths[colIdx] {
-					requiredWidths[colIdx] = required
-				}
-				if cell.NoWrap {
-					hasNoWrap[colIdx] = true
-				}
-			}
-			colIdx += span
-		}
-	}
-
-	// Second pass: separate nowrap and wrapping columns
-	nowrapRequired := 0.0
-	nowrapIndices := []int{}
-	wrappingIndices := []int{}
-
-	for i := range widths {
-		if hasNoWrap[i] {
-			nowrapRequired += requiredWidths[i]
-			nowrapIndices = append(nowrapIndices, i)
-		} else {
-			wrappingIndices = append(wrappingIndices, i)
-		}
-	}
-
-	totalOriginal := 0.0
-	for _, w := range widths {
-		totalOriginal += w
-	}
-
-	if nowrapRequired <= totalOriginal {
-		remainingForWrapping := totalOriginal - nowrapRequired
-		for _, i := range nowrapIndices {
-			widths[i] = requiredWidths[i]
-		}
-		if len(wrappingIndices) > 0 {
-			wrappingOriginal := 0.0
-			for _, i := range wrappingIndices {
-				wrappingOriginal += widths[i]
-			}
-			if wrappingOriginal > 0 {
-				scale := remainingForWrapping / wrappingOriginal
-				for _, i := range wrappingIndices {
-					widths[i] *= scale
-				}
-			} else {
-				share := remainingForWrapping / float64(len(wrappingIndices))
-				for _, i := range wrappingIndices {
-					widths[i] = share
-				}
-			}
-		}
-		return
-	}
-
-	// If nowrap requirements exceed available width, prioritise nowrap columns
-	// proportionally and collapse wrapping columns.
-	if len(nowrapIndices) == 0 {
-		return
-	}
-	scale := 0.0
-	if nowrapRequired > 0 {
-		scale = totalOriginal / nowrapRequired
-	}
-	for _, i := range nowrapIndices {
-		widths[i] = requiredWidths[i] * scale
-	}
-	for _, i := range wrappingIndices {
-		widths[i] = 0
-	}
-}
-
-func (tr *TableRenderer) measureNoWrapCellRequiredWidth(cell *CellDef, defaultPadding float64) float64 {
-	if cell == nil {
-		return 0
-	}
-	topP, rightP, _, leftP := tr.resolvedCellPadding(cell, defaultPadding)
-	_ = topP
-	_, _ = tr.applyCellStyle(cell)
-
-	text := cell.Text
-	if cell.Value != nil {
-		text = tr.formatCellValue(cell)
-	}
-	maxContent := tr.maxLineWidthNoWrap(text)
-
-	if cell.SubText != "" {
-		subFace := cell.SubFontFace
-		if subFace == "" {
-			subFace = cell.FontFace
-		}
-		if subFace == "" {
-			subFace = defaultTableFontFace
-		}
-		subSize := cell.SubFontSize
-		if subSize <= 0 {
-			subSize = 7
-		}
-		tr.pdf.SetFont(normalizeTableFontFace(subFace), "", subSize)
-		if w := tr.maxLineWidthNoWrap(cell.SubText); w > maxContent {
-			maxContent = w
-		}
-	}
-
-	return maxContent + leftP + rightP
-}
-
-func (tr *TableRenderer) maxLineWidthNoWrap(text string) float64 {
-	normalized := tr.normalizeTableTextForCurrentFont(text)
-	if normalized == "" {
-		return 0
-	}
-	maxWidth := 0.0
-	for _, line := range strings.Split(normalized, "\n") {
-		if w := tr.pdf.GetStringWidth(line); w > maxWidth {
-			maxWidth = w
-		}
-	}
-	return maxWidth
-}
-
-func (tr *TableRenderer) calculateRowHeight(row *RowDef, minH, padding float64, colWidths []float64) float64 {
-	max := minH
-	for _, placement := range tableCellPlacements(row, colWidths) {
-		if h := tr.measureCellHeight(&row.Cells[placement.cellIndex], placement.width, padding); h > max {
-			max = h
-		}
-	}
-	return max
-}
-
-func (tr *TableRenderer) resolvedCellPadding(cell *CellDef, def float64) (top, right, bottom, left float64) {
-	top, right, bottom, left = def, def, def, def
-	if cell == nil {
-		return
-	}
-	if cell.PaddingTop > 0 {
-		top = cell.PaddingTop
-	}
-	if cell.PaddingRight > 0 {
-		right = cell.PaddingRight
-	}
-	if cell.PaddingBottom > 0 {
-		bottom = cell.PaddingBottom
-	}
-	if cell.PaddingLeft > 0 {
-		left = cell.PaddingLeft
-	}
-	return
-}
-
-func (tr *TableRenderer) measureCellHeight(cell *CellDef, width, padding float64) float64 {
-	topP, rightP, bottomP, leftP := tr.resolvedCellPadding(cell, padding)
-	contentWidth := math.Max(width-leftP-rightP, 1)
-	fontSize, lineHeightMul := tr.applyCellStyle(cell)
-
-	text := cell.Text
-	if cell.Value != nil {
-		text = tr.formatCellValue(cell)
-	}
-	lines := tr.wrapTextLines(text, contentWidth, cell.NoWrap)
-	lineH := fontSize * lineHeightMul
-
-	height := topP
-	if len(lines) > 0 {
-		height += float64(len(lines)) * lineH
-	}
-
-	if cell.SubText != "" {
-		subFace := cell.SubFontFace
-		if subFace == "" {
-			subFace = "Helvetica"
-		}
-		subSize := cell.SubFontSize
-		if subSize <= 0 {
-			subSize = 7
-		}
-		tr.pdf.SetFont(subFace, "", subSize)
-		subLines := tr.wrapTextLines(cell.SubText, contentWidth, cell.NoWrap)
-		subLineH := subSize * 1.2
-		if len(subLines) > 0 {
-			if len(lines) > 0 {
-				height += lineH
-			}
-			height += float64(len(subLines)) * subLineH
-		}
-	}
-
-	return height + bottomP
-}
-
 func (tr *TableRenderer) wrapTextLines(text string, width float64, noWrap bool) []string {
 	normalized := tr.normalizeTableTextForCurrentFont(text)
 	if normalized == "" {
@@ -628,7 +238,10 @@ func (tr *TableRenderer) normalizeTableTextForCurrentFont(text string) string {
 }
 
 func (tr *TableRenderer) renderCell(cell *CellDef, x, y, width, height, padding float64) {
-	if cell != nil && strings.TrimSpace(cell.Background) != "" {
+	if cell == nil {
+		return
+	}
+	if strings.TrimSpace(cell.Background) != "" {
 		r, g, b := tableHexToRGB(cell.Background)
 		tr.pdf.SetFillColor(r, g, b)
 		tr.pdf.Rect(x, y, width, height, "F")
@@ -636,69 +249,68 @@ func (tr *TableRenderer) renderCell(cell *CellDef, x, y, width, height, padding 
 
 	fontSize, lineHeightMul := tr.applyCellStyle(cell)
 
-	align := cell.Align
-	if align == "" && len(cell.Text) > 0 {
-		align = "L"
-	}
-
+	align := resolvedCellTextAlign(cell)
 	text := cell.Text
 	if cell.Value != nil {
 		text = tr.formatCellValue(cell)
 	}
 	topP, rightP, _, leftP := tr.resolvedCellPadding(cell, padding)
 	contentWidth := math.Max(width-leftP-rightP, 1)
-	lines := tr.wrapTextLines(text, contentWidth, cell.NoWrap)
-	lineH := fontSize * lineHeightMul
 	baseline := y + topP + fontSize
-
-	for _, line := range lines {
-		lx := x + leftP
-		if align == "R" {
-			lx = x + width - rightP - tr.pdf.GetStringWidth(line)
-		} else if align == "C" {
-			lx = x + leftP + (contentWidth-tr.pdf.GetStringWidth(line))/2
-		}
-		tr.pdf.Text(lx, baseline, line)
-		baseline += lineH
-	}
-
+	baseline = tr.renderCellTextLines(text, align, cell.NoWrap, x, width, leftP, rightP, contentWidth, baseline, fontSize*lineHeightMul)
 	if cell.SubText != "" {
-		subFace := cell.SubFontFace
-		if subFace == "" {
-			subFace = cell.FontFace
-		}
-		if subFace == "" {
-			subFace = defaultTableFontFace
-		}
-		subColor := cell.SubFontColor
-		if subColor == "" {
-			subColor = cell.FontColor
-		}
-		if subColor == "" {
-			subColor = "#666"
-		}
-		subSize := cell.SubFontSize
-		if subSize <= 0 {
-			subSize = math.Max(7, fontSize-3)
-		}
-		tr.pdf.SetFont(normalizeTableFontFace(subFace), "", subSize)
-		if len(subColor) >= 4 && subColor[0] == '#' {
-			r, g, b := tableHexToRGB(subColor)
-			tr.pdf.SetTextColor(r, g, b)
-		}
-		subLines := tr.wrapTextLines(cell.SubText, contentWidth, cell.NoWrap)
-		subLineH := subSize * 1.2
-		for _, sl := range subLines {
-			sx := x + leftP
-			if align == "R" {
-				sx = x + width - rightP - tr.pdf.GetStringWidth(sl)
-			} else if align == "C" {
-				sx = x + leftP + (contentWidth-tr.pdf.GetStringWidth(sl))/2
-			}
-			tr.pdf.Text(sx, baseline, sl)
-			baseline += subLineH
+		tr.renderCellSubText(cell, align, x, width, leftP, rightP, contentWidth, baseline, fontSize)
+	}
+}
+
+func resolvedCellTextAlign(cell *CellDef) string {
+	if cell.Align == "" && cell.Text != "" {
+		return "L"
+	}
+	return cell.Align
+}
+
+func (tr *TableRenderer) renderCellTextLines(text, align string, noWrap bool, x, width, left, right, contentWidth, baseline, lineHeight float64) float64 {
+	for _, line := range tr.wrapTextLines(text, contentWidth, noWrap) {
+		tr.pdf.Text(tr.alignedCellTextX(line, align, x, width, left, right, contentWidth), baseline, line)
+		baseline += lineHeight
+	}
+	return baseline
+}
+
+func (tr *TableRenderer) alignedCellTextX(text, align string, x, width, left, right, contentWidth float64) float64 {
+	switch align {
+	case "R":
+		return x + width - right - tr.pdf.GetStringWidth(text)
+	case "C":
+		return x + left + (contentWidth-tr.pdf.GetStringWidth(text))/2
+	default:
+		return x + left
+	}
+}
+
+func (tr *TableRenderer) renderCellSubText(cell *CellDef, align string, x, width, left, right, contentWidth, baseline, mainSize float64) {
+	face := firstNonEmpty(cell.SubFontFace, cell.FontFace, defaultTableFontFace)
+	color := firstNonEmpty(cell.SubFontColor, cell.FontColor, "#666")
+	size := cell.SubFontSize
+	if size <= 0 {
+		size = math.Max(7, mainSize-3)
+	}
+	tr.pdf.SetFont(normalizeTableFontFace(face), "", size)
+	if len(color) >= 4 && color[0] == '#' {
+		red, green, blue := tableHexToRGB(color)
+		tr.pdf.SetTextColor(red, green, blue)
+	}
+	tr.renderCellTextLines(cell.SubText, align, cell.NoWrap, x, width, left, right, contentWidth, baseline, size*1.2)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
 		}
 	}
+	return ""
 }
 
 func (tr *TableRenderer) applyCellStyle(cell *CellDef) (fontSize float64, lineHeightMul float64) {

@@ -31,12 +31,13 @@ Recommended layout:
 
 Keep this structure per profile to reduce ambiguity.
 
-## Selector and specificity guidance
+## Selector and source-order guidance
 
-- Keep corporate selectors low specificity.
+- Selector specificity is not calculated.
+- Within one stylesheet, later matching rules overwrite earlier mapped attributes.
 - Put profile-specific overrides in document layer.
 - Put customer exceptions only in override layer.
-- Avoid high-specificity selectors in early layers.
+- Put broad defaults before narrow selectors and explicit overrides.
 
 ## Compatibility behavior
 
@@ -58,8 +59,10 @@ This allows layering from embedded assets, local files, or generated sources.
 csspdf does not implement full browser CSS cascade semantics.
 
 Current model:
-- only mapped CSS properties are applied
-- unknown properties are ignored
+- the executable property matrix is available through `docflowpdf.SupportedCSSProperties`
+- `docflowpdf.AnalyzeCSSSupport` reports ignored properties with stable code `CSS001`
+- rendering logs `CSS001` warnings with layer, property, and selector provenance
+- rules use source order; selector specificity, `!important`, and inheritance are not a browser-compatible cascade
 - inline attributes win over stylesheet declarations
 - `!important` and native browser `@layer` semantics are not interpreted
 

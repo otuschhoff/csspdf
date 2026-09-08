@@ -96,76 +96,45 @@ func ApplyCSSDeclaration(node *html.Node, decl *css.Declaration, inlineAttrs map
 func CSSDeclarationToAttr(decl *css.Declaration) (string, string, bool) {
 	property := strings.ToLower(strings.TrimSpace(decl.Property))
 	value := strings.TrimSpace(decl.Value)
-
-	switch property {
-	case "text-align":
-		return "align", strings.ToLower(value), true
-	case "position":
-		return "position", strings.ToLower(value), true
-	case "top":
-		return "top", value, true
-	case "right":
-		return "right", value, true
-	case "bottom":
-		return "bottom", value, true
-	case "left":
-		return "left", value, true
-	case "width":
-		return "width", value, true
-	case "height":
-		return "height", value, true
-	case "fill":
-		return "fill", value, true
-	case "border":
-		return "border", value, true
-	case "border-width":
-		return "border-width", value, true
-	case "border-style":
-		return "border-style", value, true
-	case "border-color":
-		return "border-color", value, true
-	case "padding":
-		return "padding", value, true
-	case "padding-top":
-		return "padding-top", value, true
-	case "padding-right":
-		return "padding-right", value, true
-	case "padding-bottom":
-		return "padding-bottom", value, true
-	case "padding-left":
-		return "padding-left", value, true
-	case "font-family":
-		return "font-face", value, true
-	case "font-size":
-		return "font-size", value, true
-	case "color":
-		return "font-color", value, true
-	case "font-style":
-		return "font-style", value, true
-	case "font-weight":
-		if strings.EqualFold(value, "bold") || value == "700" {
-			return "font-style", "bold", true
+	if mapping, ok := cssAttributeMappings[property]; ok {
+		if mapping.lowercase {
+			value = strings.ToLower(value)
 		}
-		if strings.EqualFold(value, "normal") || value == "400" {
-			return "font-style", "normal", true
-		}
-	case "background-color":
-		return "background-color", value, true
-	case "margin-top":
-		return "margin-top", value, true
-	case "margin-bottom":
-		return "margin-bottom", value, true
-	case "break-before":
-		return "break-before", strings.ToLower(value), true
-	case "break-after":
-		return "break-after", strings.ToLower(value), true
-	case "white-space":
-		return "white-space", strings.ToLower(value), true
-	case "table-layout":
-		return "table-layout", strings.ToLower(value), true
+		return mapping.attribute, value, true
 	}
-
+	if property == "font-weight" {
+		switch strings.ToLower(value) {
+		case "bold", "700":
+			return "font-weight", "bold", true
+		case "normal", "400":
+			return "font-weight", "normal", true
+		}
+	}
 	return "", "", false
+}
+
+type cssAttributeMapping struct {
+	attribute string
+	lowercase bool
+}
+
+var cssAttributeMappings = map[string]cssAttributeMapping{
+	"text-align": {attribute: "align", lowercase: true},
+	"position":   {attribute: "position", lowercase: true},
+	"top":        {attribute: "top"}, "right": {attribute: "right"}, "bottom": {attribute: "bottom"},
+	"left": {attribute: "left"}, "width": {attribute: "width"}, "height": {attribute: "height"},
+	"fill": {attribute: "fill"}, "border": {attribute: "border"}, "border-width": {attribute: "border-width"},
+	"border-style": {attribute: "border-style"}, "border-color": {attribute: "border-color"},
+	"padding": {attribute: "padding"}, "padding-top": {attribute: "padding-top"},
+	"padding-right": {attribute: "padding-right"}, "padding-bottom": {attribute: "padding-bottom"},
+	"padding-left": {attribute: "padding-left"}, "font-family": {attribute: "font-face"},
+	"font-size": {attribute: "font-size"}, "color": {attribute: "font-color"},
+	"font-style": {attribute: "font-style"}, "background-color": {attribute: "background-color"},
+	"margin-top": {attribute: "margin-top"}, "margin-bottom": {attribute: "margin-bottom"},
+	"break-before": {attribute: "break-before", lowercase: true},
+	"break-after":  {attribute: "break-after", lowercase: true},
+	"white-space":  {attribute: "white-space", lowercase: true},
+	"table-layout": {attribute: "table-layout", lowercase: true},
 }
 
 func SetOrReplaceAttr(node *html.Node, key, value string) {

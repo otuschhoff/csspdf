@@ -98,43 +98,12 @@ func ParseHTMLDocFlow(htmlStr, cssStyle string) ([]PDFElementNode, error) {
 
 	out := make([]PDFElementNode, 0)
 	for _, child := range tmpl.ElemChildren(body) {
-		switch child.Data {
-		case "div":
-			div, err := htmlBuildSectionDiv(child)
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, div)
-		case "footer":
-			div, err := htmlBuildSectionDiv(child)
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, div)
-		case "p":
-			paragraph, err := htmlBuildParagraph(child, nil)
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, paragraph)
-		case "h1", "h2", "h3":
-			heading, err := htmlBuildHeadingWithInherited(child, nil)
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, heading)
-		case "table":
-			table, err := htmlBuildTable(child)
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, table)
-		case "img":
-			out = append(out, htmlBuildImage(child))
-		case "use-template":
-			out = append(out, htmlBuildUseTemplate(child))
-		case "create-template":
-			out = append(out, htmlBuildCreateTemplate(child))
+		element, supported, err := htmlBuildRootElement(child)
+		if err != nil {
+			return nil, err
+		}
+		if supported {
+			out = append(out, element)
 		}
 	}
 
@@ -143,6 +112,30 @@ func ParseHTMLDocFlow(htmlStr, cssStyle string) ([]PDFElementNode, error) {
 	}
 
 	return out, nil
+}
+
+func htmlBuildRootElement(node *html.Node) (PDFElementNode, bool, error) {
+	var element PDFElementNode
+	var err error
+	switch node.Data {
+	case "div", "footer":
+		element, err = htmlBuildSectionDiv(node)
+	case "p":
+		element, err = htmlBuildParagraph(node, nil)
+	case "h1", "h2", "h3":
+		element, err = htmlBuildHeadingWithInherited(node, nil)
+	case "table":
+		element, err = htmlBuildTable(node)
+	case "img":
+		element = htmlBuildImage(node)
+	case "use-template":
+		element = htmlBuildUseTemplate(node)
+	case "create-template":
+		element = htmlBuildCreateTemplate(node)
+	default:
+		return nil, false, nil
+	}
+	return element, true, err
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -155,44 +148,6 @@ func htmlSetAttrs(dst PDFElementNode, attrs []html.Attribute) {
 	}
 }
 
-// htmlNormaliseAttrKey converts HTML hyphenated attribute names to the
-// camelCase keys expected by the PDF element/rendering infrastructure.
-func htmlNormaliseAttrKey(key string) string {
-	switch key {
-	case "row-height-min":
-		return "rowHeightMin"
-	case "padding-top":
-		return "paddingTop"
-	case "padding-right":
-		return "paddingRight"
-	case "padding-bottom":
-		return "paddingBottom"
-	case "padding-left":
-		return "paddingLeft"
-	case "background-color":
-		return "backgroundColor"
-	case "border-width":
-		return "borderWidth"
-	case "border-style":
-		return "borderStyle"
-	case "border-color":
-		return "borderColor"
-	case "margin-top":
-		return "marginTop"
-	case "margin-bottom":
-		return "marginBottom"
-	case "break-before":
-		return "breakBefore"
-	case "break-after":
-		return "breakAfter"
-	case "white-space":
-		return "whiteSpace"
-	case "table-layout":
-		return "tableLayout"
-	}
-	return key
-}
-
 func htmlBuildSectionDiv(n *html.Node) (*ElemDiv, error) {
 	return htmlBuildSectionDivWithInherited(n, nil)
 }
@@ -203,72 +158,84 @@ func htmlBuildSectionDivWithInherited(n *html.Node, inherited *PDFTextStyle) (*E
 	baseStyle := mergeDeclaredTextStyles(inherited, htmlBuildSpan(n).Style)
 
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		if child.Type == html.TextNode {
-			text := tmpl.NormaliseInlineTextNode(child.Data)
-			if text != "" {
-				div.Add(&PDFTextNode{Text: text, Style: cloneTextStyle(baseStyle)})
-			}
-			continue
-		}
-		if child.Type != html.ElementNode {
-			continue
-		}
-
-		switch child.Data {
-		case "span":
-			div.Add(htmlBuildSpanWithInherited(child, baseStyle))
-		case "currency-value":
-			elem, err := htmlBuildCurrencyValue(child)
-			if err != nil {
-				return nil, wrapHTMLNodeError(child, err)
-			}
-			div.Add(elem)
-		case "date-value":
-			elem, err := htmlBuildDateValue(child)
-			if err != nil {
-				return nil, wrapHTMLNodeError(child, err)
-			}
-			div.Add(elem)
-		case "duration-value":
-			elem, err := htmlBuildDurationValue(child)
-			if err != nil {
-				return nil, wrapHTMLNodeError(child, err)
-			}
-			div.Add(elem)
-		case "man-days-value":
-			elem, err := htmlBuildManDaysValue(child)
-			if err != nil {
-				return nil, wrapHTMLNodeError(child, err)
-			}
-			div.Add(elem)
-		case "img":
-			div.Add(htmlBuildImage(child))
-		case "use-template":
-			div.Add(htmlBuildUseTemplate(child))
-		case "div":
-			nested, err := htmlBuildSectionDivWithInherited(child, baseStyle)
-			if err != nil {
-				return nil, err
-			}
-			div.AddLine(nested)
-		case "p":
-			paragraph, err := htmlBuildParagraph(child, baseStyle)
-			if err != nil {
-				return nil, err
-			}
-			div.AddLine(paragraph)
-		case "h1", "h2", "h3":
-			heading, err := htmlBuildHeadingWithInherited(child, baseStyle)
-			if err != nil {
-				return nil, err
-			}
-			div.AddLine(heading)
-		case "br":
-			div.Add(NewElemBr())
+		if err := htmlAppendSectionChild(div, child, baseStyle); err != nil {
+			return nil, err
 		}
 	}
 
 	return div, nil
+}
+
+func htmlAppendSectionChild(div *ElemDiv, child *html.Node, style *PDFTextStyle) error {
+	if child.Type == html.TextNode {
+		if text := tmpl.NormaliseInlineTextNode(child.Data); text != "" {
+			div.Add(&PDFTextNode{Text: text, Style: cloneTextStyle(style)})
+		}
+		return nil
+	}
+	if child.Type != html.ElementNode {
+		return nil
+	}
+	if element, supported, err := htmlBuildValueElement(child); supported {
+		if err != nil {
+			return wrapHTMLNodeError(child, err)
+		}
+		div.Add(element)
+		return nil
+	}
+	switch child.Data {
+	case "span":
+		div.Add(htmlBuildSpanWithInherited(child, style))
+	case "img":
+		div.Add(htmlBuildImage(child))
+	case "use-template":
+		div.Add(htmlBuildUseTemplate(child))
+	case "br":
+		div.Add(NewElemBr())
+	default:
+		element, supported, err := htmlBuildNestedBlock(child, style)
+		if err != nil {
+			return err
+		}
+		if supported {
+			div.AddLine(element)
+		}
+	}
+	return nil
+}
+
+func htmlBuildNestedBlock(node *html.Node, style *PDFTextStyle) (PDFElementNode, bool, error) {
+	var element PDFElementNode
+	var err error
+	switch node.Data {
+	case "div":
+		element, err = htmlBuildSectionDivWithInherited(node, style)
+	case "p":
+		element, err = htmlBuildParagraph(node, style)
+	case "h1", "h2", "h3":
+		element, err = htmlBuildHeadingWithInherited(node, style)
+	default:
+		return nil, false, nil
+	}
+	return element, true, err
+}
+
+func htmlBuildValueElement(node *html.Node) (PDFElementNode, bool, error) {
+	var element PDFElementNode
+	var err error
+	switch node.Data {
+	case "currency-value":
+		element, err = htmlBuildCurrencyValue(node)
+	case "date-value":
+		element, err = htmlBuildDateValue(node)
+	case "duration-value":
+		element, err = htmlBuildDurationValue(node)
+	case "man-days-value":
+		element, err = htmlBuildManDaysValue(node)
+	default:
+		return nil, false, nil
+	}
+	return element, true, err
 }
 
 // htmlBuildIntroDiv builds a generic section div from an HTML node.
@@ -352,54 +319,11 @@ func htmlBuildHeadingWithInherited(n *html.Node, inherited *PDFTextStyle) (PDFEl
 	hasInline := false
 
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		switch child.Type {
-		case html.TextNode:
-			text := tmpl.NormaliseInlineTextNode(child.Data)
-			if text == "" {
-				continue
-			}
-			heading.Add(&PDFTextNode{Text: text, Style: cloneTextStyle(baseStyle)})
-			hasInline = true
-		case html.ElementNode:
-			switch child.Data {
-			case "span":
-				heading.Add(htmlBuildSpanWithInherited(child, baseStyle))
-				hasInline = true
-			case "currency-value":
-				elem, err := htmlBuildCurrencyValue(child)
-				if err != nil {
-					return nil, err
-				}
-				heading.Add(elem)
-				hasInline = true
-			case "date-value":
-				elem, err := htmlBuildDateValue(child)
-				if err != nil {
-					return nil, err
-				}
-				heading.Add(elem)
-				hasInline = true
-			case "duration-value":
-				elem, err := htmlBuildDurationValue(child)
-				if err != nil {
-					return nil, err
-				}
-				heading.Add(elem)
-				hasInline = true
-			case "man-days-value":
-				elem, err := htmlBuildManDaysValue(child)
-				if err != nil {
-					return nil, err
-				}
-				heading.Add(elem)
-				hasInline = true
-			case "img":
-				heading.Add(htmlBuildImage(child))
-				hasInline = true
-			case "br":
-				heading.Add(NewElemBr())
-			}
+		added, err := htmlAppendHeadingChild(heading, child, baseStyle)
+		if err != nil {
+			return nil, err
 		}
+		hasInline = hasInline || added
 	}
 
 	if !hasInline {
@@ -412,53 +336,46 @@ func htmlBuildHeadingWithInherited(n *html.Node, inherited *PDFTextStyle) (PDFEl
 	return heading, nil
 }
 
+func htmlAppendHeadingChild(heading PDFElementNode, child *html.Node, style *PDFTextStyle) (bool, error) {
+	if child.Type == html.TextNode {
+		text := tmpl.NormaliseInlineTextNode(child.Data)
+		if text == "" {
+			return false, nil
+		}
+		heading.Add(&PDFTextNode{Text: text, Style: cloneTextStyle(style)})
+		return true, nil
+	}
+	if child.Type != html.ElementNode {
+		return false, nil
+	}
+	if element, supported, err := htmlBuildValueElement(child); supported {
+		if err != nil {
+			return false, err
+		}
+		heading.Add(element)
+		return true, nil
+	}
+	switch child.Data {
+	case "span":
+		heading.Add(htmlBuildSpanWithInherited(child, style))
+		return true, nil
+	case "img":
+		heading.Add(htmlBuildImage(child))
+		return true, nil
+	case "br":
+		heading.Add(NewElemBr())
+	}
+	return false, nil
+}
+
 func htmlBuildParagraph(n *html.Node, inherited *PDFTextStyle) (*ElemDiv, error) {
 	paragraph := NewElemDiv()
 	htmlSetAttrs(paragraph, n.Attr)
 
 	baseStyle := mergeDeclaredTextStyles(inherited, htmlBuildSpan(n).Style)
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		switch child.Type {
-		case html.TextNode:
-			text := tmpl.NormaliseInlineTextNode(child.Data)
-			if text != "" {
-				paragraph.Add(&PDFTextNode{Text: text, Style: cloneTextStyle(baseStyle)})
-			}
-		case html.ElementNode:
-			switch child.Data {
-			case "span":
-				paragraph.Add(htmlBuildSpanWithInherited(child, baseStyle))
-			case "currency-value":
-				elem, err := htmlBuildCurrencyValue(child)
-				if err != nil {
-					return nil, wrapHTMLNodeError(child, err)
-				}
-				paragraph.Add(elem)
-			case "date-value":
-				elem, err := htmlBuildDateValue(child)
-				if err != nil {
-					return nil, wrapHTMLNodeError(child, err)
-				}
-				paragraph.Add(elem)
-			case "duration-value":
-				elem, err := htmlBuildDurationValue(child)
-				if err != nil {
-					return nil, wrapHTMLNodeError(child, err)
-				}
-				paragraph.Add(elem)
-			case "man-days-value":
-				elem, err := htmlBuildManDaysValue(child)
-				if err != nil {
-					return nil, wrapHTMLNodeError(child, err)
-				}
-				paragraph.Add(elem)
-			case "img":
-				paragraph.Add(htmlBuildImage(child))
-			case "br":
-				paragraph.Add(NewElemBr())
-			case "use-template":
-				paragraph.Add(htmlBuildUseTemplate(child))
-			}
+		if err := htmlAppendParagraphChild(paragraph, child, baseStyle); err != nil {
+			return nil, err
 		}
 	}
 
@@ -470,6 +387,36 @@ func htmlBuildParagraph(n *html.Node, inherited *PDFTextStyle) (*ElemDiv, error)
 	}
 
 	return paragraph, nil
+}
+
+func htmlAppendParagraphChild(paragraph *ElemDiv, child *html.Node, style *PDFTextStyle) error {
+	if child.Type == html.TextNode {
+		if text := tmpl.NormaliseInlineTextNode(child.Data); text != "" {
+			paragraph.Add(&PDFTextNode{Text: text, Style: cloneTextStyle(style)})
+		}
+		return nil
+	}
+	if child.Type != html.ElementNode {
+		return nil
+	}
+	if element, supported, err := htmlBuildValueElement(child); supported {
+		if err != nil {
+			return wrapHTMLNodeError(child, err)
+		}
+		paragraph.Add(element)
+		return nil
+	}
+	switch child.Data {
+	case "span":
+		paragraph.Add(htmlBuildSpanWithInherited(child, style))
+	case "img":
+		paragraph.Add(htmlBuildImage(child))
+	case "br":
+		paragraph.Add(NewElemBr())
+	case "use-template":
+		paragraph.Add(htmlBuildUseTemplate(child))
+	}
+	return nil
 }
 
 func wrapHTMLNodeError(n *html.Node, err error) error {
@@ -491,255 +438,6 @@ func htmlNodeSnippet(n *html.Node) string {
 	return snippet
 }
 
-// ─── table ───────────────────────────────────────────────────────────────────
-
-func htmlBuildTable(n *html.Node) (*ElemTable, error) {
-	table := NewElemTable()
-	htmlSetAttrs(table, n.Attr)
-
-	for _, child := range tmpl.ElemChildren(n) {
-		switch child.Data {
-		case "colgroup":
-			cg, err := htmlBuildColgroup(child)
-			if err != nil {
-				return nil, err
-			}
-			table.Add(cg)
-		case "thead", "tbody":
-			section, err := htmlBuildSection(child)
-			if err != nil {
-				return nil, err
-			}
-			table.Add(section)
-		}
-	}
-	return table, nil
-}
-
-// ─── colgroup / col ──────────────────────────────────────────────────────────
-
-func htmlBuildColgroup(n *html.Node) (*ElemColgroup, error) {
-	cg := NewElemColgroup()
-	for _, child := range tmpl.ElemChildren(n) {
-		if child.Data != "col" {
-			continue
-		}
-		col := NewElemCol()
-		htmlSetAttrs(col, child.Attr)
-		cg.Add(col)
-	}
-	return cg, nil
-}
-
-// ─── thead / tbody ───────────────────────────────────────────────────────────
-
-func htmlBuildSection(n *html.Node) (PDFElementNode, error) {
-	var section PDFElementNode
-	switch n.Data {
-	case "thead":
-		section = NewElemThead()
-	case "tbody":
-		section = NewElemTbody()
-	default:
-		return nil, fmt.Errorf("unsupported table section: <%s>", n.Data)
-	}
-
-	for _, child := range tmpl.ElemChildren(n) {
-		if child.Data != "tr" {
-			continue
-		}
-		tr, err := htmlBuildTr(child)
-		if err != nil {
-			return nil, err
-		}
-		section.Add(tr)
-	}
-	return section, nil
-}
-
-// ─── tr ──────────────────────────────────────────────────────────────────────
-
-func htmlBuildTr(n *html.Node) (*ElemTr, error) {
-	tr := NewElemTr()
-	htmlSetAttrs(tr, n.Attr)
-
-	for _, child := range tmpl.ElemChildren(n) {
-		if child.Data != "td" && child.Data != "th" {
-			continue
-		}
-		td, err := htmlBuildTableCell(child)
-		if err != nil {
-			return nil, err
-		}
-		tr.Add(td)
-	}
-	return tr, nil
-}
-
-// ─── td / th ─────────────────────────────────────────────────────────────────
-
-// htmlBuildTableCell converts a <td> or <th> HTML element into an ElemTd/ElemTh.
-// Children are processed in source order: the first non-empty child uses Add
-// (inline), every subsequent child uses AddLine (line break before it).
-func htmlBuildTableCell(n *html.Node) (PDFElementNode, error) {
-	var cell PDFElementNode
-	switch n.Data {
-	case "td":
-		cell = NewElemTd()
-	case "th":
-		cell = NewElemTh()
-	default:
-		return nil, fmt.Errorf("unsupported table cell element: <%s>", n.Data)
-	}
-	htmlSetAttrs(cell, n.Attr)
-
-	first := true
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		node, err := htmlBuildTdChild(c)
-		if err != nil {
-			return nil, err
-		}
-		if node == nil {
-			continue
-		}
-		if first {
-			cell.Add(node)
-			first = false
-		} else {
-			cell.AddLine(node)
-		}
-	}
-	return cell, nil
-}
-
-// htmlBuildTdChild maps a single child node of a <td> to a PDFNode.
-// Whitespace-only text nodes and unrecognised elements return nil.
-func htmlBuildTdChild(c *html.Node) (PDFNode, error) {
-	switch c.Type {
-	case html.TextNode:
-		text := strings.TrimSpace(c.Data)
-		if text == "" {
-			return nil, nil
-		}
-		return &PDFTextNode{Text: text}, nil
-
-	case html.ElementNode:
-		switch c.Data {
-		case "br":
-			return NewElemBr(), nil
-		case "span":
-			return htmlBuildSpan(c), nil
-		case "ul":
-			return htmlBuildUnorderedList(c), nil
-		case "currency-value":
-			return htmlBuildCurrencyValue(c)
-		case "date-value":
-			return htmlBuildDateValue(c)
-		case "duration-value":
-			return htmlBuildDurationValue(c)
-		case "man-days-value":
-			return htmlBuildManDaysValue(c)
-		}
-	}
-	return nil, nil
-}
-
-func htmlBuildUnorderedList(n *html.Node) *PDFTextNode {
-	items := make([]string, 0)
-	var itemStyle *PDFTextStyle
-
-	for _, child := range tmpl.ElemChildren(n) {
-		if child.Data != "li" {
-			continue
-		}
-
-		itemText := ""
-		for c := child.FirstChild; c != nil; c = c.NextSibling {
-			if c.Type != html.ElementNode {
-				continue
-			}
-			if c.Data == "span" {
-				span := htmlBuildSpan(c)
-				itemText = strings.TrimSpace(span.Text)
-				if itemStyle == nil && span.Style != nil {
-					itemStyle = span.Style
-				}
-				break
-			}
-		}
-
-		if itemText == "" {
-			itemText = strings.TrimSpace(tmpl.CollectText(child))
-		}
-		itemText = strings.TrimPrefix(itemText, "- ")
-		itemText = strings.TrimSpace(itemText)
-		if itemText == "" {
-			continue
-		}
-
-		items = append(items, "• "+itemText)
-	}
-
-	if len(items) == 0 {
-		return nil
-	}
-
-	return &PDFTextNode{Text: strings.Join(items, "\n"), Style: itemStyle}
-}
-
-// ─── <span> → PDFTextNode ────────────────────────────────────────────────────
-
-// htmlBuildSpan converts a <span> to a PDFTextNode, reading font-style,
-// font-face, font-size, font-color, and align attributes into PDFTextStyle.
-// If none of the style attributes are present the style is left nil.
-func htmlBuildSpan(n *html.Node) *PDFTextNode {
-	style := &PDFTextStyle{}
-	for _, a := range n.Attr {
-		switch a.Key {
-		case "font-style":
-			style.FontStyle = htmlNormaliseFontStyle(a.Val)
-			style.FontStyleSet = true
-		case "font-face":
-			style.FontFace = a.Val
-		case "font-size":
-			if f, err := strconv.ParseFloat(a.Val, 64); err == nil {
-				style.FontSize = f
-			}
-		case "font-color":
-			style.FontColor = a.Val
-		case "align":
-			style.Align = htmlNormaliseTextAlign(a.Val)
-		case "background-color", "backgroundColor":
-			style.BackgroundColor = strings.TrimSpace(a.Val)
-		case "border-color", "borderColor":
-			style.BorderColor = strings.TrimSpace(a.Val)
-		case "border-style", "borderStyle":
-			style.BorderStyle = strings.ToLower(strings.TrimSpace(a.Val))
-		case "border-width", "borderWidth":
-			if f, ok := tmpl.ParseLengthValue(a.Val); ok {
-				style.BorderWidth = f
-			}
-		case "border":
-			bw, bs, bc := tmpl.ParseBorderShorthand(a.Val)
-			if bw > 0 {
-				style.BorderWidth = bw
-			}
-			if bs != "" {
-				style.BorderStyle = bs
-			}
-			if bc != "" {
-				style.BorderColor = bc
-			}
-		}
-	}
-	if style.FontFace == "" && style.FontStyle == "" && style.FontSize == 0 &&
-		style.FontColor == "" && style.Align == "" && style.BackgroundColor == "" &&
-		style.BorderColor == "" && style.BorderStyle == "" && style.BorderWidth == 0 && !style.FontStyleSet {
-		style = nil
-	}
-	return &PDFTextNode{Text: tmpl.CollectText(n), Style: style}
-}
-
 func htmlBuildSpanWithInherited(n *html.Node, inherited *PDFTextStyle) *PDFTextNode {
 	span := htmlBuildSpan(n)
 	span.Style = mergeDeclaredTextStyles(inherited, span.Style)
@@ -753,56 +451,55 @@ func mergeDeclaredTextStyles(base, override *PDFTextStyle) *PDFTextStyle {
 
 	merged := PDFTextStyle{}
 	if base != nil {
-		merged.FontFace = base.FontFace
-		merged.FontStyle = base.FontStyle
-		merged.FontStyleSet = base.FontStyleSet
-		merged.FontSize = base.FontSize
-		merged.FontColor = base.FontColor
-		merged.Align = base.Align
-		merged.LineHeight = base.LineHeight
+		applyBaseTextStyle(&merged, base)
 	}
 	if override != nil {
-		if override.FontFace != "" {
-			merged.FontFace = override.FontFace
-		}
-		if override.FontStyleSet {
-			merged.FontStyle = override.FontStyle
-			merged.FontStyleSet = true
-		}
-		if override.FontSize > 0 {
-			merged.FontSize = override.FontSize
-		}
-		if override.FontColor != "" {
-			merged.FontColor = override.FontColor
-		}
-		if override.Align != "" {
-			merged.Align = override.Align
-		}
-		if override.LineHeight > 0 {
-			merged.LineHeight = override.LineHeight
-		}
-		if override.BackgroundColor != "" {
-			merged.BackgroundColor = override.BackgroundColor
-		}
-		if override.BorderColor != "" {
-			merged.BorderColor = override.BorderColor
-		}
-		if override.BorderStyle != "" {
-			merged.BorderStyle = override.BorderStyle
-		}
-		if override.BorderWidth > 0 {
-			merged.BorderWidth = override.BorderWidth
-		}
+		applyOverrideTextStyle(&merged, override)
 	}
 
-	if merged.FontFace == "" && merged.FontStyle == "" && merged.FontSize == 0 &&
-		merged.FontColor == "" && merged.Align == "" && merged.LineHeight == 0 &&
-		merged.BackgroundColor == "" && merged.BorderColor == "" && merged.BorderStyle == "" &&
-		merged.BorderWidth == 0 && !merged.FontStyleSet {
+	if emptyTextStyle(&merged) {
 		return nil
 	}
 
 	return &merged
+}
+
+func applyBaseTextStyle(target, source *PDFTextStyle) {
+	target.FontFace, target.FontStyle, target.FontStyleSet = source.FontFace, source.FontStyle, source.FontStyleSet
+	target.FontSize, target.FontColor, target.Align, target.LineHeight = source.FontSize, source.FontColor, source.Align, source.LineHeight
+}
+
+func applyOverrideTextStyle(target, source *PDFTextStyle) {
+	if source.FontFace != "" {
+		target.FontFace = source.FontFace
+	}
+	if source.FontStyleSet {
+		target.FontStyle, target.FontStyleSet = source.FontStyle, true
+	}
+	if source.FontSize > 0 {
+		target.FontSize = source.FontSize
+	}
+	if source.FontColor != "" {
+		target.FontColor = source.FontColor
+	}
+	if source.Align != "" {
+		target.Align = source.Align
+	}
+	if source.LineHeight > 0 {
+		target.LineHeight = source.LineHeight
+	}
+	if source.BackgroundColor != "" {
+		target.BackgroundColor = source.BackgroundColor
+	}
+	if source.BorderColor != "" {
+		target.BorderColor = source.BorderColor
+	}
+	if source.BorderStyle != "" {
+		target.BorderStyle = source.BorderStyle
+	}
+	if source.BorderWidth > 0 {
+		target.BorderWidth = source.BorderWidth
+	}
 }
 
 func cloneTextStyle(style *PDFTextStyle) *PDFTextStyle {

@@ -270,6 +270,26 @@ func TestParseHTMLDocFlow_H1FontWeightNormalClearsDefaultBold(t *testing.T) {
 	}
 }
 
+func TestParseHTMLDocFlow_ComposesBoldAndItalicIndependently(t *testing.T) {
+	for _, css := range []string{
+		`span { font-style: italic; font-weight: bold; }`,
+		`span { font-weight: bold; font-style: italic; }`,
+	} {
+		elements, err := ParseHTMLDocFlow(`<div><span>combined</span></div>`, css)
+		if err != nil {
+			t.Fatalf("ParseHTMLDocFlow returned error: %v", err)
+		}
+		children := elements[0].ElementChildren()
+		if len(children) != 1 {
+			t.Fatalf("expected one styled child, got %d", len(children))
+		}
+		text, ok := children[0].(*PDFTextNode)
+		if !ok || text.Style == nil || text.Style.FontStyle != "IB" {
+			t.Fatalf("expected independent italic+bold style IB, got %#v", children[0])
+		}
+	}
+}
+
 func TestParseHTMLDocFlow_IncludesTopLevelParagraph(t *testing.T) {
 	elements, err := ParseHTMLDocFlow("<p id=\"lead\">Hello paragraph</p>", "")
 	if err != nil {

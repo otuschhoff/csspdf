@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/otuschhoff/csspdf/internal/flowrender"
-	templateload "github.com/otuschhoff/csspdf/internal/templating"
 )
 
 func TestRenderToBytesConfinedRootRendersDefaults(t *testing.T) {
@@ -358,6 +357,6 @@ func TestEmitArtifactContextRejectsCancellationBeforeOutput(t *testing.T) {
 	}
 }
 
-func pageMargins(value float64) templateload.PageMargins {
-	return templateload.PageMargins{Top: value, Right: value, Bottom: value, Left: value}
+func pageMargins(value float64) PageMargins {
+	return PageMargins{Top: value, Right: value, Bottom: value, Left: value}
 }

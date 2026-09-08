@@ -27,6 +27,8 @@ type ImageResource struct {
 
 type ImageLoader func(name string) (ImageResource, error)
 
+type TemplateFactory func(pdf *gofpdf.Fpdf) gofpdf.Template
+
 // LayoutOptions controls optional renderer initialization behavior.
 type LayoutOptions struct {
 	FontRegistrations  []FontRegistration
@@ -35,6 +37,7 @@ type LayoutOptions struct {
 	StrictRenderErrors bool
 	Context            context.Context
 	MaxPages           int
+	TemplateFactories  map[string]TemplateFactory
 }
 
 func loadDefaultFontSet(pdf *gofpdf.Fpdf, fonts []FontRegistration) error {

@@ -74,8 +74,31 @@ func (b *artifactBuilder) prepareAssets() (Assets, error) {
 		return Assets{}, err
 	}
 	b.warnResolvedCSS(assets)
+	if err := b.warnUnsupportedCSS(assets); err != nil {
+		return Assets{}, err
+	}
 	assets.CSS = effectiveCSS
 	return assets, nil
+}
+
+func (b *artifactBuilder) warnUnsupportedCSS(assets Assets) error {
+	for _, layer := range assets.CSSLayers {
+		if err := b.warnUnsupportedCSSSource(layer.CSS, layer.Name); err != nil {
+			return err
+		}
+	}
+	return b.warnUnsupportedCSSSource(assets.CSS, "legacy")
+}
+
+func (b *artifactBuilder) warnUnsupportedCSSSource(cssText, layer string) error {
+	diagnostics, err := AnalyzeCSSSupport(cssText)
+	if err != nil {
+		return &DiagnosticError{Code: DiagnosticTemplate, Stage: "css-analysis", Layer: layer, Err: err}
+	}
+	for _, diagnostic := range diagnostics {
+		b.warnf("%s layer=%s property=%s selector=%s", diagnostic.Code, layer, diagnostic.Property, diagnostic.Selector)
+	}
+	return nil
 }
 
 func (b *artifactBuilder) warnResolvedCSS(assets Assets) {
@@ -96,7 +119,7 @@ func (b *artifactBuilder) prepareLayout(assets Assets, fonts []pdfrender.FontReg
 	}
 	locale := defaultString(b.input.DefaultLocale, DefaultLocale)
 	currencyCode := defaultString(b.input.DefaultCurrencyCode, DefaultCurrencyCode)
-	defaults := templateload.PageSettings{Width: width, Height: height, Margins: b.input.DefaultMargins}
+	defaults := templateload.PageSettings{Width: width, Height: height, Margins: toInternalPageMargins(b.input.DefaultMargins)}
 	defaultPage, firstPage, err := templateload.ParseCSSPageSettings(assets.CSS, defaults, templateload.ParseLengthValue)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse @page settings from template CSS: %w", err)
@@ -110,8 +133,12 @@ func (b *artifactBuilder) prepareLayout(assets Assets, fonts []pdfrender.FontReg
 	return pdfrender.NewLayoutPDFWithOptions(defaultPage, firstPage, i18nInst, format.New(i18nInst, currencyCode), pdfrender.LayoutOptions{
 		FontRegistrations: fonts, ImageSearchDirs: resolveImageSearchDirs(b.input),
 		ImageLoader: confinedImageLoader(b.ctx, b.input, b.limits), StrictRenderErrors: !b.input.AllowPartialRender,
-		Context: b.ctx, MaxPages: b.limits.Pages,
+		Context: b.ctx, MaxPages: b.limits.Pages, TemplateFactories: legacyProfileTemplateFactories(),
 	})
+}
+
+func toInternalPageMargins(margins PageMargins) templateload.PageMargins {
+	return templateload.PageMargins{Top: margins.Top, Right: margins.Right, Bottom: margins.Bottom, Left: margins.Left}
 }
 
 func defaultString(value, fallback string) string {

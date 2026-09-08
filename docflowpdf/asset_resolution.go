@@ -1,6 +1,10 @@
 package docflowpdf
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"strings"
+)
 
 type assetInputResolver struct {
 	ctx      context.Context
@@ -60,7 +64,7 @@ func (r *assetInputResolver) resolveHTMLLayers(inputs []HTMLLayerInput) ([]HTMLL
 	for idx, input := range inputs {
 		layer, skipped, err := input.resolve(r.ctx, r.resolver, r.maxBytes, idx)
 		if err != nil {
-			return nil, err
+			return nil, &DiagnosticError{Code: diagnosticCode(err, DiagnosticAsset), Stage: "html-layer", Layer: layerInputName(input.Name, idx), Err: err}
 		}
 		if !skipped {
 			layers = append(layers, layer)
@@ -78,13 +82,20 @@ func (r *assetInputResolver) resolveCSS(input AssetInput) (string, []CSSLayer, e
 	for idx, layerInput := range input.CSSLayers {
 		layer, skipped, layerErr := layerInput.resolve(r.ctx, r.resolver, r.maxBytes, idx)
 		if layerErr != nil {
-			return "", nil, layerErr
+			return "", nil, &DiagnosticError{Code: diagnosticCode(layerErr, DiagnosticAsset), Stage: "css-layer", Layer: layerInputName(layerInput.Name, idx), Err: layerErr}
 		}
 		if !skipped {
 			layers = append(layers, layer)
 		}
 	}
 	return css, layers, nil
+}
+
+func layerInputName(name string, index int) string {
+	if trimmed := strings.TrimSpace(name); trimmed != "" {
+		return trimmed
+	}
+	return fmt.Sprintf("layer-%d", index+1)
 }
 
 func (r *assetInputResolver) resolveFlow(source JSONSource, html string, layers []HTMLLayer) (Flow, error) {

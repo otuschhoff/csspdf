@@ -48,7 +48,17 @@ func DefaultTemplateFuncMapWithContext(ctx FuncContext) htmltmpl.FuncMap {
 		nowFn = time.Now
 	}
 	currency := resolveCurrencyMeta(ctx.DefaultCurrencyCode)
+	funcs := dateTemplateFuncs(ctx, nowFn)
+	for name, function := range aggregateTemplateFuncs() {
+		funcs[name] = function
+	}
+	for name, function := range currencyTemplateFuncs(currency) {
+		funcs[name] = function
+	}
+	return funcs
+}
 
+func dateTemplateFuncs(ctx FuncContext, nowFn func() time.Time) htmltmpl.FuncMap {
 	return htmltmpl.FuncMap{
 		"now": func() time.Time {
 			return nowFn()
@@ -110,6 +120,11 @@ func DefaultTemplateFuncMapWithContext(ctx FuncContext) htmltmpl.FuncMap {
 			}
 			return strings.TrimSpace(strings.Join([]string{strconv.Itoa(week), strconv.Itoa(weekday)}, "."))
 		},
+	}
+}
+
+func aggregateTemplateFuncs() htmltmpl.FuncMap {
+	return htmltmpl.FuncMap{
 		"sumNumbers": func(rows any, key string) float64 {
 			items, ok := rows.([]any)
 			if !ok {
@@ -125,6 +140,11 @@ func DefaultTemplateFuncMapWithContext(ctx FuncContext) htmltmpl.FuncMap {
 			}
 			return total
 		},
+	}
+}
+
+func currencyTemplateFuncs(currency currencyMeta) htmltmpl.FuncMap {
+	return htmltmpl.FuncMap{
 		"currency": func(attribute ...string) string {
 			if len(attribute) == 0 {
 				return currency.Code

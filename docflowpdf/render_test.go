@@ -916,6 +916,54 @@ func TestResolveFontRegistrations_UsesBaseDirFontsWhenNoOverride(t *testing.T) {
 	}
 }
 
+func TestResolveFontRegistrations_FallsBackToParentFonts(t *testing.T) {
+	root := t.TempDir()
+	baseDir := filepath.Join(root, "profile")
+	fontsDir := filepath.Join(root, "fonts")
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(fontsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	fontPath := filepath.Join(fontsDir, "ParentFont.ttf")
+	if err := os.WriteFile(fontPath, []byte("dummy"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	registrations, err := resolveFontRegistrations(RenderInput{AssetBaseDir: baseDir})
+	if err != nil {
+		t.Fatalf("resolveFontRegistrations returned error: %v", err)
+	}
+	if len(registrations) != 1 || registrations[0].Family != "ParentFont" || registrations[0].Sources[0] != fontPath {
+		t.Fatalf("unexpected parent font registrations: %#v", registrations)
+	}
+}
+
+func TestResolveFontRegistrations_FallsBackToGrandparentFonts(t *testing.T) {
+	root := t.TempDir()
+	baseDir := filepath.Join(root, "profiles", "invoice")
+	fontsDir := filepath.Join(root, "fonts")
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(fontsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	fontPath := filepath.Join(fontsDir, "GrandparentFont.ttf")
+	if err := os.WriteFile(fontPath, []byte("dummy"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	registrations, err := resolveFontRegistrations(RenderInput{AssetBaseDir: baseDir})
+	if err != nil {
+		t.Fatalf("resolveFontRegistrations returned error: %v", err)
+	}
+	if len(registrations) != 1 || registrations[0].Family != "GrandparentFont" || registrations[0].Sources[0] != fontPath {
+		t.Fatalf("unexpected grandparent font registrations: %#v", registrations)
+	}
+}
+
 func TestResolveFontRegistrations_PrefersExplicitOverrides(t *testing.T) {
 	overrides := []FontRegistration{{Family: "Override", Sources: []string{"/tmp/override.ttf"}}}
 	regs, err := resolveFontRegistrations(RenderInput{AssetBaseDir: t.TempDir(), FontRegistrations: overrides})
@@ -1103,7 +1151,7 @@ func TestRenderI18nTemplateNode_FailsOnMissingSourceReference(t *testing.T) {
 	}
 }
 
-func TestRenderToBytes_I18nMacroErrorIncludesFileAndHighlightedToken(t *testing.T) {
+func TestRenderToBytes_I18nMacroErrorIsStructuredAndRedacted(t *testing.T) {
 	baseDir := t.TempDir()
 	html := `
 {{define "doc"}}<div id="subject">{{.i18n.invoiceSubject}}</div>{{end}}
@@ -1136,10 +1184,14 @@ func TestRenderToBytes_I18nMacroErrorIncludesFileAndHighlightedToken(t *testing.
 	if !strings.Contains(errText, "i18n macro expansion failed") {
 		t.Fatalf("expected i18n macro expansion error, got %v", err)
 	}
-	if !strings.Contains(errText, "i18n.json") {
-		t.Fatalf("expected error to include i18n source file path, got %v", err)
+	var diagnosticErr *DiagnosticError
+	if !errors.As(err, &diagnosticErr) {
+		t.Fatalf("expected structured diagnostic, got %T: %v", err, err)
 	}
-	if !strings.Contains(errText, "{{.Source.Order.ID}}") {
-		t.Fatalf("expected error to highlight missing token, got %v", err)
+	if diagnosticErr.Code != DiagnosticTemplate || diagnosticErr.Stage != "i18n-template" || diagnosticErr.Section != "doc" {
+		t.Fatalf("unexpected diagnostic provenance: %+v", diagnosticErr)
+	}
+	if strings.Contains(errText, baseDir) || strings.Contains(errText, "Invoice {{.Source.Invoice.ID}}") || strings.Contains(errText, "\x1b[") {
+		t.Fatalf("diagnostic leaked source details or ANSI styling: %q", errText)
 	}
 }

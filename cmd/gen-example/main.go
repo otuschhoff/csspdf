@@ -196,7 +196,7 @@ func runInvoice(programName string, args []string) int {
 		PageFormat:      *pageFormat,
 		PageOrientation: *pageOrientation,
 	}); err != nil {
-		fmt.Fprintf(os.Stderr, "Error rendering invoice PDF: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error rendering invoice PDF: %s\n", formatCommandError(err))
 		return 1
 	}
 
@@ -257,7 +257,7 @@ func runLayered(programName string, args []string) int {
 	}
 
 	if err := renderLayeredPDF(*outputPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Error rendering layered example PDF: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error rendering layered example PDF: %s\n", formatCommandError(err))
 		return 1
 	}
 

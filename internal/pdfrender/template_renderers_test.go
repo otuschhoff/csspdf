@@ -13,6 +13,7 @@ import (
 
 	"github.com/otuschhoff/csspdf/internal/pdfdom"
 	templateload "github.com/otuschhoff/csspdf/internal/templating"
+	"github.com/otuschhoff/gofpdf"
 )
 
 func TestRenderDocTemplateFlowCancelsDuringLayout(t *testing.T) {
@@ -40,6 +41,40 @@ func TestRenderDocTemplateFlowCancelsDuringLayout(t *testing.T) {
 	err = RenderDocTemplateFlow(layout, []pdfdom.PDFElementNode{imageNode, textDiv("must not render")})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected layout cancellation, got %v", err)
+	}
+}
+
+func TestLayoutLazilyInitializesConfiguredTemplate(t *testing.T) {
+	settings := templateload.PageSettings{Width: 300, Height: 400, Margins: templateload.PageMargins{Top: 20, Right: 20, Bottom: 20, Left: 20}}
+	created := false
+	layout, err := NewLayoutPDFWithOptions(settings, settings, nil, nil, LayoutOptions{TemplateFactories: map[string]TemplateFactory{
+		"RingLogo": func(pdf *gofpdf.Fpdf) gofpdf.Template {
+			created = true
+			return CreateRingLogoTemplate(pdf, LogoBaseRadius, LogoTplCenter, LogoTplCenter)
+		},
+	}})
+	if err != nil {
+		t.Fatalf("create layout: %v", err)
+	}
+	if created {
+		t.Fatal("configured template initialized eagerly")
+	}
+	template, err := layout.TemplateByName("RingLogo")
+	if err != nil || template == nil {
+		t.Fatalf("resolve ring logo lazily: template=%v err=%v", template, err)
+	}
+	if !created {
+		t.Fatal("configured template factory was not called")
+	}
+	created = false
+	if _, err := layout.TemplateByName("ringlogo"); err != nil || created {
+		t.Fatalf("expected normalized cached template, created=%v err=%v", created, err)
+	}
+}
+
+func TestGenericLayoutHasNoProfileTemplates(t *testing.T) {
+	if _, err := newFlowTestLayout(t).TemplateByName("RingLogo"); err == nil {
+		t.Fatal("generic layout unexpectedly provided an invoice profile template")
 	}
 }
 

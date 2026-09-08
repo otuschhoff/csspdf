@@ -31,6 +31,14 @@ type FuncMapFactoryWithContext func(ctx FuncContext) htmltmpl.FuncMap
 // FuncMapFactory is the legacy template function factory signature.
 type FuncMapFactory func(defaultLocale, payloadLocale string) htmltmpl.FuncMap
 
+// PageMargins defines default page margins in PDF points.
+type PageMargins struct {
+	Top    float64
+	Right  float64
+	Bottom float64
+	Left   float64
+}
+
 type Section struct {
 	Template    string        `json:"template"`
 	Transformer string        `json:"transformer"`

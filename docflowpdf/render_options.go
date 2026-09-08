@@ -6,8 +6,6 @@ import (
 	"io"
 	"strings"
 	"time"
-
-	templateload "github.com/otuschhoff/csspdf/internal/templating"
 )
 
 // RenderOption customizes the default RenderInput used by Render.
@@ -208,7 +206,7 @@ func WithDefaultCurrencyCode(code string) RenderOption {
 }
 
 // WithDefaultMargins overrides default page margins.
-func WithDefaultMargins(margins templateload.PageMargins) RenderOption {
+func WithDefaultMargins(margins PageMargins) RenderOption {
 	return func(input *RenderInput) error {
 		input.DefaultMargins = margins
 		return nil

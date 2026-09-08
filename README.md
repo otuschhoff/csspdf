@@ -192,6 +192,12 @@ container isolation. See [the Phase 3 security contract](docs/phase3-security.md
 You can compose CSS in ordered layers with `AssetInput.CSSLayers`.
 Later layers override earlier mapped declarations.
 
+csspdf intentionally implements a documented CSS subset rather than a browser
+cascade. Use `docflowpdf.SupportedCSSProperties()` for the executable property
+matrix and `docflowpdf.AnalyzeCSSSupport(cssText)` to detect ignored properties
+(`CSS001`) before rendering. Rules of equal or different selector shapes use
+source order; selector specificity and `!important` are not interpreted.
+
 ```go
 assetInput := docflowpdf.AssetInput{
 	HTML:       docflowpdf.TextSource{FilePath: "examples/layered/doc.html"},
@@ -317,6 +323,11 @@ Supported runtime expressions:
 RenderInput supports warning sinks via:
 - Logger (preferred)
 - WarningWriter (deprecated compatibility path)
+
+The warning sink intentionally remains a minimal `Warnf` compatibility
+interface. Typed render failures use `DiagnosticError`; applications that need
+structured logs should inspect those errors with `errors.As` and adapt warning
+messages at their boundary rather than parsing error strings.
 
 Rendering is strict by default. Missing templates, missing map values, missing
 images, and element-rendering failures return errors instead of producing an
@@ -456,6 +467,8 @@ go test ./... -count=1
 
 - `docflowpdf` is the supported library API.
 - `cmd/gen-example` and `cmd/dom-parse` are supported repository tools.
+- The root `pdfdump.go` diagnostic command is supported for bounded inspection;
+	it is not a PDF conformance validator.
 - `examples/invoice` and `examples/layered` are reference assets, not stable Go APIs.
 - Root JavaScript files (`genXml.js`, `mkDoc.js`, and `mkQuote.js`) are legacy,
 	unsupported utilities. They have no maintained package manifest or CI gate.
