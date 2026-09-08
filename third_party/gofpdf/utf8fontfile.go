@@ -527,7 +527,7 @@ func (utf *utf8FontFile) parsePOSTTable(weight int) {
 	}
 }
 
-func (utf *utf8FontFile) parseCMAPTable(format int) int {
+func (utf *utf8FontFile) parseCMAPTable() int {
 	cmapPosition := utf.SeekTable("cmap")
 	utf.skip(2)
 	cmapTableCount := utf.readUint16()
@@ -538,7 +538,7 @@ func (utf *utf8FontFile) parseCMAPTable(format int) int {
 		position := utf.readUint32()
 		oldReaderPosition := utf.fileReader.readerPosition
 		if (system == 3 && coded == 1) || system == 0 { // Microsoft, Unicode
-			format = utf.getUint16(cmapPosition + position)
+			format := utf.getUint16(cmapPosition + position)
 			if format == 4 {
 				if cidCMAPPosition == 0 {
 					cidCMAPPosition = cmapPosition + position
@@ -556,12 +556,12 @@ func (utf *utf8FontFile) parseCMAPTable(format int) int {
 }
 
 func (utf *utf8FontFile) parseTables() {
-	f := utf.parseNAMETable()
+	utf.parseNAMETable()
 	utf.parseHEADTable()
 	n := utf.parseHHEATable()
 	w := utf.parseOS2Table()
 	utf.parsePOSTTable(w)
-	runeCMAPPosition := utf.parseCMAPTable(f)
+	runeCMAPPosition := utf.parseCMAPTable()
 
 	utf.SeekTable("maxp")
 	utf.skip(4)

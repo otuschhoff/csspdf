@@ -31,6 +31,13 @@ Do not use the hard-coded example CLI version as the release source of truth.
 The annotated Git tag is authoritative until automated version injection is
 introduced.
 
+## Evidence Citations
+
+Evidence documents under `docs/` cite tags, file paths, commit subjects, or
+reproducible commands rather than raw commit hashes. Repository history has
+been rewritten to remove private data, and any future rewrite invalidates hash
+citations. A hash may be cited only when it is on a published, immutable tag.
+
 ## Candidate Validation
 
 From a clean checkout of the candidate commit:

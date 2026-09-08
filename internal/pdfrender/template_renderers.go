@@ -182,7 +182,7 @@ func (state *docFlowState) renderBlock(node pdfdom.PDFElementNode) (bool, error)
 			if err := state.nextPage(); err != nil {
 				return false, err
 			}
-			xPos, yPos, width, absolute = state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
+			xPos, _, width, absolute = state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
 			contentTop = state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, collapseMargins)
 			yPos = contentTop - topMargin
 		}
@@ -227,7 +227,7 @@ func (state *docFlowState) renderImage(node *pdfdom.ElemImg) (bool, error) {
 			if err := state.nextPage(); err != nil {
 				return false, err
 			}
-			xPos, yPos, width, absolute = state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
+			xPos, _, width, absolute = state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
 			contentTop = state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, false)
 			yPos = contentTop - topMargin
 		}
@@ -287,7 +287,6 @@ func (state *docFlowState) renderTable(node *pdfdom.ElemTable) error {
 	if err := state.layout.tableRenderer.RenderTable(tableDef); err != nil {
 		return fmt.Errorf("failed to render table from doc flow: %w", err)
 	}
-	_ = bottomMargin
 	return nil
 }
 

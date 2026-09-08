@@ -63,6 +63,7 @@ var tableNamedColors = map[string]tableRGB{
 	"black": {0, 0, 0}, "white": {255, 255, 255}, "gray": {128, 128, 128}, "grey": {128, 128, 128},
 	"lightgray": {211, 211, 211}, "lightgrey": {211, 211, 211}, "darkgray": {169, 169, 169}, "darkgrey": {169, 169, 169},
 	"red": {255, 0, 0}, "green": {0, 128, 0}, "blue": {0, 0, 255},
+	"yellow": {255, 255, 0}, "orange": {255, 165, 0},
 }
 
 // tableEncodePDFTextLatin1 converts a UTF-8 string to a CP-1252/Latin-1 byte

@@ -99,13 +99,6 @@ type PDFTextBox struct {
 	Fit    TextFitMode
 }
 
-func (b PDFTextBox) withDefaults() PDFTextBox {
-	if b.Fit == "" {
-		b.Fit = TextFitWrap
-	}
-	return b
-}
-
 // StyleVariant holds the font rendering attributes for a single named style
 // variant (Normal, Small, Title, etc.).  It is defined here so that pdflayout
 // can use it without importing the invoice package.

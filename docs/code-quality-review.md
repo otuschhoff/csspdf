@@ -1,481 +1,548 @@
 # Code Quality Review and Remediation Plan
 
-Review date: 2026-09-07. Baseline commit: `6fd92d3`.
+Review date: 2026-09-08. Baseline commit: `ce1ff17` on `main`.
+
+This review supersedes the 2026-09-07 assessment. That assessment's baseline
+commit no longer exists because repository history was rewritten to remove
+private data and legacy example assets. Its twenty findings (R01-R20) were
+remediated in Phases 0-6; their disposition is recorded below so the closed
+items stay traceable without depending on rewritten commit identifiers.
 
 ## Recommendation
 
-Stabilize the build and document-correctness contract before expanding features or reorganizing the renderer. The project has useful package boundaries, flexible input APIs, and targeted regression tests, but it is not yet a reliable general-purpose document library: valid-looking PDFs can contain missing, overlapping, off-page, or incorrectly formatted content without an error.
+The project has moved from "not yet a reliable library" to "reliable with a
+maintained quality gate." Every previously identified release blocker is closed
+with regression tests, the build is hermetic on Go 1.26.6 and 1.27.x, the
+public API is consumable from an external module, and the quality gate covers
+build, vet, format, tests, coverage floors, race, fuzz, and vulnerability
+scanning.
 
-The most important work is not cosmetic. Fix reproducibility, error propagation, output preservation, monetary formatting, and flow layout first. Then establish explicit trust boundaries, improve diagnostics, and refactor behind executable behavior tests. Do not undertake a renderer rewrite or implement a full browser CSS engine as part of this program.
+The remaining work is consolidation, not repair. The highest-value items are:
+deepen tests in the four core packages where most under-tested functions live,
+unify the fragmented error taxonomy and remove panicking builders from library
+code, delete dead and deprecated code that static analysis would have caught,
+and create headroom under the complexity ratchet before it forces waivers.
+None of these require a redesign, and none should be bundled with behavior
+changes.
 
-This report covers code quality, structure, maintainability, security, scalability, debuggability, correctness, and engineering practices. It is an engineering assessment, not a security certification, legal assessment, PDF/A conformance audit, or exhaustive review of every branch.
+This report covers code quality, structure, maintainability, test coverage,
+and error handling. It is an engineering assessment, not a security
+certification, legal assessment, or PDF conformance audit.
+
+## Disposition of Prior Findings
+
+| ID | Finding | Status | Evidence |
+| --- | --- | --- | --- |
+| R01 | Builds depended on unpinned sibling checkouts | Closed | `go.mod` pins all dependencies; backend is repository-owned in `third_party/gofpdf`; clean-checkout and read-only container validation in `docs/phase0-baseline.md` |
+| R02 | Required-content failures returned success | Closed | Strict rendering is the default; legacy behavior only via `WithLegacyPartialRendering`; `docs/phase1-migration.md` |
+| R03 | Failed rendering destroyed existing output | Closed | Temp-file-and-rename in `docflowpdf/output.go` with cleanup tests |
+| R04 | Monetary rounding produced invalid amounts | Closed | Carry-correct formatting with policy tests in `internal/format` |
+| R05 | Flow sections restarted at the same position | Closed | Persistent `docFlowState`; multi-section tests in `internal/pdfrender` |
+| R06 | Oversized tables/blocks not paginated | Closed | Row-aware pagination with repeated headers (`table_pagination.go`); text continuation; oversized-row policy tested |
+| R07 | Colspan index inconsistency | Closed | Single logical-column traversal in `table_layout.go` with span tests |
+| R08 | JSON normalization lost integer precision | Closed | `json.Number` normalization with helper support and boundary tests |
+| R09 | Library required ambient invoice translations | Closed | Self-contained defaults; ambient lookup removed; external-consumer render from empty directory |
+| R10 | Asset lookup was not a security boundary | Closed | `ConfinedFileResolver` on `os.Root`; explicit `TrustedFileResolver`; `docs/phase3-security.md` |
+| R11 | CI did not enforce the quality baseline | Closed | Matrix quality/race/security workflows; portable Bash 3.2 gates; pinned tools |
+| R12 | CSS layers hid explicit CSS read errors | Closed | Unset versus broken source distinction with tests in `sources_test.go` |
+| R13 | Resolved/unresolved HTML layers inferred different flows | Closed | Shared normalization path; parity tests |
+| R14 | Validation did not establish immutable inputs | Closed | Flow cloning, reserved-path rejection, concurrent-reuse race tests |
+| R15 | No resource budgets | Closed | `RenderLimits`, context-aware entry points, bounded dumper decompression |
+| R16 | Incomplete ownership boundaries | Closed | Public `PageMargins`; orchestration decomposed; profile assets out of generic layout; boundary checks current |
+| R17 | Unstructured diagnostics | Closed | `DiagnosticError` with codes/stages; no ANSI in library errors; CLI formatting separated |
+| R18 | Repeated preparation per section/page | Closed | `PreparedFlow`/`PreparedTemplates`/`PreparedStylesheet`; benchmark corpus and budget in `docs/phase5-performance.md` |
+| R19 | CSS support contract lacked executable examples | Closed | `AnalyzeCSSSupport`, independent font weight/style composition, fixture tests |
+| R20 | Legacy/debug utilities had unclear status | Closed | Single `internal/pdfdump` implementation; legacy JavaScript utilities removed from tree and history; `docs/provenance.md` |
+
+Determinism (R17/R18 follow-up) is byte-level for fixed-clock renders and is
+tested in-process and cross-process.
+
+## Method
+
+All measurements were taken on the baseline commit with a clean worktree
+(only the ignored `output/` directory untracked) using Go 1.26.6 on
+macOS/arm64. Commands and results:
+
+| Check | Result |
+| --- | --- |
+| `scripts/check-quality.sh` | Pass: manifests, format, build, vet, tests, coverage floors, backend tests, `govulncheck` (no vulnerabilities) |
+| `go test -race ./... -count=1` | Pass |
+| `CHECK_SCOPE=all scripts/check-maintainability.sh` | Pass: no function above complexity 15, no file above 600 lines, no function above 80 lines, boundaries intact |
+| `scripts/check-layered-rollout.sh` | Pass: layered example renders |
+| `gocyclo -avg` (first-party, non-test) | Average 3.9; 40 functions above 10; 4 functions at exactly 15; none above 15 |
+| `go test -covermode=atomic -coverprofile` | 58.8% of statements overall; per-package figures below |
+| `go vet ./...` | Pass |
+| Dead-code and error-pattern surveys | `rg`-based; results cited per finding. No `TODO`/`FIXME` markers in first-party code |
+
+No third-party static analyzer beyond `go vet` is installed or gated, which
+is itself a finding (N09).
+
+## Current Metrics
+
+Source and test volume by package (non-test lines / test lines) and statement
+coverage at the baseline commit:
+
+| Package | Source | Tests | Coverage | Floor | Functions below 50% |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| root `pdfdump.go` | 26 | 30 | 66.7% | 66.7 | 1 |
+| `cmd/dom-parse` | 113 | 45 | 74.5% | 74.5 | 1 |
+| `cmd/gen-example` | 179 | 44 | 48.0% | 25.2 | 4 |
+| `docflowpdf` | 3,475 | 3,109 | 73.1% | 73.1 | 41 |
+| `internal/flowrender` | 266 | 76 | 64.4% | 64.4 | 9 |
+| `internal/format` | 210 | 98 | 57.7% | 56.5 | 6 |
+| `internal/i18n` | 165 | 56 | 88.2% | 88.2 | 0 |
+| `internal/pdfdom` | 1,668 | 505 | 48.4% | 48.4 | 104 |
+| `internal/pdfdump` | 1,237 | 93 | 27.1% | 25.4 | 38 |
+| `internal/pdfrender` | 4,269 | 1,035 | 63.3% | 63.3 | 53 |
+| `internal/templating` | 784 | 220 | 45.5% | 45.5 | 22 |
+| **Total** | **12,392** | **5,311** | **58.8%** | | **279** |
+
+Largest source files: `internal/pdfrender/text_engine.go` (590),
+`internal/pdfdom/html_parser.go` (578), `internal/pdfdom/elements.go` (557),
+`internal/pdfrender/layout.go` (527), `internal/pdfrender/table_renderer.go`
+(525). Largest test file: `docflowpdf/render_test.go` (1,282).
+
+Error construction sites (`fmt.Errorf`/`errors.New`) and how many wrap a
+cause with `%w`: `docflowpdf` 93/47, `internal/pdfrender` 69/15,
+`internal/pdfdom` 35/4, `internal/templating` 16/9, `internal/pdfdump` 11/4,
+`internal/i18n` 6/1. Typed error kinds: `DiagnosticError`, `BudgetError`,
+`LimitError`, `ComplexityLimitError`, `OutputLimitError`,
+`InspectionLimitError`, `PageLimitError`, plus two unexported kinds.
 
 ## Findings
 
 Severity meanings:
 
-- **P1:** Release-blocking build, data-integrity, or document-correctness issue for the affected supported workflow.
-- **P1 conditional:** Blocker if the application accepts assets or workloads from untrusted parties.
-- **P2:** Important reliability, maintainability, or operational gap to address before calling the library production-hardened.
-
-Evidence labels distinguish **reproduced** behavior from **inspection** findings. Proposed tests below are acceptance criteria, not claims that those tests currently exist or pass.
-
-### R01. Builds and Tests Depend on Unpinned Sibling Checkouts
-
-**P1 | Reproduced | Reproducibility, maintainability**
-
-Evidence: [go.mod](../go.mod#L1), [font integration test](../docflowpdf/font_emission_integration_test.go#L80), and [CI toolchain](../.github/workflows/maintainability.yml#L21).
-
-`go test ./... -count=1 -cover` stops with `updates to go.mod needed`. The committed module replaces both the PDF backend and PDF/A library with sibling directories. Resolving against the checkouts on this machine using a temporary module file raises the Go directive from 1.25.0 to 1.26.0 and changes numerous dependency versions. Tests then fail to compile because `ExtractFontsFromPDF` and `ExtractUnicodesForFont` are absent from the local PDF/A converter's public API.
-
-A fresh standalone checkout cannot reproduce the sibling state. Passing local production builds does not establish a usable test baseline, and CI currently selects Go 1.25.x.
-
-**Remediation:** Choose and pin compatible published versions or immutable commits, establish the actual minimum supported Go version, and move optional sibling development to an uncommitted/local workspace arrangement. Reconcile the integration test with a supported API without deleting its font-mapping assertions. A separate integration module is reasonable if downstream PDF/A compatibility is intentionally versioned independently.
-
-**Acceptance:** A clean checkout builds and runs every test without sibling directories or module-file changes. The font integration test executes with an explicitly available, licensed fixture.
-
-### R02. Required Content Failures Can Return Success
-
-**P1 | Reproduced | Correctness, diagnostics**
-
-Evidence: [main-flow error handling](../docflowpdf/render.go#L266), [default warning sink](../docflowpdf/render.go#L350), [element rendering](../internal/pdfrender/template_renderers.go#L50), and [test preserving warning behavior](../docflowpdf/render_test.go#L145).
-
-A missing main template returned a nil error and an 808-byte PDF in a public-API probe. Main-flow failures are generally warnings for legacy HTML, but comparable HTML-layer failures are fatal. Multiple element and footer failures also warn and continue. Without a logger, warnings disappear; the example CLI does not install one. Main template execution also lacks `missingkey=error`, unlike i18n macros.
-
-**Remediation:** Define one strict error policy for required content across legacy and layered inputs. Missing templates, required values, assets, and rendering failures must reach the caller. If compatibility requires best-effort rendering, make it an explicit option with collected diagnostics, never an implicit consequence of asset mode. Treat the existing warning-behavior test as a compatibility contract to migrate deliberately.
-
-**Acceptance:** Missing main/nested/page-number templates, missing required fields, malformed typed values, and failed image rendering have tested outcomes. A CLI cannot announce success after a required section was omitted.
-
-### R03. Failed Rendering Destroys Existing Output
-
-**P1 | Reproduced | Data integrity**
-
-Evidence: [RenderToFile](../docflowpdf/render.go#L113).
-
-`os.Create` truncates the destination before input validation or rendering. Rendering invalid input over a file containing `ORIGINAL` left an empty file. The deferred `Close` error is ignored as well.
-
-**Remediation:** Render into a temporary file in the destination directory, handle output and close errors, then replace the destination only after success. Define replacement permissions, symlink behavior, platform behavior, and whether crash durability requires syncing. Clean up temporary files on failure. Document that arbitrary `io.Writer` output cannot promise rollback after a partial write.
-
-**Acceptance:** Invalid input, failing output, and finalization errors preserve the previous destination and leave no temporary artifacts. Successful replacement and file permissions have tests.
-
-### R04. Monetary Rounding Produces Invalid Amounts
-
-**P1 | Reproduced | Financial correctness**
-
-Evidence: [FormatCurrency](../internal/format/formatter.go#L42) and [FormatFloat](../internal/format/formatter.go#L82).
-
-The integer and fractional parts are rounded separately without carrying overflow. Rendering a currency value of `1.999` produced `CHF 1.100`, not `CHF 2.00`. `FormatFloat` follows the same pattern; with zero decimals it returns the truncated integer portion. Currency formatting also assumes two decimal places regardless of currency.
-
-**Remediation:** Define rounding and currency-minor-unit policy first. Correct carry and zero-decimal behavior in a small patch, then adopt an exact decimal or minor-unit representation for financial values where required. Do not silently change all public float APIs in the rounding fix.
-
-**Acceptance:** Positive/negative rounding boundaries, carry across grouping boundaries, zero decimals, negative zero, non-finite inputs, and supported zero-/three-minor-unit currencies are covered by explicit policy tests. Assert rendered monetary text, not just PDF byte presence.
-
-### R05. Flow Sections Restart at the Same Position
-
-**P1 | Reproduced | Layout correctness**
-
-Evidence: [section loop](../docflowpdf/render.go#L601) and [RenderDocTemplateFlow cursor initialization](../internal/pdfrender/template_renderers.go#L59).
-
-Each section invokes `RenderDocTemplateFlow`, which initializes a local cursor at the current page's content origin. Two ordinary sections containing `FIRST` and `SECOND` were both emitted at PDF coordinates `x=20, y=811.89`. Margin state also resets between calls.
-
-**Remediation:** Make normal-flow cursor and pending margin state explicit and persistent across main sections. Keep page-number overlays, absolute positioning, and reusable-template rendering separate so they cannot accidentally advance normal flow.
-
-**Acceptance:** Two and three sections advance without overlap; margins and explicit breaks behave correctly across section boundaries; page-number rendering does not change the body cursor.
-
-### R06. Oversized Tables and Blocks Are Not Paginated
-
-**P1 | Reproduced for tables; inspection for other blocks | Correctness, scalability**
-
-Evidence: [flow fit checks](../internal/pdfrender/template_renderers.go#L115), [RenderTable](../internal/pdfrender/table_renderer.go#L103), and [disabled backend page breaking](../internal/pdfrender/layout.go#L75).
-
-A valid 100-row table produced one page containing all 100 row text operations, placing later rows beyond the page. The flow layer can move a whole table to the next page but cannot split it. Text/container blocks have similar whole-block fit checks. The backend has automatic page breaking disabled.
-
-**Remediation:** First detect and return a specific overflow error instead of silently losing visible content. Then implement row-aware pagination, repeated header rows, and an explicit policy for a row taller than one content box. Preserve header identity in the table model; current row conversion mainly reduces header status to styling. Implement text-block continuation separately.
-
-**Acceptance:** Long tables preserve every row in order, page counts are correct, headers repeat, and rendered body bounds stay within content boxes. Oversized single rows either split under a documented policy or fail promptly, never loop or disappear.
-
-### R07. Colspan Uses Inconsistent Column Indices
-
-**P1 | Reproduced | Table correctness**
-
-Evidence: [cell placement](../internal/pdfrender/table_renderer.go#L154) and [row measurement](../internal/pdfrender/table_renderer.go#L527).
-
-Rendering sums column widths for a spanning cell but advances the cursor and the next cell index by only one column. In a three-column, 100-point-per-column table, the cell after `colspan=2` began 100 points later instead of 200. Row-height measurement also measures against a single column rather than the spanned width.
-
-**Remediation:** Use one logical-column traversal for measurement, width inference, and rendering. Validate span values and overflow. Reuse a small shared traversal only where it removes these actual inconsistencies.
-
-**Acceptance:** Spans followed by ordinary cells, unequal column widths, inferred columns, wrapped span content, and invalid spans all have placement and height assertions.
-
-### R08. JSON Normalization Loses Integer Precision
-
-**P1 | Reproduced | Data correctness, API behavior**
-
-Evidence: [asJSONObject](../docflowpdf/render.go#L1114), [per-section normalization](../docflowpdf/render.go#L612), and [JSONSource.DecodeInto](../docflowpdf/sources.go#L67).
-
-Source and payload values are marshaled and unmarshaled into `map[string]any`, converting JSON numbers to `float64`. An `int64(9007199254740993)` reached a template helper as `9007199254740992`. This affects identifiers as well as quantities, and repeated normalization adds allocations.
-
-**Remediation:** Specify the normalized value contract. Use `json.Decoder.UseNumber` where JSON is required, or preserve supported native values with a deliberate conversion layer. Update numeric helpers to understand the selected representation: changing only decoding would make helpers such as `asFloat64` silently reject `json.Number`. Keep exact identifiers out of floating-point formatting.
-
-**Acceptance:** Values above 2^53, decimals, integer boundaries, source structs/maps, JSON files, and function-map inputs retain the documented meaning through every normalization step.
-
-### R09. The Generic Library Requires Ambient Invoice Translations
-
-**P1 | Reproduced | Portability, structure**
-
-Evidence: [resolveI18nInput](../docflowpdf/render.go#L384) and [translation search paths](../internal/i18n/i18n.go#L48).
-
-With no explicit translation source, the renderer searched the working directory and ancestors for a legacy example profile. Supplying an explicit in-memory translation source allowed otherwise valid in-memory renders to proceed. Library tests inside the checkout could hide this dependency.
-
-**Remediation:** Make no-translation rendering self-contained, with explicit generic formatting defaults. Put invoice translations in the example's configuration. Either remove ambient lookup from the library or retain it only through an explicitly named compatibility option.
-
-**Acceptance:** Public examples render from an empty working directory with in-memory or embedded assets. Installing the library must not require the example tree, and unrelated files in parent directories must not affect output.
-
-### R10. Asset Lookup Is Not a Security Boundary
-
-**P1 conditional | Inspection | Security**
-
-Evidence: [image resolution](../internal/pdfrender/text_engine.go#L800), [text/file sources](../docflowpdf/sources.go#L27), and [font discovery](../docflowpdf/render.go#L408).
-
-Image paths can be absolute, contain parent traversal, resolve through symlinks, or fall back to the process working directory and ancestors. `AssetBaseDir` is a search preference, not confinement. Explicit font and source paths also use host filesystem access. An attacker-controlled image reference could include a readable local image in the result; this is not evidence of arbitrary-file text extraction or SSRF. No network-fetch path was identified in the reviewed resolver.
-
-Go templates and custom functions are trusted code/configuration, not a sandbox. HTML escaping does not make filesystem access or supplied template functions safe.
-
-**Remediation:** Document trusted-template/trusted-asset requirements immediately. Before accepting untrusted assets, add a confined resolver that opens resources relative to an authorized root or controlled filesystem and validates file types. Prefer platform/Go root-constrained opening over string-prefix checks; plain `os.DirFS` alone does not prevent symlink escapes. Restrict functions and isolate hostile rendering workloads where necessary.
-
-**Acceptance:** Absolute paths, traversal, symlink escape, non-regular files, and denied assets have tests. Trusted local-file mode is explicit and remains separately supported.
-
-### R11. CI Does Not Enforce the Claimed Quality Baseline
-
-**P1 | Reproduced locally and inspected | Engineering practice**
-
-Evidence: [workflow](../.github/workflows/maintainability.yml#L1), [file selection](../scripts/check-maintainability.sh#L28), [mapfile](../scripts/check-maintainability.sh#L51), and [boundary checks](../scripts/check-maintainability.sh#L136).
-
-The only workflow runs a changed-file complexity/length script; it does not build, test, vet, race-test, or scan dependencies. Both changed and all-file scopes omit the public package and root Go code. Local mode examines committed history, not pending worktree changes. Boundary rules reference removed packages and suppress search errors. Function length is estimated by counting braces in text, including strings/comments, rather than parsing Go; multi-file line references use `NR` instead of `FNR`.
-
-On this machine the script fails at `mapfile` under Bash 3.2.57. CI installs `gocyclo@latest`, so the gate's implementation is unpinned. Existing tests concentrate on selected behaviors: a passing `%PDF` header test does not detect missing or overlapping content.
-
-**Remediation:** Add reproducible build/test/vet gates first. Make the maintainability tool portable or explicitly provision its shell; include all owned Go packages, distinguish local changes from CI diff ranges, fail on tool errors, and use Go-aware import/complexity inspection. Ratchet legacy debt rather than forcing a mass rewrite to satisfy arbitrary line budgets.
-
-**Acceptance:** A deliberate public-package compile failure and boundary violation both fail CI. Linux and macOS gate tests cover empty diffs, pending changes, missing paths, and tool failures. Pin tooling and set least-privilege workflow permissions.
-
-### R12. Adding CSS Layers Hides Explicit CSS Read Errors
-
-**P2 | Reproduced | Asset correctness**
-
-Evidence: [ResolveAssets CSS resolution](../docflowpdf/sources.go#L263).
-
-Any failure resolving legacy CSS is ignored when `CSSLayers` is nonempty. A deliberately configured nonexistent CSS file plus one valid layer successfully resolved. The distinction between an unset source and a broken explicit source is lost; permission or I/O errors are handled the same way.
-
-**Remediation:** Skip only an unset legacy source when layers supply CSS. Return errors for explicitly configured legacy CSS. Preserve the existing, narrower optional-layer rule that only tolerates missing optional resources.
-
-**Acceptance:** Unset, missing, unreadable, empty, and malformed sources have separate layered/legacy tests; required source failures always identify the asset.
-
-### R13. Resolved and Unresolved HTML Layers Infer Different Flows
-
-**P2 | Reproduced | API consistency**
-
-Evidence: [resolved asset defaults](../docflowpdf/render.go#L373), [AssetInput defaults](../docflowpdf/sources.go#L289), and [template-name inference](../docflowpdf/flow_defaults.go#L9).
-
-`AssetInput.ResolveAssets` infers defaults from composed HTML, but the `RenderInput.Assets` path considers only legacy `HTML`. Valid layer-only resolved assets with an omitted flow fail to infer the main template. Inference also uses a regular expression over template text, not parsed template definitions, so it cannot reliably distinguish actual definitions from comments or other syntax.
-
-**Remediation:** Route both APIs through one normalization/defaulting operation, preserve sequential layer parsing, and derive names from parsed template definitions once function registration requirements are accounted for. Do not revert to parsing concatenated templates: layered overrides depend on parse order.
-
-**Acceptance:** Raw/resolved, legacy/layered, explicit/inferred flows have parity tests, including block overrides and misleading definition text in comments.
-
-### R14. Validation Does Not Establish Stable, Immutable Inputs
-
-**P2 | Inspection | Correctness, concurrency**
-
-Evidence: [Flow validation](../docflowpdf/types.go#L153), [runtime validation](../docflowpdf/types.go#L213), [payload assignment](../docflowpdf/render.go#L702), [nested assignment](../docflowpdf/render.go#L1047), and [flow default mutation](../docflowpdf/flow_defaults.go#L32).
-
-Path syntax is checked, but conflicting paths such as `a` and `a.b` are not rejected. Map iteration and overwriting intermediate objects can make conflict resolution order-dependent. Payload assignments can overwrite reserved fields or mutate a nested object referenced by another payload value. Copying `Assets` by value does not copy `MainFlow`'s backing array; filling default transformers can therefore mutate caller-owned sections and create a race when reused concurrently. These concurrency consequences were not exercised by the existing race run.
-
-JSON flow decoding also accepts unknown keys. Numeric parsing accepts special values such as `NaN`/`Inf` in paths that only check `ParseFloat` success; page dimension checks do not comprehensively validate finiteness or usable content geometry.
-
-**Remediation:** Define reserved names and merge precedence; reject ambiguous path prefixes and unknown configuration fields where compatible. Copy mutable structures before normalization. Validate finite, bounded dimensions and a positive content box before PDF construction.
-
-**Acceptance:** Reusing one input concurrently is race-free and leaves it unchanged. Conflicting paths and invalid geometry produce deterministic, contextual errors. Compatibility decisions for previously tolerated unknown fields are documented.
-
-### R15. Rendering and PDF Inspection Have No Resource Budgets
-
-**P2; P1 conditional for hostile workloads | Inspection | Availability, scalability**
-
-Evidence: [source reads](../docflowpdf/sources.go#L27), [template output buffer](../internal/templating/execute.go#L43), [render entry point](../docflowpdf/render.go#L129), and [unbounded Flate decompression](../internal/pdfdump/dumper.go#L206).
-
-Source reads, template expansion, DOM traversal, image processing, document construction, and PDF inspection have no application-level byte/node/page limits. Rendering accepts no context. `RenderToWriter` constructs the complete artifact before output; it is not a bounded-memory streaming renderer. The dumper uses unbounded `io.ReadAll` on compressed streams, exposing it to decompression-memory exhaustion.
-
-**Remediation:** Add explicit limits for input bytes, expanded template bytes, nodes/depth, rows, pages, decoded image size, and output size. Bound decompression in the dumper. Introduce cancellation at meaningful stage and loop boundaries. A deadline alone cannot interrupt arbitrary custom template functions or every backend operation; document this and use process isolation for hard resource ceilings.
-
-**Acceptance:** Oversized inputs fail before excessive allocation where feasible; limit errors are typed/contextual; cancellation tests verify cleanup. Service adapters enforce bounded worker concurrency and backpressure rather than adding an implicit library worker pool.
-
-### R16. Ownership Boundaries Exist but Are Not Complete
-
-**P2 | Measured and inspected | Structure, maintainability**
-
-Evidence: [public RenderInput](../docflowpdf/render.go#L70), [public margin option](../docflowpdf/render_options.go#L164), [layout construction](../internal/pdfrender/layout.go#L75), and [architecture document](architecture-boundaries.md#L1).
-
-The public API exposes `templating.PageMargins` from an internal package: external consumers cannot import that type to name it normally, although scalar options and field mutation offer workarounds. The orchestration file also owns font discovery, payload conversion, template setup, and terminal-colored diagnostics. Layout construction always creates a profile-specific ring logo. Architecture documentation still lists removed domain/invoice layers and describes an example asset directory as a package.
-
-Measured hotspots include `CellDefFromTableCell` complexity 50, `TableDefFromElement` 48, `RenderDocTemplateFlow` 38, and `buildArtifact` 30, versus a documented budget of 15. File sizes include 1,221 lines for layout and 1,131 for public rendering. These are prioritization signals, not proof that merely splitting files will improve design.
-
-**Remediation:** Expose public configuration types, define conversion at internal boundaries, move profile assets out of generic initialization, and separate normalization, preparation, layout, and emission by responsibility. Extract cohesive behavior with characterization tests; avoid wrapper proliferation or splitting solely to satisfy line counts.
-
-**Acceptance:** A separate consumer module can express every public configuration type. Core rendering needs no example assets. Dependency direction is checked against current packages, and refactors preserve tested output behavior.
-
-### R17. Diagnostics Are Unstructured and Can Leak Source Details
-
-**P2 | Inspection | Debuggability, security hygiene**
-
-Evidence: [warning adapter](../docflowpdf/render.go#L350), [template source ordering](../docflowpdf/render.go#L646), and [i18n error annotations](../docflowpdf/render.go#L805).
-
-Diagnostics are primarily formatted strings, often without stable stage, section, page, element, or layer identifiers. HTML source names become numeric indices, and CSS layers are concatenated, losing source provenance. I18n error strings embed source lines and ANSI color escapes in the library, which is unsuitable for machine logs and can disclose translation content or paths. A supplied `Now` controls template helpers but does not establish byte-for-byte PDF determinism; PDF metadata/order are not explicitly controlled by this package.
-
-**Remediation:** Add structured diagnostic codes and context while preserving wrapped causes. Make content snippets opt-in/redactable. Put color and human formatting in the CLI. Offer debug-stage artifacts only through explicit options and avoid recording payloads by default. Specify whether determinism means semantic output or identical bytes before choosing a metadata policy.
-
-**Acceptance:** Errors support `errors.Is`/`errors.As`, layer/section attribution survives preparation, default logs contain no source payloads or ANSI escapes, and reproducibility tests match the documented determinism level.
-
-### R18. Repeated Preparation Increases Work per Section and Page
-
-**P2 | Inspection; no performance benchmark performed | Scalability**
-
-Evidence: [main sections](../docflowpdf/render.go#L601), [page-number rendering](../docflowpdf/render.go#L632), [template execution](../internal/templating/execute.go#L21), [stylesheet application](../internal/templating/docflow_parser.go#L25), and [measure/render text paths](../internal/pdfrender/text_engine.go#L139).
-
-Each section and page-number operation reparses templates and CSS/selectors. Payload normalization copies data repeatedly, and measurement/rendering can build the same layout twice. Cost therefore includes repeated work proportional to sections/pages as well as document content. There are no benchmark functions in the reviewed Go sources. No throughput, latency, or peak-memory target has been established.
-
-**Remediation:** Benchmark representative jobs before optimizing. Prepare immutable template/style structures once per appropriate scope and reuse measured layout plans where sound. Preserve per-payload locale, clock, and function-factory semantics; blindly sharing templates with captured mutable functions across renders is unsafe. Prefer per-render preparation before considering bounded cross-render caches.
-
-**Acceptance:** Benchmarks report time, allocations, output size, and peak memory for small, medium, large, and concurrent jobs. Optimizations preserve semantic PDFs and pass race tests, with no unbounded cache growth.
-
-### R19. The CSS Support Contract Needs Executable Examples
+- **P2:** Important maintainability, test-depth, or robustness gap to close
+  before the next minor release.
+- **P3:** Hygiene item with low risk; batch into a related P2 work item.
+
+There are no open P1 findings. Evidence labels distinguish **measured**
+results from **inspection**.
+
+### N01. Core Package Coverage Lags the Public Facade
+
+**P2 | Measured | Test coverage, maintainability**
+
+Evidence: coverage table above; `go tool cover -func` output.
+
+The public facade is well covered (73.1%) but the packages that do the
+actual parsing and layout are not: `internal/pdfdom` has 104 functions below
+50% coverage, `internal/pdfrender` 53, `internal/templating` 22. Test volume
+follows the same pattern: `pdfrender` has 4.1 source lines per test line,
+`pdfdom` 3.3, `pdfdump` 13.3, versus `docflowpdf` at 1.1. Most core-package
+behavior is exercised only indirectly through facade integration tests, so
+failures surface as end-to-end PDF differences rather than as unit assertions
+that name the broken rule.
+
+Specific uncovered surfaces: `internal/templating/docflow_parser.go` exports
+(`ParseStyledFragment`, `CaptureAttrNames`, `ApplyCSSDeclaration`,
+`SetOrReplaceAttr`, `CollectText`, `ParseBorderShorthand`) are 0% in their
+own package; `internal/pdfdom/span_style.go` attribute handling is untested;
+all `internal/pdfdump` PNG-predictor and dictionary-tokenizer functions are
+0%.
+
+Public option constructors in `docflowpdf/render_options.go` (twenty-plus
+`With*` functions and `RenderContext`) are 0% covered. They are trivial, but
+they are the public contract; a single table test would prevent a
+misassigned field from shipping.
+
+`docflowpdf/render_test.go` at 1,282 lines and `sources_test.go` at 720
+lines mix unrelated concerns, which discourages adding focused cases.
+
+**Remediation:** Add package-level characterization tests for the listed
+exported functions and for `span_style.go` attribute parsing. Add a
+table-driven option test that asserts each `With*` sets exactly its field.
+Split `render_test.go` by concern (determinism, layering, limits, i18n,
+fonts). Raise floors as coverage lands; do not raise floors first.
+
+**Acceptance:** `internal/pdfdom` at or above 65%, `internal/pdfrender` 72%,
+`internal/templating` 60%, `internal/pdfdump` 50%, overall at or above 68%,
+with floors updated to the new observed minimums across the CI matrix. No
+public test file exceeds 600 lines.
+
+### N02. Dead and Deprecated Code Is Retained
+
+**P2 | Measured | Maintainability**
+
+Evidence: caller counts via `rg` on non-test code.
+
+Functions with zero non-test callers: `docflowpdf.buildArtifact`,
+`docflowpdf.resolveRenderAssets`, `docflowpdf.resolveLegacyCSS`,
+`templating.ExecuteNamed`, `templating.ExecuteNamedFromSources`,
+`templating.ApplyStylesheet`. Deprecated `pdfdom.ParseHTMLIntroElem`,
+`htmlBuildIntroDiv`, `flowrender.BuildNamedElements`, and
+`flowrender.BuildNamedElementsWithFuncs` have zero callers, so the
+deprecations were never acted on. `RenderInput.WarningWriter` is deprecated
+but names no removal release. `template_renderers.go` contains
+`_ = bottomMargin`, a computed value that is never used, and two dead stores
+to `yPos`.
+
+Unreferenced code inflates coverage denominators, keeps deprecated surfaces
+alive, and hides whether the replacement API is complete.
+
+**Remediation:** Delete unexported zero-caller functions and the zero-caller
+deprecated wrappers. Remove the unused `bottomMargin` computation and dead
+stores. Schedule removal of `WarningWriter` for a named release in
+`docs/api-compatibility.md`, since it is public.
+
+**Acceptance:** A pinned static analyzer (N09) reports no unused code.
+`docs/api-compatibility.md` lists a removal release for every remaining
+deprecated symbol.
+
+### N03. Error Taxonomy Is Fragmented and Wrapping Is Uneven
+
+**P2 | Measured and inspected | Error handling, debuggability**
+
+Evidence: typed-error survey; wrap ratios in Current Metrics;
+`docflowpdf/diagnostics.go`, `limits.go`, `resource_resolver.go`,
+`internal/flowrender/complexity.go`, `internal/templating/execute.go`,
+`internal/pdfdump/bounded_output.go`, `internal/pdfrender/flow_state.go`.
+
+Seven distinct limit-style error types exist across five packages
+(`BudgetError`, `LimitError`, `ComplexityLimitError`, `OutputLimitError`,
+`InspectionLimitError`, `PageLimitError`, and the resolver's `LimitError`).
+A caller that wants "was a budget exceeded" must `errors.As` against several
+types or rely on `DiagnosticCode` mapping at the facade. The facade
+`DiagnosticError` is a good boundary, but the internal kinds do not share a
+marker interface or sentinel.
+
+Wrapping is inconsistent: `internal/pdfdom` wraps 4 of 35 constructions,
+`internal/pdfrender` 15 of 69, `internal/i18n` 1 of 6. Many unwrapped sites
+are legitimate leaf errors, but several discard an underlying parse or I/O
+cause, which loses `errors.Is(err, fs.ErrNotExist)`-style checks and stage
+context.
+
+**Remediation:** Introduce one internal `LimitExceeded` marker (interface or
+sentinel) that every limit type satisfies, and assert it at the facade.
+Audit unwrapped constructions in `pdfdom`, `pdfrender`, and `i18n`; wrap
+where a cause exists, leave true leaves alone. Add a lint rule for
+`fmt.Errorf` with an `err` argument but no `%w`.
+
+**Acceptance:** `errors.Is(err, docflowpdf.ErrLimitExceeded)` (or
+equivalent) is true for every limit failure and is tested per limit. Wrap
+ratio in `pdfdom` and `pdfrender` reflects an explicit leaf-versus-wrapped
+classification recorded in the PR.
+
+### N04. Node Builders Panic on Invalid Children
+
+**P2 | Inspection | Error handling, robustness**
+
+Evidence: `internal/pdfdom/elements.go` `Add`/`AddLine` call `panic(err)` on
+`validateChild` failure; 33 `.Add(`/`.AddLine(` call sites in non-test
+library code.
+
+The builder API panics inside library code when an element receives a child
+type it does not accept. The public facade has no `recover` boundary, so a
+parser bug or an unexpected HTML structure that reaches these builders will
+crash the caller's process rather than return a `DiagnosticError`. This is
+inconsistent with the strict-but-recoverable error policy established in
+Phase 1.
+
+**Remediation:** Either (a) change `Add`/`AddLine` to return an error and
+update the 33 call sites, or (b) keep the fluent builder for internal
+construction and add a single `recover` at the facade that converts a
+builder invariant violation into a `DiagnosticError` with
+`DiagnosticInvalidInput`. Option (a) is preferred; option (b) is acceptable
+if the builders are treated as internal invariants and the recovered panic
+is logged with stage context.
+
+**Acceptance:** A test that feeds an invalid child through the public API
+receives an error, not a panic. No `panic(` remains in first-party library
+packages outside documented invariant checks.
+
+### N05. Span Attribute Parsing Swallows Errors
+
+**P3 | Inspection | Error handling, correctness**
+
+Evidence: `internal/pdfdom/span_style.go` discards the error from
+`strconv.ParseFloat` for `font-size` and from `ParseLengthValue` for
+`border-width`.
+
+An invalid `font-size="abc"` silently yields size 0, which then falls
+through to defaults or renders invisibly. Every other typed-value path in the
+project fails under strict rendering. This is a small but real inconsistency
+in the required-content policy.
+
+**Remediation:** Return the parse error and let strict mode reject it;
+under `WithLegacyPartialRendering`, emit a warning. Add tests for invalid,
+empty, and unit-suffixed values.
+
+**Acceptance:** Invalid span numeric attributes fail in strict mode with the
+attribute name in the error.
+
+### N06. The Complexity Ratchet Has No Headroom
+
+**P2 | Measured | Maintainability**
+
+Evidence: `gocyclo` top list; `scripts/check-maintainability.sh` budgets.
+
+Four functions sit exactly at the complexity ceiling of 15:
+`templating.parsePageRuleDeclarations`, `pdfrender.normalizeTableFontStyle`,
+`(*LayoutPDF).RenderUseTemplateElement`, and `pdfdump.(*textArrayState).consume`.
+Ten more are at 13-14. Three files are within 50 lines of the 600-line file
+budget. Any bug fix touching those functions or files will trip the gate and
+tempt a waiver or a mechanical split that does not improve design.
+
+The average complexity of 3.9 is healthy; this is a local headroom problem,
+not a systemic one.
+
+**Remediation:** Refactor the four at-ceiling functions behind
+characterization tests, targeting 10 or below, one PR each. Prefer extracting
+a cohesive helper or a table-driven mapping over splitting arbitrarily. For
+the three near-budget files, move a cohesive group of functions to a sibling
+file only where the group has a name that is not "misc."
+
+**Acceptance:** No first-party function above 12; no file above 550 lines.
+Then lower `MAX_CYCLO` to 12 for touched functions in the changed-scope
+gate so the ratchet keeps tightening.
+
+### N07. Nested Backend Module Declares Go 1.12 Language Semantics
 
 **P2 | Inspection | Correctness, maintainability**
 
-Evidence: [stylesheet application](../internal/templating/docflow_parser.go#L25), [property mapping](../internal/templating/docflow_parser.go#L96), [specificity model](../internal/templating/css_selectors.go#L1), and [README limitation](../README.md#L185).
+Evidence: `third_party/gofpdf/go.mod` declares `go 1.12` and contains
+`replace gofpdf => ./`; 126 `range` loops in the package.
 
-The README correctly says this is mapped-property styling, not a browser cascade. The implementation applies declarations in source order, ignores unsupported properties, and does not use the separate specificity model to resolve styles. `font-weight` and `font-style` both map to the same attribute, so later declarations can overwrite the other aspect. Complex model code can give maintainers a misleading impression of runtime support.
+The root module requires Go 1.26.6, but the repository-owned backend compiles
+under Go 1.12 language semantics. This means pre-1.22 shared loop-variable
+semantics, no range-over-integer, and older vet analyzers for that package.
+No goroutine closures over loop variables were found, so no current bug is
+claimed, but the semantic split is invisible to contributors and the nested
+module's vet/format checks run with an older ruleset than the rest of the
+repository. The `replace gofpdf => ./` directive is a non-module path and
+appears vestigial.
 
-**Remediation:** Publish a tested support matrix for selectors, declarations, units, inline attributes, page rules, inheritance, and layer precedence. Preserve the deliberate subset unless product requirements change. Correct independent font weight/style composition and emit actionable diagnostics for unsupported constructs under an opt-in/strict policy. Either connect or remove unused models after checking their callers and purpose.
+**Remediation:** Raise the nested directive to at least `go 1.22` (or align
+with the root minimum), run the nested test suite and `go vet`, review any
+loop-variable capture the compiler flags, and remove the vestigial replace
+directive. Record the change in `third_party/gofpdf/PATCHES.md`.
 
-**Acceptance:** Small fixtures demonstrate actual supported behavior, including bold plus italic and layered precedence. Unsupported CSS never silently masquerades as browser-compatible rendering in documentation or tests.
+**Acceptance:** Both modules declare a language version at or above 1.22;
+nested tests, vet, and the root quality gate pass; `PATCHES.md` records the
+directive change and any semantic review findings.
 
-### R20. Legacy and Debug Utilities Have Unclear Support Status
+### N08. Coverage Floors Lag Observed Values
 
-**P2 | Inspection | Maintainability, tooling correctness**
+**P3 | Measured | Engineering practice**
 
-Evidence: [root dumper](../pdfdump.go#L1) and [internal dumper](../internal/pdfdump/dumper.go#L1).
+Evidence: `scripts/coverage-baseline.txt` versus the coverage table.
 
-The two PDF dump implementations duplicate substantial logic. They locate PDF objects/streams with regular expressions and are not a general PDF parser or conformance validator; arbitrary binary streams and more complex PDF structures require a real parser. Their results should not be the only correctness oracle. The three root JavaScript utilities total 3,729 lines and import numerous packages, but the repository has no package manifest/lockfile or JS test workflow. Their runtime behavior and dependency vulnerability status were not exhaustively audited here.
+`cmd/gen-example` floor is 25.2% while observed coverage is 48.0% after the
+invoice command was removed; `internal/format` 56.5% versus 57.7%;
+`internal/pdfdump` 25.4% versus 27.1%. The ratchet therefore permits a
+regression of up to 23 points in `gen-example` without failing.
 
-The invoice font and signature assets are tracked. Their presence is not itself a defect, but redistribution rights and whether samples contain sensitive material need owner confirmation.
+**Remediation:** Re-record floors as the minimum across the current CI
+matrix after N01 lands, per the existing rule in
+`docs/phase6-release-readiness.md`.
 
-**Remediation:** Decide which legacy entry points remain supported. Consolidate retained dumper behavior behind one implementation with writer injection, bounded decoding, tests, and a documented scope; use an established PDF parser for authoritative inspection. Archive obsolete JS tools with explicit status or give supported tools a reproducible package setup and tests. Record fixture licenses and sample-data provenance.
+**Acceptance:** Every floor is within two points of the matrix minimum.
 
-**Acceptance:** Each supported command has one implementation, pinned dependencies, smoke/error tests, and documentation. Examples contain only approved redistributable assets and non-sensitive data.
+### N09. Static Analysis Is Limited to `go vet`
 
-## Verification Performed
+**P2 | Inspection | Engineering practice**
 
-The working tree was clean at the start. Production code, existing tests, and committed module files were not modified during this review.
+Evidence: `scripts/check-quality.sh`; no `staticcheck` or `golangci-lint`
+present or pinned.
 
-Environment: macOS/arm64, `go1.27.0`, stock Bash 3.2.57. Results using the temporary module file describe the installed sibling dependency state, not a verified release dependency graph.
+The dead code in N02, the discarded errors in N05, and the unused variable
+in `template_renderers.go` are all standard `staticcheck`/`unused`/`errcheck`
+findings. The current gate would not catch a reintroduction.
 
-| Check | Result |
-| --- | --- |
-| `go test ./... -count=1 -cover` | Blocked before tests: committed module requires updates. |
-| Same suite with isolated `-modfile` and `-mod=mod` | Public package fails to compile at two font-extraction API calls; internal test packages pass. |
-| `go build` of `./...` with isolated module file | Pass. This does not compile package tests. |
-| `go vet` of `./internal/... ./cmd/...` with isolated module file | Pass. |
-| `go test -race ./internal/... -count=1` with isolated module file | Pass for current tests; no public/shared-input concurrency claim. |
-| `gofmt -l` on Go source directories and root dumper | No files reported. |
-| Maintainability script under stock Bash | Fails: `mapfile: command not found`. |
-| Direct `gocyclo -top 12 docflowpdf internal cmd` | Maximum reported complexity 50; multiple functions above 15. |
-| Nine isolated expected-correctness probes | All nine fail on the behaviors recorded below. These are findings, not pre-existing suite failures. |
-| Editor diagnostics | Confirms module-loading issues; also flags a redundant type assertion in the renderer. |
+**Remediation:** Add a pinned `staticcheck` (or `golangci-lint` with
+`unused`, `errcheck`, `staticcheck`, `gosimple`) invocation to
+`scripts/check-quality.sh` and the CI quality job. Start with the default
+rule set; add exclusions only with a comment naming the reason.
 
-Per-package coverage from the isolated suite was **42.0%** for formatting, **41.8%** for PDFDOM, **29.1%** for rendering, and **51.8%** for templating. Flow adapter, i18n, dumper, and CLI packages had no own test files/0% in this invocation. Public-package coverage is unavailable because its tests did not compile. These are not an aggregate coverage score and do not measure all cross-package execution.
+**Acceptance:** The analyzer runs in CI on every supported Go version, is
+version-pinned, and passes on the baseline after N02/N05 are fixed.
 
-No dependency vulnerability scan, full public-package race run, fuzz campaign, load/heap profile, screenshot comparison, independent PDF validator run, or JavaScript test suite was performed. No absence-of-vulnerabilities or PDF/A compliance claim is made. Full security review of sibling dependency implementations is outside this assessment.
+### N10. PDF Inspection Tool Has Broad Surface and Two Entry Points
 
-### Reproduction Cases to Preserve as Regression Tests
+**P2 | Measured | Maintainability, test coverage**
 
-The temporary probes import only the public package, use small in-memory assets, and inspect simple generated PDF text streams where placement/text matters. The stream helper is diagnostic only, not a general PDF parser. Except for the deliberate ambient-i18n observation, they supply an explicit in-memory translation source.
+Evidence: `internal/pdfdump` 1,237 lines at 27.1%; root `pdfdump.go` and
+`cmd/gen-example dump-pdf` both call `pdfdump.DumpPDF`.
 
-| Case | Fixture/input | Observed result |
-| --- | --- | --- |
-| Missing main template | Valid assets; explicit main section names nonexistent template | Nil error, 808 PDF bytes. |
-| Required CSS file | Explicit missing CSS file plus one valid CSS layer | Assets resolve without error. |
-| Preserve output | Existing file contains `ORIGINAL`; invalid render input | File truncated to empty. |
-| Integer precision | Source `ID=int64(9007199254740993)`; helper observes value | `9007199254740992`. |
-| Layer-only resolved input | Move valid `doc` definition from `Assets.HTML` to `HTMLLayers`; omit flow | Main-flow inference error. |
-| Multiple sections | Two main templates, each containing one normal div | Both at `x=20, y=811.89`. |
-| Long table | 100 rows; width 200, padding 4, minimum row height 20; one 200-point column | One page, 100 row text operations. |
-| Colspan | Three 100-point columns; first cell spans two, second is ordinary | Next cell advances 100 instead of 200 points. |
-| Currency carry | Currency CHF, decimal `.`, value `1.999` | `CHF 1.100`. |
+The dumper is documented as a supported bounded diagnostic tool, but its
+xref/PNG-predictor decoder, dictionary tokenizer, stream formatter, and ANSI
+styling are untested. It is also reachable from two CLIs with identical
+behavior, and `runDumpPDF` in `gen-example` is 0% covered. After the invoice
+command's removal, `gen-example` exposes only `layered` and `dump-pdf`, so its
+name no longer describes it well.
 
-For the table fixtures, the public HTML syntax requires `width`, `padding`, and `row-height-min` on the table. Use named `doc` and `page-number` templates and a nonempty stylesheet, such as `@page { margin: 20pt; }`. Add focused tests to the owning packages and public integration tests once R01 is fixed; do not weaken existing integration coverage to bypass the build failure.
+**Remediation:** Add golden-file tests for the tokenizer, predictor decoder,
+and stream formatting using small synthetic PDFs (pdfcpu can generate them).
+Remove `dump-pdf` from `gen-example` in favor of the root `pdfdump` command,
+or fold both into one `cmd/csspdf` tool with `render-example` and `dump`
+subcommands; record the decision in `docs/api-compatibility.md`.
 
-Temporary evidence is under `/tmp/csspdf-review.XmlX2c` on the review machine: the isolated module files, coverage output, and two probe test files. It is disposable, not a repository dependency. The table above records the durable reproduction requirements.
+**Acceptance:** One dump entry point; `internal/pdfdump` at or above 50%;
+CLI smoke tests cover usage, missing-file, and over-limit paths.
+
+### N11. Legacy Partial-Render Path Has No Removal Date
+
+**P3 | Inspection | Maintainability**
+
+Evidence: `internal/pdfrender/render_errors.go` `recoverableRenderError`
+used at nine sites; `WithLegacyPartialRendering` and deprecated
+`WarningWriter` retained; `docs/api-compatibility.md` says "no removal
+release scheduled."
+
+The compatibility path is correctly opt-in, but every renderer change must
+consider two error policies. Keeping it indefinitely doubles the test matrix
+for element rendering.
+
+**Remediation:** Owner decides a removal release. Until then, ensure each
+`recoverableRenderError` site has a test in both modes so the legacy path
+does not silently diverge.
+
+**Acceptance:** A removal release is named, or a documented rationale for
+indefinite support is recorded with the test-both-modes rule enforced.
+
+### N12. Documentation References Rewritten-Away Commits
+
+**P3 | Measured | Documentation**
+
+Evidence: `docs/phase5-performance.md` cited the end-of-Phase-4 commit by
+abbreviated hash; that hash no longer exists after the history rewrite.
+
+Phase evidence documents that cite commit identifiers become unverifiable
+after any history rewrite. Content-based references (file paths, tags, or
+reproducible commands) survive rewrites.
+
+**Remediation:** Replace the stale identifier with the commit subject and
+a reproducible command. Adopt a rule that evidence documents cite tags or
+file content, not raw hashes, unless the hash is on a protected branch that
+will never be rewritten.
+
+**Acceptance:** No document references a commit that `git cat-file -e`
+cannot resolve; the release procedure notes the citation rule.
 
 ## Existing Strengths
 
-- Public API, HTML/CSS parsing, PDFDOM, flow adaptation, and backend rendering already have recognizable ownership boundaries.
-- Source abstractions support files, in-memory values, and `io/fs`, providing a good basis for reproducible embedded assets.
-- Sequential HTML layer parsing preserves override semantics; optional-layer missing-file handling already uses wrapped error checks.
-- Standard `html/template`, HTML parsing, and established CSS libraries avoid unnecessary custom parsing for much of the pipeline.
-- Existing tests cover useful layering, table-sizing, locale, and font behavior, and internal tests pass under the isolated dependency setup.
-- Warning hooks, a clock hook, and wrapped errors provide useful starting points for structured diagnostics and repeatable tests.
+- All twenty prior findings, including nine reproduced document-correctness
+  defects, are closed with named regression tests.
+- The quality gate is portable (Bash 3.2), pinned, least-privilege, and
+  enforced across a Linux/macOS and Go 1.26.6/1.27.x matrix.
+- The public facade has a coherent option API, typed diagnostics with
+  stable codes, resource budgets, cancellation, confined file access, and
+  byte-level determinism under a fixed clock.
+- Average cyclomatic complexity is 3.9 with no function above the budget and
+  no `TODO`/`FIXME` debt markers.
+- Architecture boundaries are documented and mechanically checked; internal
+  packages do not import the facade.
+- Dependencies are current and `govulncheck` is clean on the minimum
+  toolchain.
+- Provenance and support status are documented; private data and
+  unapproved assets have been removed from history.
 
 ## Target Quality Contract
 
-"Gold standard" should mean observable properties rather than a particular file length or a perfect-looking coverage number:
+The Phase 0-6 contract remains in force. This review adds:
 
-1. A clean checkout has a pinned, documented build and a green full suite on every supported Go version and platform.
-2. Successful rendering means all required content was emitted under a documented layout/overflow policy. File errors never silently destroy prior output.
-3. Values keep their declared precision and formatting semantics from input to emitted text.
-4. Templates, CSS, resources, and custom functions have explicit trust and support contracts; hostile inputs are rejected or isolated within resource budgets.
-5. Public input reuse is immutable/race-tested, output is independent of ambient example directories, and all public configuration types are usable by external modules.
-6. Errors identify stage and location without leaking payloads. Semantic or byte determinism is specified and tested, not inferred from the clock hook.
-7. Performance limits come from representative benchmarks and profiles; optimizations preserve measured behavior.
-8. Every supported component has a clear owner, reproducible dependencies, tests, and current documentation.
+1. Core packages have direct unit coverage proportional to their source
+   volume; integration tests confirm composition, not basic behavior.
+2. Library code never panics on input; every failure is a typed, wrapped
+   error reachable with `errors.Is`/`errors.As`.
+3. Static analysis beyond `go vet` runs in CI and passes with documented
+   exclusions only.
+4. The complexity and file-length ratchets keep tightening; waivers name an
+   owner and review date.
+5. Both modules compile under a current language version.
+6. Evidence documents cite durable references.
 
 ## Phased Remediation
 
-Use small pull requests. Each row is a bounded Copilot work item, not permission to combine the whole phase into one edit. Address phases 0-2 before a correctness-sensitive release. Complete phase 3 before exposing rendering to untrusted assets or service workloads. Do not postpone the trust warning or CI build/test gates until the architecture work.
+Use small pull requests. Each row is one bounded work item. Phases 7 and 8
+do not change public behavior and can proceed in parallel. Phase 9 depends on
+Phase 7's analyzer to confirm dead-code removal. Phase 10 depends on Phase 9's
+characterization tests.
 
-### Phase 0: Reproducible Baseline
+### Phase 7: Static Analysis and Hygiene (completed 2026-09-08)
 
-**Goal:** Make failures trustworthy and independently reproducible. **Covers:** R01, the immediate portions of R10/R11/R20.
+**Goal:** Catch regressions of the hygiene findings mechanically.
+**Covers:** N02, N08, N09, N12.
 
-| Work item | Scope and dependencies | Completion gate |
-| --- | --- | --- |
-| 0A Dependency/toolchain contract | Module files and downstream integration API. Owner selects supported versions and minimum Go version. | Clean clone without siblings: build, full tests, and tidy produce no tracked changes. |
-| 0B Hermetic integration fixtures | Font test and fixture metadata; retain Type0/ToUnicode/character assertions. Depends on 0A. | Test executes, not skips, on clean Linux/macOS runners using approved fixtures. |
-| 0C Essential CI gates | Workflow only plus a small shared check entry point. Pin actions/tools; least-privilege permissions. Depends on 0A. | Build, tests, vet, formatting, and dependency checks run for public and internal code; full-suite failures block merge. |
-| 0D Immediate support/trust documentation | README and security/support documentation only. | State trusted-input assumptions, non-browser CSS scope, supported toolchains, and provisional legacy-command status. |
+| Work item | Scope and dependencies | Completion gate | Result |
+| --- | --- | --- | --- |
+| 7A Pinned analyzer | `scripts/check-quality.sh`, CI quality job. | `staticcheck` (or `golangci-lint`) runs on every matrix cell and blocks merge. | `staticcheck` v0.8.1 (default checks) and `errcheck` v1.20.0 run on the root module; `staticcheck -checks 'SA*'` runs on `third_party/gofpdf`. Exclusions live in `scripts/errcheck-excludes.txt` with reasons. A probe with an unused function and a discarded error fails both tools. |
+| 7B Dead code removal | Six zero-caller functions, `_ = bottomMargin`, deprecated `pdfdom` functions. | Analyzer clean; tests unchanged. | Fourteen unused symbols removed across seven packages, including the duplicate `hexToRGB` parser, which now delegates to the tested table parser. Two dead stores fixed. Six ignored `fmt.Sscanf` results replaced by explicit scanners with identical semantics. Backend SA findings fixed and recorded in `third_party/gofpdf/PATCHES.md`. |
+| 7C Deprecation schedule | Migrate internal `flowrender` callers; name removal release for `WarningWriter` in `docs/api-compatibility.md`. | No internal caller of a deprecated symbol; schedule published. | No `Deprecated:` markers remain under `internal/`. `WarningWriter`/`WithWarningWriter` carry `Deprecated:` comments naming v0.3.0 removal; table updated. |
+| 7D Floor and citation refresh | `scripts/coverage-baseline.txt`; `docs/phase5-performance.md`; `docs/release.md` citation rule. | Floors within two points of matrix minimum; no unresolvable commit references. | Floors re-recorded from the four-cell matrix (Linux/macOS x Go 1.26.6/1.27.1); every floor equals its matrix minimum. Stale hash replaced by commit subject; citation rule added to `docs/release.md`. |
 
-**Exit:** No release can rely on a local sibling checkout or bypass an uncompiled integration test. Record the initial vulnerability scan and triage its actual results; do not equate dependency freshness with security.
+**Exit:** A reintroduced unused function or discarded error fails CI. Verified
+by probe on 2026-09-08.
 
-### Phase 1: Reliable Inputs, Errors, and Output
+### Phase 8: Error-Handling Consistency
 
-**Goal:** Eliminate silent corruption and make failure behavior consistent. **Covers:** R02-R04, R08-R09, R12-R14.
-
-| Work item | Scope and dependencies | Completion gate |
-| --- | --- | --- |
-| 1A Required-content error policy | Public orchestrator, flow renderer, focused tests; decide strict default versus explicit legacy compatibility first. | Missing templates/required values/images fail visibly; layered and legacy cases agree; CLI exit status is tested. |
-| 1B Atomic file output | File-output helper and tests only; do not refactor layout. | Existing destination preserved for render/write/close failure; temp cleanup and successful replacement tested. |
-| 1C Rounding correction | Formatter and monetary integration tests. | Carry, negative values, and zero-decimal cases pass; publish rounding policy. Exact-decimal API evolution is a separate follow-up ticket. |
-| 1D Numeric normalization | Source normalization plus numeric helpers and tests. | Large integer probe passes through every input mode; `json.Number` or native-value semantics work with default/custom helpers. |
-| 1E Self-contained defaults | i18n initialization and example configuration. | In-memory render works in an empty directory; formatting separators have generic defaults. |
-| 1F Required CSS errors | Asset resolution and source tests only. | Explicit read failures are preserved; unset/optional source behavior remains supported. |
-| 1G HTML flow parity | Default inference and asset normalization, with layered tests. | Layer-only resolved/unresolved inputs agree and sequential block overrides remain intact. |
-| 1H Immutable validated configuration | Flow copy/validation helpers and focused tests. | Reserved/conflicting paths rejected; shared input unchanged after rendering; concurrent normalization passes `-race`. |
-
-**Compatibility control:** Changing error defaults, numeric types, unknown-field handling, and rounding semantics must have migration notes and release-version decisions. Do not hide semantic changes inside extraction/refactoring commits.
-
-### Phase 2: Layout Correctness
-
-**Goal:** Establish layout invariants before changing architecture. **Covers:** R05-R07 and geometry from R14.
+**Goal:** One error policy across all packages.
+**Covers:** N03, N04, N05, N11.
 
 | Work item | Scope and dependencies | Completion gate |
 | --- | --- | --- |
-| 2A Persistent flow state | Flow state and section rendering only. | Multiple sections do not overlap; page overlays and absolute elements do not corrupt normal flow. |
-| 2B Span-aware column traversal | Table measurement/rendering and tests only. | Colspan positions/heights agree for fixed and inferred columns. |
-| 2C Geometry and overflow detection | Finite content-box validation and whole-block fit checks. | NaN/Inf, impossible margins, and oversized blocks produce bounded, contextual failures. |
-| 2D Table row pagination | Row model/header identity, page placement, renderer tests. Depends on 2A-2C. | 100-row and mixed-height fixtures preserve order, repeat headers, and remain in bounds; oversized-row policy is tested. |
-| 2E Text continuation | Text layout/fragmentation, independent of table algorithms. Depends on 2A/2C. | Long text spans pages without loss/duplication; line spacing and margins remain correct. |
-| 2F Semantic PDF regressions | Shared test fixtures and an independent PDF reader/validator. | Page counts, text, font mappings, and placement pass; selected raster snapshots reviewed for visual layout. |
+| 8A Limit marker | Internal marker interface/sentinel; facade mapping; per-limit tests. | `errors.Is` identifies every limit failure. |
+| 8B Wrap audit | `pdfdom`, `pdfrender`, `i18n` error sites; classify leaf versus wrapped in PR description. | Causes preserved; `errors.Is(err, fs.ErrNotExist)` works through the facade for file sources. |
+| 8C Builder errors | `pdfdom` `Add`/`AddLine` and 33 call sites, or facade `recover` boundary. | Invalid child yields `DiagnosticError`; no panic reaches callers. |
+| 8D Span attribute strictness | `span_style.go` and tests. | Invalid numeric attributes fail in strict mode, warn in legacy mode. |
+| 8E Legacy path decision | Owner decision; both-modes tests at each `recoverableRenderError` site. | Removal release named or rationale recorded. |
 
-**Exit:** All nine reproduced defect cases are permanent passing regressions. Layout tests include explicit breaks, first/subsequent page margins, running footers, empty sections, UTF-8, and long content. Keep PDF structural/semantic assertions primary; byte snapshots alone are sensitive to metadata.
+**Exit:** Public documentation states the single error contract; a fuzz
+target on HTML input finds no panics.
 
-### Phase 3: Security and Operational Boundaries
+### Phase 9: Core Package Test Depth
 
-**Goal:** Make deployment assumptions enforceable. **Covers:** R10, R14-R15, security aspects of R17/R20.
-
-| Work item | Scope and dependencies | Completion gate |
-| --- | --- | --- |
-| 3A Confined resource resolver | Resource interface and file/FS implementation, then image/font adapters in separate patches. | Traversal, absolute path, symlink, and file-type tests pass; explicit trusted-file mode remains available. |
-| 3B Input/expansion limits | Source reads and template output first; node/row/page/image/output limits in subsequent small patches. | Limit-boundary and over-limit tests fail predictably with cleanup; no silent truncation. |
-| 3C Context-aware rendering | Additive context API and stage/loop checks; old APIs delegate using a background context. | Cancellation before preparation, during long layout, and before emission is tested; non-interruptible custom code limitations documented. |
-| 3D Safe PDF inspection | Bound stream decompression and file size; inject output writer. | Compressed-bomb fixture stops at configured limit; errors are returned rather than swallowed. |
-| 3E Security regression gate | Fuzz supported parser/normalization entry points with limits; pin vulnerability scanning. | Seed corpus, time-bounded fuzz smoke, regular longer runs, and vulnerability exception policy are present. |
-
-**Exit:** Threat model separates trusted templates/functions from untrusted data/assets. Service integrations document worker limits, maximum document sizes, and isolation requirements. No claim of full sandboxing is made merely because a context or resolver was added.
-
-### Phase 4: Ownership and Diagnostics
-
-**Goal:** Reduce change coupling without changing established behavior. **Covers:** R11, R16-R17, R19-R20.
+**Goal:** Unit-level confidence in parsing and layout.
+**Covers:** N01, N10.
 
 | Work item | Scope and dependencies | Completion gate |
 | --- | --- | --- |
-| 4A Public configuration types | Public margin/settings types and internal conversion; add an external-consumer compile fixture. | No public signature requires naming an internal type; documented compatibility maintained. |
-| 4B Orchestration decomposition | One extraction per PR: normalized input, fonts/resources, payload transformation, then diagnostic formatting. | Characterization tests unchanged; no backend/framework replacement. |
-| 4C Layout ownership | Separate flow state, table conversion, reusable templates, and optional profile graphics in independent PRs. | Generic render initializes no invoice assets; output regressions pass. |
-| 4D Structured diagnostics | Diagnostic types/codes, provenance, redaction, CLI formatter in staged changes. | Stable stage/section/page/layer context; wrapped causes; no ANSI or payload snippets in default library errors. |
-| 4E CSS support contract | Tested support matrix, independent font-style composition, removal/integration of unused models after usage checks. | Supported subset examples execute; unsupported constructs have documented diagnostics. |
-| 4F Tooling and legacy consolidation | Portable Go-aware gates, current boundary docs, one dumper, explicit JS support decisions. | Gates test dirty/empty/all scopes; supported commands have smoke tests and reproducible dependencies. |
+| 9A Option table test | `docflowpdf/render_options_test.go`. | Every `With*` asserted; 100% of `render_options.go`. |
+| 9B Templating characterization | `docflow_parser.go` exports, `page_css.go` edge cases. | `internal/templating` at or above 60%. |
+| 9C PDFDOM characterization | `span_style.go`, `html_parser.go` branches, `elements.go` validation. | `internal/pdfdom` at or above 65%. |
+| 9D Renderer characterization | Table layout, text continuation, use-template, flow margins. | `internal/pdfrender` at or above 72%. |
+| 9E Dumper tests and consolidation | Synthetic-PDF golden tests; one CLI entry point. | `internal/pdfdump` at or above 50%; `dump-pdf` duplication removed. |
+| 9F Test file split | `render_test.go`, `sources_test.go` by concern. | No test file above 600 lines. |
 
-**Exit:** Architecture documents match actual packages. Apply a complexity ratchet to touched functions; isolate table-driven mappings from genuinely tangled control flow. A waiver must name the reason, owner, and review point rather than silently excluding the public package.
+**Exit:** Overall coverage at or above 68%; floors re-recorded.
 
-### Phase 5: Measured Performance and Determinism
+### Phase 10: Complexity Headroom and Backend Module
 
-**Goal:** Optimize observed bottlenecks under a stable correctness contract. **Covers:** R18 and determinism from R17.
+**Goal:** Keep the ratchet meaningful and the backend current.
+**Covers:** N06, N07.
 
 | Work item | Scope and dependencies | Completion gate |
 | --- | --- | --- |
-| 5A Benchmark corpus | Small letter, layered multi-section document, long table, images, UTF-8, and concurrent independent jobs. | Baseline latency, allocations, heap/peak RSS, pages, and output sizes recorded with machine/toolchain details. |
-| 5B Prepared inputs | Per-render compiled templates/styles and normalized data; preserve context-dependent function behavior. | Fewer repeated parse/serde operations; semantic output unchanged; race tests pass. |
-| 5C Reusable layout plans | Remove demonstrated duplicate measurement work only where profiles support it. | Benchmark improvement is measurable without pagination or font regressions. |
-| 5D Determinism contract | Fixed clock plus explicit metadata/order policy if byte reproducibility is required. | Repeated/process-separated renders satisfy the chosen semantic or byte-level contract. |
+| 10A At-ceiling refactors | Four functions at complexity 15, one PR each, behind Phase 9 tests. | Each at or below 10; output unchanged. |
+| 10B Near-budget files | `text_engine.go`, `html_parser.go`, `elements.go`. | Each below 550 lines via named cohesive extraction. |
+| 10C Tighten ratchet | `MAX_CYCLO` 12 for changed scope; `MAX_FILE_LINES` 550. | Gate passes on `main`. |
+| 10D Backend language version | `third_party/gofpdf/go.mod` directive and vestigial replace; `PATCHES.md`. | Nested vet/tests pass at or above `go 1.22`; review recorded. |
 
-**Exit:** Publish a supported workload envelope and agreed regression budget on a reference runner. Do not set arbitrary latency promises before benchmarking or add a global cache without a capacity/eviction policy.
-
-### Phase 6: Release Readiness and Maintenance
-
-**Goal:** Keep quality from regressing. **Covers:** All findings through sustained gates.
-
-- Run the full supported Go/OS matrix, integration fixtures, semantic PDF validation, race tests, and scheduled fuzz/security jobs.
-- Require tests for each fixed behavior and risk-weighted coverage on new logic. Ratchet package coverage from the recorded baseline; do not pursue 100% line coverage by weakening assertions or testing only wrappers.
-- Verify README examples in an external consumer module and from a clean working directory.
-- Document API compatibility, deprecations, supported CSS/HTML, resource policy, troubleshooting, and release procedure.
-- Confirm font/signature/sample-data provenance and the support status of every shipped utility.
-- Close every P1 and applicable conditional P1 with a linked regression test. Record remaining P2 items with an owner, rationale, and milestone; do not label the project gold-standard solely because lint gates are green.
+**Exit:** No function above 12, no file above 550, both modules on a
+current language version.
 
 ## Copilot Work Item Protocol
 
-Use the following task template for each row above. The human owner approves policy changes; Copilot implements the bounded mechanics and supplies evidence.
-
-```text
-Task: <phase/item and finding IDs>
-Goal: <one observable outcome>
-Allowed scope: <owning files/packages and focused tests>
-Preconditions: <dependency baseline and completed predecessor items>
-Compatibility decision: <approved behavior, or stop and ask>
-Non-goals: <no unrelated cleanup, no new framework, no broad API rewrite>
-
-1. Read the owning behavior and nearest test/call site.
-2. State a local hypothesis and create a failing regression test.
-3. Confirm it fails for the intended reason, not a dependency/setup error.
-4. Implement the smallest change; immediately rerun that check.
-5. Run affected-package tests, then required repository gates.
-6. Check callers, input immutability, error context, and relevant edge cases.
-7. Report changed behavior, exact commands/results, and unresolved risks.
-
-Done means:
-- The regression passes without deleting or weakening existing assertions.
-- Required gates pass, or a pre-existing blocker is explicitly reported.
-- No unrelated edits or generated artifacts are included.
-- Public behavior and migration notes match the approved policy.
-```
-
-Keep each PR to one behavioral contract, typically one implementation area and its tests. Split larger pagination, resource-resolution, and diagnostic work at tested boundaries. Do not bundle dependency upgrades, mechanical extraction, and behavior changes. Human review should focus on the assertions and compatibility decisions, not just whether generated code compiles.
+The Phase 0-6 protocol applies unchanged. In summary: one behavioral
+contract per PR; write the failing test first and confirm it fails for the
+intended reason; implement the smallest change; run affected-package tests,
+then `scripts/check-quality.sh` and `scripts/check-maintainability.sh`;
+report exact commands and results; do not bundle dependency upgrades,
+mechanical extraction, and behavior changes. The human owner approves any
+compatibility decision before implementation starts.
 
 ## Decisions Needed From the Maintainer
 
-1. Is this library for trusted local authoring only, or will it process tenant/user-supplied templates and assets?
-2. Which Go version and immutable sibling-library revisions are the release baseline?
-3. Should strict rendering become the default immediately, or through a documented compatibility transition?
-4. What are the monetary rounding/minor-unit rules and required exact-number types?
-5. Which page-overflow behaviors are supported, and what maximum document size/concurrency must be supported?
-6. Is reproducibility semantic or byte-for-byte, and are PDF/A or accessibility requirements part of the product contract?
-7. Are the root JavaScript tools and duplicate dumper public interfaces, and are all sample assets approved for redistribution?
+1. Builder panics (N04): change the `pdfdom` builder API to return errors, or
+   keep it internal and add a facade `recover` boundary?
+2. Legacy partial rendering (N11): name a removal release, or record a
+   rationale for indefinite support?
+3. Dump tooling (N10): keep root `pdfdump` and drop `gen-example dump-pdf`, or
+   consolidate into one `cmd/csspdf` tool?
+4. Coverage targets (N01): accept the proposed per-package targets, or set
+   different ones?
+5. Backend module (N07): align `third_party/gofpdf` to the root Go minimum,
+   or to the lowest version with per-iteration loop semantics (1.22)?
 
-These decisions constrain implementation; they do not prevent starting Phase 0 and adding the verified regression cases.
+These decisions gate Phases 8-10; Phase 7 can start immediately.

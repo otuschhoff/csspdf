@@ -162,7 +162,7 @@ func (l *LayoutPDF) appendTableRow(tableDef *TableDef, row *pdfdom.ElemTr, isHea
 		rowDef.Stroke = &value
 	}
 	if height, ok := row.Attribute("height"); ok {
-		fmt.Sscanf(height, "%f", &rowDef.Height)
+		scanFloatAttribute(height, &rowDef.Height)
 	}
 	for _, child := range cells {
 		cell, err := tableCellFromNode(child)
@@ -185,7 +185,7 @@ func columnsFromCells(cells []pdfdom.PDFNode) ([]ColumnDef, error) {
 		column := columnDefFromCell(cell)
 		span := 1
 		if raw, ok := cell.Attribute("colspan"); ok {
-			fmt.Sscanf(raw, "%d", &span)
+			scanIntAttribute(raw, &span)
 		}
 		span = normalizedColspan(span)
 		if span > 1 {
@@ -207,7 +207,7 @@ func (l *LayoutPDF) CellDefFromTableCell(cellElem pdfdom.PDFElementNode, isHeade
 	applyCellDimensions(&cell, cellElem)
 	explicitAlign := applyCellAlignment(&cell, cellElem, isHeader)
 	if colspan, ok := cellElem.Attribute("colspan"); ok {
-		fmt.Sscanf(colspan, "%d", &cell.Colspan)
+		scanIntAttribute(colspan, &cell.Colspan)
 	}
 	if _, ok := cellElem.(*pdfdom.ElemTh); ok {
 		cell.Bold = true
@@ -442,12 +442,28 @@ func tableCellFromNode(node pdfdom.PDFNode) (pdfdom.PDFElementNode, error) {
 func columnDefFromCell(cell pdfdom.PDFElementNode) ColumnDef {
 	column := ColumnDef{}
 	if width, ok := cell.Attribute("width"); ok {
-		fmt.Sscanf(width, "%f", &column.Width)
+		scanFloatAttribute(width, &column.Width)
 	}
 	if align, ok := cell.Attribute("align"); ok {
 		column.Align = tableAlignFromAttr(align)
 	}
 	return column
+}
+
+// scanFloatAttribute leaves target unchanged when raw has no leading number.
+func scanFloatAttribute(raw string, target *float64) {
+	var parsed float64
+	if _, err := fmt.Sscanf(raw, "%f", &parsed); err == nil {
+		*target = parsed
+	}
+}
+
+// scanIntAttribute leaves target unchanged when raw has no leading integer.
+func scanIntAttribute(raw string, target *int) {
+	var parsed int
+	if _, err := fmt.Sscanf(raw, "%d", &parsed); err == nil {
+		*target = parsed
+	}
 }
 
 func (l *LayoutPDF) ResolvePDFTextNode(node *pdfdom.PDFTextNode) string {

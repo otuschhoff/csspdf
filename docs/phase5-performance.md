@@ -10,7 +10,9 @@ promises for other machines or documents.
 - OS: macOS 26.6.2 (Darwin 25.6.0, arm64)
 - CPU: Apple M1 Max
 - Toolchain: Go 1.27.1
-- Comparison base: `9f046f2` (completed Phase 4)
+- Comparison base: the commit `feat: complete ownership and diagnostics phase`
+  (end of Phase 4), reproducible by re-running the command below at that
+  subject in history
 - Command: `BENCHTIME=10x COUNT=5 scripts/benchmark-phase5.sh`
 
 The benchmark runner also writes CPU and heap profiles under

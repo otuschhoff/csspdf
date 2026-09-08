@@ -147,8 +147,8 @@ func sliceCompress(data []byte) []byte {
 func sliceUncompress(data []byte) (outData []byte, err error) {
 	inBuf := bytes.NewReader(data)
 	r, err := zlib.NewReader(inBuf)
-	defer r.Close()
 	if err == nil {
+		defer r.Close()
 		var outBuf bytes.Buffer
 		_, err = outBuf.ReadFrom(r)
 		if err == nil {

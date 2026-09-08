@@ -63,14 +63,6 @@ func ParsePreparedStyledFragment(htmlStr string, stylesheet *PreparedStylesheet)
 	return doc, nil
 }
 
-func ApplyStylesheet(root *html.Node, cssText string) error {
-	stylesheet, err := PrepareStylesheet(cssText)
-	if err != nil {
-		return err
-	}
-	return ApplyPreparedStylesheet(root, stylesheet)
-}
-
 func ApplyPreparedStylesheet(root *html.Node, stylesheet *PreparedStylesheet) error {
 	if stylesheet == nil || len(stylesheet.rules) == 0 {
 		return nil

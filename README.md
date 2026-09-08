@@ -322,7 +322,7 @@ Supported runtime expressions:
 
 RenderInput supports warning sinks via:
 - Logger (preferred)
-- WarningWriter (deprecated compatibility path)
+- WarningWriter (deprecated; removed in v0.3.0, see docs/api-compatibility.md)
 
 The warning sink intentionally remains a minimal `Warnf` compatibility
 interface. Typed render failures use `DiagnosticError`; applications that need

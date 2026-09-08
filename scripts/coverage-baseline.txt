@@ -1,13 +1,14 @@
-# Package coverage floors recorded for Phase 6 on 2026-09-08.
+# Package coverage floors: minimum observed across the supported CI matrix
+# (Linux/macOS x Go 1.26.6/1.27.x). Re-recorded for Phase 7 on 2026-09-08.
 # Update a floor only with reviewed tests and docs/phase6-release-readiness.md evidence.
 github.com/otuschhoff/csspdf 66.7
 github.com/otuschhoff/csspdf/cmd/dom-parse 74.5
-github.com/otuschhoff/csspdf/cmd/gen-example 25.2
-github.com/otuschhoff/csspdf/docflowpdf 73.1
-github.com/otuschhoff/csspdf/internal/flowrender 64.4
-github.com/otuschhoff/csspdf/internal/format 56.5
+github.com/otuschhoff/csspdf/cmd/gen-example 48.0
+github.com/otuschhoff/csspdf/docflowpdf 73.6
+github.com/otuschhoff/csspdf/internal/flowrender 66.7
+github.com/otuschhoff/csspdf/internal/format 57.1
 github.com/otuschhoff/csspdf/internal/i18n 88.2
-github.com/otuschhoff/csspdf/internal/pdfdom 48.4
-github.com/otuschhoff/csspdf/internal/pdfdump 25.4
-github.com/otuschhoff/csspdf/internal/pdfrender 63.3
-github.com/otuschhoff/csspdf/internal/templating 45.5
+github.com/otuschhoff/csspdf/internal/pdfdom 48.9
+github.com/otuschhoff/csspdf/internal/pdfdump 25.2
+github.com/otuschhoff/csspdf/internal/pdfrender 63.4
+github.com/otuschhoff/csspdf/internal/templating 46.3

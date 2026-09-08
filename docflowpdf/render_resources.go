@@ -18,14 +18,6 @@ import (
 	"github.com/otuschhoff/csspdf/internal/pdfrender"
 )
 
-func resolveRenderAssets(input RenderInput) (Assets, error) {
-	limits, err := normalizeRenderLimits(input.Limits)
-	if err != nil {
-		return Assets{}, err
-	}
-	return resolveRenderAssetsContext(context.Background(), input, limits)
-}
-
 func resolveRenderAssetsContext(ctx context.Context, input RenderInput, limits RenderLimits) (Assets, error) {
 	resolver := input.ResourceResolver
 	if resolver == nil {

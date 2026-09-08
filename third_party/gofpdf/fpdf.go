@@ -962,8 +962,7 @@ func (f *Fpdf) GetStringSymbolWidth(s string) int {
 	}
 	w := 0
 	if f.isCurrentUTF8 {
-		unicode := []rune(s)
-		for _, char := range unicode {
+		for _, char := range s {
 			intChar := int(char)
 			if len(f.currentFont.Cw) >= intChar && f.currentFont.Cw[intChar] > 0 {
 				if f.currentFont.Cw[intChar] != 65535 {
@@ -2301,7 +2300,7 @@ func (f *Fpdf) Text(x, y float64, txtStr string) {
 			x -= f.GetStringWidth(txtStr)
 		}
 		txt2 = f.escape(utf8toutf16(txtStr, false))
-		for _, uni := range []rune(txtStr) {
+		for _, uni := range txtStr {
 			f.currentFont.usedRunes[int(uni)] = int(uni)
 		}
 	} else {
@@ -2512,7 +2511,7 @@ func (f *Fpdf) CellFormat(w, h float64, txtStr, borderStr string, ln int,
 				txtStr = reverseText(txtStr)
 			}
 			wmax := int(math.Ceil((w - 2*f.cMargin) * 1000 / f.fontSize))
-			for _, uni := range []rune(txtStr) {
+			for _, uni := range txtStr {
 				f.currentFont.usedRunes[int(uni)] = int(uni)
 			}
 			space := f.escape(utf8toutf16(" ", false))
@@ -2537,7 +2536,7 @@ func (f *Fpdf) CellFormat(w, h float64, txtStr, borderStr string, ln int,
 					txtStr = reverseText(txtStr)
 				}
 				txt2 = f.escape(utf8toutf16(txtStr, false))
-				for _, uni := range []rune(txtStr) {
+				for _, uni := range txtStr {
 					f.currentFont.usedRunes[int(uni)] = int(uni)
 				}
 			} else {

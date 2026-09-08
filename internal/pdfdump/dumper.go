@@ -14,7 +14,6 @@ import (
 var (
 	objRe    = regexp.MustCompile(`(?s)(\d+)\s+0\s+obj\s*(.*?)\s*endobj`)
 	streamRe = regexp.MustCompile(`(?s)stream\s*(.*?)\s*endstream`)
-	binaryRe = regexp.MustCompile(`[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\xFF]{10,}`)
 	useColor = stdoutSupportsColor()
 )
 

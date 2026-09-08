@@ -16,13 +16,46 @@ func TestTableHexToRGB(t *testing.T) {
 		{color: "#123", red: 17, green: 34, blue: 51},
 		{color: "#12AbEF", red: 18, green: 171, blue: 239},
 		{color: " lightgrey ", red: 211, green: 211, blue: 211},
+		{color: "yellow", red: 255, green: 255, blue: 0},
+		{color: "Orange", red: 255, green: 165, blue: 0},
 		{color: "invalid", red: 0, green: 0, blue: 0},
+		{color: "#12g", red: 0, green: 0, blue: 0},
 	}
 	for _, test := range tests {
 		red, green, blue := tableHexToRGB(test.color)
 		if red != test.red || green != test.green || blue != test.blue {
 			t.Fatalf("tableHexToRGB(%q) = (%d,%d,%d), want (%d,%d,%d)", test.color, red, green, blue, test.red, test.green, test.blue)
 		}
+		if r, g, b := hexToRGB(test.color); r != red || g != green || b != blue {
+			t.Fatalf("hexToRGB(%q) = (%d,%d,%d), want table parser result (%d,%d,%d)", test.color, r, g, b, red, green, blue)
+		}
+	}
+}
+
+func TestScanAttributeHelpersKeepPreviousValueOnInvalidInput(t *testing.T) {
+	floatValue := 7.5
+	scanFloatAttribute("abc", &floatValue)
+	if floatValue != 7.5 {
+		t.Fatalf("invalid float input changed target to %v", floatValue)
+	}
+	// "pt" is not a unit here: %f treats 'p' as a hex exponent marker and fails.
+	scanFloatAttribute("12.25pt", &floatValue)
+	if floatValue != 7.5 {
+		t.Fatalf("unit-suffixed float changed target to %v", floatValue)
+	}
+	scanFloatAttribute(" 12.25 ", &floatValue)
+	if floatValue != 12.25 {
+		t.Fatalf("leading float not parsed, got %v", floatValue)
+	}
+
+	intValue := 1
+	scanIntAttribute("x", &intValue)
+	if intValue != 1 {
+		t.Fatalf("invalid int input changed target to %d", intValue)
+	}
+	scanIntAttribute("3", &intValue)
+	if intValue != 3 {
+		t.Fatalf("int not parsed, got %d", intValue)
 	}
 }
 

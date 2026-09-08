@@ -263,7 +263,9 @@ func WithLogger(logger Logger) RenderOption {
 	}
 }
 
-// WithWarningWriter sets deprecated warning writer sink.
+// WithWarningWriter sets a plain-text warning sink.
+//
+// Deprecated: use WithLogger. Scheduled for removal in v0.3.0.
 func WithWarningWriter(w io.Writer) RenderOption {
 	return func(input *RenderInput) error {
 		input.WarningWriter = w

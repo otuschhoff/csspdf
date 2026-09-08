@@ -23,14 +23,6 @@ type artifactBuilder struct {
 	warnf  func(string, ...any)
 }
 
-func buildArtifactWithLimits(input RenderInput) (*renderArtifact, error) {
-	limits, err := normalizeRenderLimits(input.Limits)
-	if err != nil {
-		return nil, err
-	}
-	return buildArtifactContext(context.Background(), input, limits)
-}
-
 func buildArtifactContext(ctx context.Context, input RenderInput, limits RenderLimits) (*renderArtifact, error) {
 	builder := &artifactBuilder{ctx: ctx, input: input, limits: limits, warnf: warningFunc(input)}
 	assets, err := builder.prepareAssets()

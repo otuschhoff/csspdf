@@ -72,15 +72,6 @@ func ParseHTMLSectionElem(htmlStr, cssStyle string) (*ElemDiv, error) {
 	return htmlBuildSectionDiv(introNode)
 }
 
-// ParseHTMLIntroElem parses an HTML fragment containing a
-// <div id="intro"> element with <span>, <div> and <br> children and maps it
-// to an ElemDiv. cssStyle is applied before parsing (may be empty).
-//
-// Deprecated: use ParseHTMLSectionElem.
-func ParseHTMLIntroElem(htmlStr, cssStyle string) (*ElemDiv, error) {
-	return ParseHTMLSectionElem(htmlStr, cssStyle)
-}
-
 // ParseHTMLDocFlow parses an HTML fragment into top-level renderable elements
 // in source order. cssStyle is applied before parsing (may be empty).
 // Supported root-level tags are <div>, <footer>, <p>, <table>, <img>, and
@@ -217,14 +208,6 @@ func htmlBuildValueElement(node *html.Node) (PDFElementNode, bool, error) {
 	return element, true, err
 }
 
-// htmlBuildIntroDiv builds a generic section div from an HTML node.
-//
-// Deprecated: use htmlBuildSectionDiv.
-func htmlBuildIntroDiv(n *html.Node) *ElemDiv {
-	div, _ := htmlBuildSectionDiv(n)
-	return div
-}
-
 func htmlBuildImage(n *html.Node) *ElemImg {
 	img := NewElemImg()
 	htmlSetAttrs(img, n.Attr)
@@ -274,10 +257,6 @@ func htmlBuildCreateTemplate(n *html.Node) *ElemCreateTemplate {
 		}
 	}
 	return elem
-}
-
-func htmlBuildHeading(n *html.Node) (PDFElementNode, error) {
-	return htmlBuildHeadingWithInherited(n, nil)
 }
 
 func htmlBuildHeadingWithInherited(n *html.Node, inherited *PDFTextStyle) (PDFElementNode, error) {

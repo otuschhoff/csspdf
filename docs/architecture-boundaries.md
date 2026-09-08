@@ -79,3 +79,18 @@ Run the complete build/test/security gate separately:
 ```sh
 scripts/check-quality.sh
 ```
+
+## Static Analysis Policy
+
+`scripts/check-quality.sh` runs pinned `staticcheck` (default check set) and
+`errcheck` on the root module and `staticcheck -checks 'SA*'` on
+`third_party/gofpdf`. Unused code, dead stores, and silently discarded errors
+fail the gate. `scripts/errcheck-excludes.txt` lists the only functions whose
+results may be ignored; each entry carries a reason. Explicit blank
+assignments (`_ = f()`) are permitted and mark a deliberate decision; write-side
+`Close` calls are not excluded and must be checked.
+
+The backend module receives correctness checks only because style rewrites of
+imported upstream source would enlarge the documented patch set without
+changing behavior. The applied correctness fixes are listed in
+`third_party/gofpdf/PATCHES.md`.

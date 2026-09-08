@@ -32,12 +32,15 @@ Current public compatibility path:
 
 | API | Replacement | Removal status |
 | --- | --- | --- |
-| `RenderInput.WarningWriter` and `WithWarningWriter` | `RenderInput.Logger` and `WithLogger` | Retained; no removal release scheduled |
-| `RenderInput.AllowPartialRender` and `WithLegacyPartialRendering` | Strict rendering, the default | Retained migration path; no removal release scheduled |
-| `FuncMapFactory` | `FuncMapFactoryEx` | Supported legacy hook; no removal release scheduled |
+| `RenderInput.WarningWriter` and `WithWarningWriter` | `RenderInput.Logger` and `WithLogger` | Deprecated in the first tagged release (v0.1.0); retained through v0.2.x; removed in v0.3.0 |
+| `RenderInput.AllowPartialRender` and `WithLegacyPartialRendering` | Strict rendering, the default | Retained migration path; removal decision tracked as N11 in `docs/code-quality-review.md` |
+| `FuncMapFactory` | `FuncMapFactoryEx` | Supported legacy hook, not deprecated; no removal release scheduled |
 
-Deprecated symbols under `internal/` are migration aids for repository-owned
-callers and carry no external compatibility promise.
+Every deprecated public symbol carries a Go `Deprecated:` comment naming its
+replacement and removal release, so `staticcheck` (SA1019) flags external
+callers. There are currently no deprecated symbols under `internal/`; the
+quality gate's unused-code check rejects deprecated internal wrappers that have
+no remaining callers.
 
 ## Supported Toolchains and Platforms
 

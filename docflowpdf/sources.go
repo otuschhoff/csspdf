@@ -329,10 +329,6 @@ func (in AssetInput) resolveAssetsContext(ctx context.Context, resolver Resource
 	return (&assetInputResolver{ctx: ctx, resolver: resolver, maxBytes: maxBytes}).resolve(in)
 }
 
-func resolveLegacyCSS(source TextSource, hasLayers bool) (string, error) {
-	return resolveLegacyCSSContext(context.Background(), TrustedFileResolver{}, 0, source, hasLayers)
-}
-
 func resolveLegacyCSSContext(ctx context.Context, resolver ResourceResolver, maxBytes int64, source TextSource, hasLayers bool) (string, error) {
 	if source.IsSet() {
 		return source.resolve(ctx, resolver, maxBytes, "template CSS")

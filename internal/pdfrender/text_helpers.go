@@ -219,23 +219,8 @@ func encodePDFTextLatin1(text string) string {
 }
 
 func hexToRGB(value string) (int, int, int) {
-	value = strings.ToLower(strings.TrimSpace(value))
-	if color, ok := namedRGBColors[value]; ok {
-		return color[0], color[1], color[2]
-	}
-	value = strings.TrimPrefix(value, "#")
-	var red, green, blue int
-	if len(value) == 3 {
-		fmt.Sscanf(value, "%1x%1x%1x", &red, &green, &blue)
-		return red * 17, green * 17, blue * 17
-	}
-	if len(value) == 6 {
-		fmt.Sscanf(value, "%02x%02x%02x", &red, &green, &blue)
-	}
-	return red, green, blue
+	return tableHexToRGB(value)
 }
-
-var namedRGBColors = map[string][3]int{"black": {0, 0, 0}, "white": {255, 255, 255}, "gray": {128, 128, 128}, "grey": {128, 128, 128}, "lightgray": {211, 211, 211}, "lightgrey": {211, 211, 211}, "darkgray": {169, 169, 169}, "darkgrey": {169, 169, 169}, "red": {255, 0, 0}, "green": {0, 128, 0}, "blue": {0, 0, 255}, "yellow": {255, 255, 0}, "orange": {255, 165, 0}}
 
 func htmlNormaliseTextAlign(value string) TextAlign {
 	switch strings.ToLower(strings.TrimSpace(value)) {

@@ -26,21 +26,23 @@ lowest observed value across supported Go/OS cells because instrumentation and
 platform-specific code change statement totals. They are package-specific so
 high coverage in one package cannot conceal a regression in another.
 
-The Phase 6 baseline is:
+The Phase 6 baseline was re-recorded in Phase 7 after dead-code removal and
+the invoice example's deletion changed statement totals. Values are the minimum
+across Linux/macOS at Go 1.26.6 and Go 1.27.1:
 
 | Package | Floor |
 | --- | ---: |
 | root diagnostic command | 66.7% |
 | `cmd/dom-parse` | 74.5% |
-| `cmd/gen-example` | 25.2% |
-| `docflowpdf` | 73.1% |
-| `internal/flowrender` | 64.4% |
-| `internal/format` | 56.5% |
+| `cmd/gen-example` | 48.0% |
+| `docflowpdf` | 73.6% |
+| `internal/flowrender` | 66.7% |
+| `internal/format` | 57.1% |
 | `internal/i18n` | 88.2% |
-| `internal/pdfdom` | 48.4% |
-| `internal/pdfdump` | 25.4% |
-| `internal/pdfrender` | 63.3% |
-| `internal/templating` | 45.5% |
+| `internal/pdfdom` | 48.9% |
+| `internal/pdfdump` | 25.2% |
+| `internal/pdfrender` | 63.4% |
+| `internal/templating` | 46.3% |
 
 Floors may increase with reviewed behavior tests. Lowering one requires an
 explicit rationale in the change and updated evidence here. Tests must assert

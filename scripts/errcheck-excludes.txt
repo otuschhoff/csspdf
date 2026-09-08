@@ -1,0 +1,14 @@
+# Functions whose return values may be ignored by scripts/check-quality.sh.
+# Keep this list short. Each entry needs a reason; write-side Close calls
+# are not excluded and must be checked explicitly.
+
+# Formatted output to caller-supplied writers in CLI usage/diagnostic text.
+fmt.Fprint
+fmt.Fprintf
+fmt.Fprintln
+
+# Read-only handles: a failed Close after successful reads carries no data.
+(*os.File).Close
+(*os.Root).Close
+(io.ReadCloser).Close
+(io/fs.File).Close

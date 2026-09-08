@@ -104,10 +104,6 @@ func (f *Formatter) FormatFloat(value float64, decimals int) string {
 	return result
 }
 
-func (f *Formatter) formatIntWithSeparator(value int64) string {
-	return f.formatDigitsWithSeparator(fmt.Sprintf("%d", value))
-}
-
 func (f *Formatter) formatDigitsWithSeparator(str string) string {
 
 	sep := f.i18n.KiloSeparator()

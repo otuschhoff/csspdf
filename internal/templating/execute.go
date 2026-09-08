@@ -24,14 +24,6 @@ func (e *OutputLimitError) Error() string {
 	return fmt.Sprintf("template output exceeds byte limit %d", e.Limit)
 }
 
-func ExecuteNamed(templateSource, templateName string, data any) (string, error) {
-	return ExecuteNamedWithFuncs(templateSource, templateName, data, nil)
-}
-
-func ExecuteNamedFromSources(templateSources []string, templateName string, data any) (string, error) {
-	return ExecuteNamedFromSourcesWithFuncs(templateSources, templateName, data, nil)
-}
-
 func ExecuteNamedWithFuncs(templateSource, templateName string, data any, funcs template.FuncMap) (string, error) {
 	return ExecuteNamedFromSourcesWithFuncs([]string{templateSource}, templateName, data, funcs)
 }

@@ -459,13 +459,6 @@ func (tr *TableRenderer) formatCellValue(cell *CellDef) string {
 	return fmt.Sprintf("%v", cell.Value)
 }
 
-func (tr *TableRenderer) getColumnWidth(colWidths []float64, colIdx int) float64 {
-	if colIdx >= len(colWidths) {
-		return 0
-	}
-	return colWidths[colIdx]
-}
-
 func (tr *TableRenderer) drawRowBackground(x, y, width, height float64, bgColor string, drawStroke bool) {
 	style := ""
 	if strings.TrimSpace(bgColor) != "" {

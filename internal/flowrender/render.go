@@ -12,10 +12,6 @@ func BuildFlowElements(templateSource, templateName, cssStyle string, data any) 
 	return BuildFlowElementsWithFuncs(templateSource, templateName, cssStyle, data, nil)
 }
 
-func BuildFlowElementsFromSources(templateSources []string, templateName, cssStyle string, data any) ([]pdfdom.PDFElementNode, error) {
-	return BuildFlowElementsFromSourcesWithFuncs(templateSources, templateName, cssStyle, data, nil)
-}
-
 // BuildFlowElementsWithFuncs executes a named HTML template with custom
 // template functions, applies CSS styling, and converts the resulting document
 // flow into PDFDOM elements.
@@ -33,21 +29,4 @@ func BuildFlowElementsFromSourcesWithOptions(templateSources []string, templateN
 		return nil, err
 	}
 	return prepared.Build(templateName, data, funcs, options)
-}
-
-// BuildNamedElements executes a named HTML template, applies CSS styling, and
-// converts the resulting document flow into PDFDOM elements.
-//
-// Deprecated: use BuildFlowElements.
-func BuildNamedElements(templateSource, templateName, cssStyle string, data any) ([]pdfdom.PDFElementNode, error) {
-	return BuildFlowElements(templateSource, templateName, cssStyle, data)
-}
-
-// BuildNamedElementsWithFuncs executes a named HTML template with custom
-// template functions, applies CSS styling, and converts the resulting document
-// flow into PDFDOM elements.
-//
-// Deprecated: use BuildFlowElementsWithFuncs.
-func BuildNamedElementsWithFuncs(templateSource, templateName, cssStyle string, data any, funcs htmltmpl.FuncMap) ([]pdfdom.PDFElementNode, error) {
-	return BuildFlowElementsWithFuncs(templateSource, templateName, cssStyle, data, funcs)
 }

@@ -90,7 +90,7 @@ type RenderInput struct {
 	// AllowPartialRender preserves the legacy behavior of logging recoverable
 	// template and element errors while emitting a potentially incomplete PDF.
 	AllowPartialRender bool
-	// Deprecated: use Logger.
+	// Deprecated: use Logger. Scheduled for removal in v0.3.0.
 	WarningWriter io.Writer
 }
 
@@ -171,10 +171,6 @@ func RenderToBytesContext(ctx context.Context, input RenderInput) ([]byte, error
 		return nil, err
 	}
 	return buf.Bytes(), nil
-}
-
-func buildArtifact(input RenderInput) (*renderArtifact, error) {
-	return buildArtifactWithLimits(input)
 }
 
 func warningFunc(input RenderInput) func(string, ...any) {

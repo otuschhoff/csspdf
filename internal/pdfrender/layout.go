@@ -14,10 +14,6 @@ import (
 	"github.com/otuschhoff/gofpdf"
 )
 
-const (
-	footerBulletSep = " • "
-)
-
 // LayoutPDF holds the shared PDF document and pre-built templates used by all
 // standalone rendering subcommands. Build one with NewLayoutPDF; use the
 // exported methods to compose pages.
