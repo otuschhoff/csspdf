@@ -52,7 +52,8 @@ CHECK_SCOPE=all scripts/check-maintainability.sh
 BENCHTIME=10x COUNT=5 scripts/benchmark-phase5.sh
 ```
 
-Confirm GitHub Actions passes the complete Linux/macOS and Go-version matrix.
+Confirm GitHub Actions passes the complete Linux/macOS/Windows amd64 and
+Go-version matrix.
 The normal test suite includes the pdfcpu semantic PDF checks and builds/runs
 the README-style external consumer from an unrelated clean directory. Review
 benchmark medians under the budget in `docs/phase5-performance.md`; timing is a

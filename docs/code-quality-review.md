@@ -425,7 +425,7 @@ cannot resolve; the release procedure notes the citation rule.
 - All twenty prior findings, including nine reproduced document-correctness
   defects, are closed with named regression tests.
 - The quality gate is portable (Bash 3.2), pinned, least-privilege, and
-  enforced across a Linux/macOS and Go 1.26.6/1.27.x matrix.
+  enforced across a Linux/macOS/Windows amd64 and Go 1.26.6/1.27.x matrix.
 - The public facade has a coherent option API, typed diagnostics with
   stable codes, resource budgets, cancellation, confined file access, and
   byte-level determinism under a fixed clock.
