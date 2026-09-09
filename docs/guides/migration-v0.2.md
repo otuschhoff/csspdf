@@ -1,5 +1,8 @@
 # Phase 1 Compatibility and Migration
 
+For the complete release summary, see the
+[v0.2.0 release notes](../releases/v0.2.0.md).
+
 Phase 1 makes input, rendering, and output failures explicit. These changes are
 intentional compatibility breaks for callers that relied on incomplete output
 or permissive configuration.

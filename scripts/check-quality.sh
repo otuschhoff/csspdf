@@ -30,6 +30,9 @@ go mod verify
 echo "[quality] Checking formatting..."
 check_formatting
 
+echo "[quality] Checking documentation links..."
+scripts/check-doc-links.sh
+
 echo "[quality] Building all root-module packages..."
 go build ./...
 

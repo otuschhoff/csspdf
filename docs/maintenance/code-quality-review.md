@@ -30,8 +30,8 @@ certification, legal assessment, or PDF conformance audit.
 
 | ID | Finding | Status | Evidence |
 | --- | --- | --- | --- |
-| R01 | Builds depended on unpinned sibling checkouts | Closed | `go.mod` pins the remote backend revision; clean-checkout and read-only container validation in `docs/phase0-baseline.md` |
-| R02 | Required-content failures returned success | Closed | Strict rendering is the default; legacy behavior only via `WithLegacyPartialRendering`; `docs/phase1-migration.md` |
+| R01 | Builds depended on unpinned sibling checkouts | Closed | `go.mod` pins the remote backend revision; clean-checkout and read-only container validation in `docs/history/phase0-baseline.md` |
+| R02 | Required-content failures returned success | Closed | Strict rendering is the default; legacy behavior only via `WithLegacyPartialRendering`; `docs/guides/migration-v0.2.md` |
 | R03 | Failed rendering destroyed existing output | Closed | Temp-file-and-rename in `output.go` with cleanup tests |
 | R04 | Monetary rounding produced invalid amounts | Closed | Carry-correct formatting with policy tests in `internal/format` |
 | R05 | Flow sections restarted at the same position | Closed | Persistent `docFlowState`; multi-section tests in `internal/pdfrender` |
@@ -39,7 +39,7 @@ certification, legal assessment, or PDF conformance audit.
 | R07 | Colspan index inconsistency | Closed | Single logical-column traversal in `table_layout.go` with span tests |
 | R08 | JSON normalization lost integer precision | Closed | `json.Number` normalization with helper support and boundary tests |
 | R09 | Library required ambient invoice translations | Closed | Self-contained defaults; ambient lookup removed; external-consumer render from empty directory |
-| R10 | Asset lookup was not a security boundary | Closed | `ConfinedFileResolver` on `os.Root`; explicit `TrustedFileResolver`; `docs/phase3-security.md` |
+| R10 | Asset lookup was not a security boundary | Closed | `ConfinedFileResolver` on `os.Root`; explicit `TrustedFileResolver`; `docs/architecture/security.md` |
 | R11 | CI did not enforce the quality baseline | Closed | Matrix quality/race/security workflows; portable Bash 3.2 gates; pinned tools |
 | R12 | CSS layers hid explicit CSS read errors | Closed | Unset versus broken source distinction with tests in `sources_test.go` |
 | R13 | Resolved/unresolved HTML layers inferred different flows | Closed | Shared normalization path; parity tests |
@@ -47,9 +47,9 @@ certification, legal assessment, or PDF conformance audit.
 | R15 | No resource budgets | Closed | `RenderLimits`, context-aware entry points, bounded dumper decompression |
 | R16 | Incomplete ownership boundaries | Closed | Public `PageMargins`; orchestration decomposed; profile assets out of generic layout; boundary checks current |
 | R17 | Unstructured diagnostics | Closed | `DiagnosticError` with codes/stages; no ANSI in library errors; CLI formatting separated |
-| R18 | Repeated preparation per section/page | Closed | `PreparedFlow`/`PreparedTemplates`/`PreparedStylesheet`; benchmark corpus and budget in `docs/phase5-performance.md` |
+| R18 | Repeated preparation per section/page | Closed | `PreparedFlow`/`PreparedTemplates`/`PreparedStylesheet`; benchmark corpus and budget in `docs/maintenance/performance.md` |
 | R19 | CSS support contract lacked executable examples | Closed | `AnalyzeCSSSupport`, independent font weight/style composition, fixture tests |
-| R20 | Legacy/debug utilities had unclear status | Closed | Single `internal/pdfdump` implementation; legacy JavaScript utilities removed from tree and history; `docs/provenance.md` |
+| R20 | Legacy/debug utilities had unclear status | Closed | Single `internal/pdfdump` implementation; legacy JavaScript utilities removed from tree and history; `docs/maintenance/provenance.md` |
 
 Determinism (R17/R18 follow-up) is byte-level for fixed-clock renders and is
 tested in-process and cross-process.
@@ -181,10 +181,10 @@ alive, and hides whether the replacement API is complete.
 **Remediation:** Delete unexported zero-caller functions and the zero-caller
 deprecated wrappers. Remove the unused `bottomMargin` computation and dead
 stores. Schedule removal of `WarningWriter` for a named release in
-`docs/api-compatibility.md`, since it is public.
+`docs/architecture/api-compatibility.md`, since it is public.
 
 **Acceptance:** A pinned static analyzer (N09) reports no unused code.
-`docs/api-compatibility.md` lists a removal release for every remaining
+`docs/architecture/api-compatibility.md` lists a removal release for every remaining
 deprecated symbol.
 
 ### N03. Error Taxonomy Is Fragmented and Wrapping Is Uneven
@@ -302,6 +302,10 @@ gate so the ratchet keeps tightening.
 
 **P2 | Inspection | Correctness, maintainability**
 
+**Historical context:** This finding describes the repository before v0.2.0.
+The nested backend no longer exists in this tree; it moved to the separately
+maintained `github.com/otuschhoff/gofpdf` fork and is pinned in `go.mod`.
+
 **Status: Closed in Phase 10.** The nested module declares Go 1.22 and no
 longer has a self-replace directive. All 126 range loops were reviewed with no
 goroutine or deferred closure capture; nested vet, tests, and race tests pass.
@@ -342,7 +346,7 @@ regression of up to 23 points in `gen-example` without failing.
 
 **Remediation:** Re-record floors as the minimum across the current CI
 matrix after N01 lands, per the existing rule in
-`docs/phase6-release-readiness.md`.
+`docs/maintenance/release-readiness.md`.
 
 **Acceptance:** Every floor is within two points of the matrix minimum.
 
@@ -383,7 +387,7 @@ name no longer describes it well.
 and stream formatting using small synthetic PDFs (pdfcpu can generate them).
 Remove `dump-pdf` from `gen-example` in favor of the root `pdfdump` command,
 or fold both into one `cmd/csspdf` tool with `render-example` and `dump`
-subcommands; record the decision in `docs/api-compatibility.md`.
+subcommands; record the decision in `docs/architecture/api-compatibility.md`.
 
 **Acceptance:** One dump entry point; `internal/pdfdump` at or above 50%;
 CLI smoke tests cover usage, missing-file, and over-limit paths.
@@ -394,7 +398,7 @@ CLI smoke tests cover usage, missing-file, and over-limit paths.
 
 Evidence: `internal/pdfrender/render_errors.go` `recoverableRenderError`
 used at nine sites; `WithLegacyPartialRendering` and deprecated
-`WarningWriter` retained; `docs/api-compatibility.md` says "no removal
+`WarningWriter` retained; `docs/architecture/api-compatibility.md` says "no removal
 release scheduled."
 
 The compatibility path is correctly opt-in, but every renderer change must
@@ -412,7 +416,7 @@ indefinite support is recorded with the test-both-modes rule enforced.
 
 **P3 | Measured | Documentation**
 
-Evidence: `docs/phase5-performance.md` cited the end-of-Phase-4 commit by
+Evidence: `docs/maintenance/performance.md` cited the end-of-Phase-4 commit by
 abbreviated hash; that hash no longer exists after the history rewrite.
 
 Phase evidence documents that cite commit identifiers become unverifiable
@@ -474,8 +478,8 @@ are complete. Phase 10 builds on Phase 9's characterization tests.
 | --- | --- | --- | --- |
 | 7A Pinned analyzer | `scripts/check-quality.sh`, CI quality job. | `staticcheck` (or `golangci-lint`) runs on every matrix cell and blocks merge. | `staticcheck` v0.8.1 (default checks) and `errcheck` v1.20.0 run on the root module; `staticcheck -checks 'SA*'` runs on `third_party/gofpdf`. Exclusions live in `scripts/errcheck-excludes.txt` with reasons. A probe with an unused function and a discarded error fails both tools. |
 | 7B Dead code removal | Six zero-caller functions, `_ = bottomMargin`, deprecated `pdfdom` functions. | Analyzer clean; tests unchanged. | Fourteen unused symbols removed across seven packages, including the duplicate `hexToRGB` parser, which now delegates to the tested table parser. Two dead stores fixed. Six ignored `fmt.Sscanf` results replaced by explicit scanners with identical semantics. Backend SA findings fixed and recorded in `third_party/gofpdf/PATCHES.md`. |
-| 7C Deprecation schedule | Migrate internal `flowrender` callers; name removal release for `WarningWriter` in `docs/api-compatibility.md`. | No internal caller of a deprecated symbol; schedule published. | No `Deprecated:` markers remain under `internal/`. `WarningWriter`/`WithWarningWriter` carry `Deprecated:` comments naming v0.3.0 removal; table updated. |
-| 7D Floor and citation refresh | `scripts/coverage-baseline.txt`; `docs/phase5-performance.md`; `docs/release.md` citation rule. | Floors within two points of matrix minimum; no unresolvable commit references. | Floors re-recorded from the four-cell matrix (Linux/macOS x Go 1.26.6/1.27.1); every floor equals its matrix minimum. Stale hash replaced by commit subject; citation rule added to `docs/release.md`. |
+| 7C Deprecation schedule | Migrate internal `flowrender` callers; name removal release for `WarningWriter` in `docs/architecture/api-compatibility.md`. | No internal caller of a deprecated symbol; schedule published. | No `Deprecated:` markers remain under `internal/`. `WarningWriter`/`WithWarningWriter` carry `Deprecated:` comments naming v0.3.0 removal; table updated. |
+| 7D Floor and citation refresh | `scripts/coverage-baseline.txt`; `docs/maintenance/performance.md`; `docs/maintenance/release.md` citation rule. | Floors within two points of matrix minimum; no unresolvable commit references. | Floors re-recorded from the four-cell matrix (Linux/macOS x Go 1.26.6/1.27.1); every floor equals its matrix minimum. Stale hash replaced by commit subject; citation rule added to `docs/maintenance/release.md`. |
 
 **Exit:** A reintroduced unused function or discarded error fails CI. Verified
 by probe on 2026-09-08.

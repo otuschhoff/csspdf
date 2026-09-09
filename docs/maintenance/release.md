@@ -8,7 +8,7 @@ pre-v1 release and subsequent releases.
 A public release must not be created until all of the following are true:
 
 - the repository owner has selected and added a root source license;
-- every distributed asset passes `docs/provenance.md` requirements;
+- every distributed asset passes `docs/maintenance/provenance.md` requirements;
 - the working tree is clean and generated `output/` or `bin/` files are absent;
 - all P1 findings are closed by regression tests;
 - remaining P2 risks have an owner, rationale, and milestone;
@@ -24,7 +24,7 @@ license and provenance records.
 
 Use semantic version tags (`v0.x.y` before API stabilization). Patch releases
 within a minor line are backward compatible. Pre-v1 minor releases may include
-documented compatibility changes under `docs/api-compatibility.md`. After
+documented compatibility changes under `docs/architecture/api-compatibility.md`. After
 v1.0.0, breaking public API changes require a major release.
 
 Do not use the hard-coded example CLI version as the release source of truth.
@@ -55,7 +55,7 @@ Confirm GitHub Actions passes the complete Linux/macOS/Windows amd64 and
 Go-version matrix.
 The normal test suite includes the pdfcpu semantic PDF checks and builds/runs
 the README-style external consumer from an unrelated clean directory. Review
-benchmark medians under the budget in `docs/phase5-performance.md`; timing is a
+benchmark medians under the budget in `docs/maintenance/performance.md`; timing is a
 human-reviewed reference-runner signal, not a shared-CI promise.
 
 Inspect the release tree with `git status --short`, `git diff --check`, and

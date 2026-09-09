@@ -70,10 +70,10 @@ Treat layered CSS as deterministic mapped-attribute composition rather than full
 
 ## End-to-end example profile
 
-See [examples/layered/doc.html](examples/layered/doc.html) with:
-- [examples/layered/styles/corporate/base.css](examples/layered/styles/corporate/base.css)
-- [examples/layered/styles/document/doc.css](examples/layered/styles/document/doc.css)
-- [examples/layered/styles/overrides/customer.css](examples/layered/styles/overrides/customer.css)
+See [examples/layered/doc.html](../../examples/layered/doc.html) with:
+- [examples/layered/styles/corporate/base.css](../../examples/layered/styles/corporate/base.css)
+- [examples/layered/styles/document/doc.css](../../examples/layered/styles/document/doc.css)
+- [examples/layered/styles/overrides/customer.css](../../examples/layered/styles/overrides/customer.css)
 
 Render via CLI:
 

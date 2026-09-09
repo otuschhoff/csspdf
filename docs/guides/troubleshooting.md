@@ -3,8 +3,8 @@
 ## Start With the Shared Gates
 
 Run `scripts/check-quality.sh` from the repository root. It checks module
-manifests, formatting, builds, vet, root and nested tests, package coverage
-floors, and the pinned reachable-vulnerability scan. Use
+manifests, formatting, documentation links, builds, vet, root-module tests,
+package coverage floors, and the pinned reachable-vulnerability scan. Use
 `RUN_VULN_CHECK=false` only after an unchanged successful scan.
 
 For rendering failures, preserve errors with `%w` and inspect them with
@@ -43,7 +43,7 @@ not supported.
 Root flow elements are `div`, `footer`, `p`, `table`, `img`, and supported typed
 value/template elements. Tables require valid column spans and are constrained
 by row/page budgets. See `docs/concepts/layered-css-organization.md` and
-`docs/phase2-layout.md` for precedence and pagination contracts.
+`docs/architecture/layout.md` for precedence and pagination contracts.
 
 ## Fonts and Text
 

@@ -1,7 +1,7 @@
 # Multi-layer CSS Phase 0 Discovery and Decisions
 
 Date: 2026-08-02
-Status: Completed
+Status: Historical evidence (completed)
 
 ## Scope
 

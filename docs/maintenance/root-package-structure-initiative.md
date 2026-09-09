@@ -1,7 +1,7 @@
 # Root Package Structure Initiative
 
 Date: 2026-09-09
-Status: In progress (Phases 0-4 completed)
+Status: In progress (Phases 0-5 completed)
 
 ## Goal
 
@@ -86,7 +86,7 @@ or conversion layers with little behavioral value.
 
 ### Preserve ownership boundaries
 
-The dependency direction in `docs/architecture-boundaries.md` remains in force.
+The dependency direction in `docs/architecture/boundaries.md` remains in force.
 In particular, internal packages must not import the public root package, and
 the existing parser, DOM, layout, and renderer responsibilities should not be
 collapsed into a generic utility package.
@@ -231,11 +231,12 @@ permanent ownership model for tests.
 
 ### Documentation layout
 
-Current architecture, operating guidance, historical evidence, and release
-notes are presently adjacent under `docs/`. A later phase may group them as:
+Current architecture, operating guidance, maintenance procedures, historical
+evidence, concepts, and release notes are grouped by ownership under `docs/`:
 
 ```text
 docs/
+├── README.md
 ├── architecture/
 ├── guides/
 ├── maintenance/
@@ -244,9 +245,9 @@ docs/
 └── releases/
 ```
 
-Moving documentation has a wider link-maintenance cost than renaming Go files.
-It should happen as a dedicated phase with link validation, not as incidental
-cleanup during code movement.
+Published release-note paths remain stable. `scripts/check-doc-links.sh`
+validates local Markdown targets, repository-root documentation references,
+and complete index coverage as part of the quality gate.
 
 ### Generated artifacts
 
@@ -262,7 +263,7 @@ artifact paths are updated together.
 Status:
 
 - Completed. See
-  `docs/root-package-structure-phase0-discovery.md` for the API inventory,
+  `docs/history/root-package-structure-phase0-discovery.md` for the API inventory,
   per-file ownership map, test-coupling analysis, dependency decisions, and
   executable baseline.
 
@@ -431,7 +432,15 @@ Acceptance criteria:
   with `api_render_file.go` reduced to validation, rendering, and one atomic
   write delegation.
 
-### Phase 5: Reorganize documentation
+### Phase 5: Reorganize documentation - Completed 2026-09-09
+
+Status:
+
+- Completed. Current contracts, user guidance, maintenance procedures, and
+  historical evidence now have separate ownership directories. `docs/README.md`
+  indexes every document, while published release-note paths remain unchanged.
+  The semantic audit also removed obsolete nested-backend steps from CI and
+  corrected current troubleshooting guidance.
 
 Separate current contracts from historical evidence. Move documents in one
 reviewable change, update all repository links, and preserve release-note URLs
@@ -439,10 +448,17 @@ when external references make that necessary.
 
 Acceptance criteria:
 
-- all relative Markdown links resolve;
-- README links point to current guidance;
-- historical records are clearly labeled as historical; and
-- architecture and release procedures do not contradict the current tree.
+- all relative Markdown links resolve: done, enforced by
+  `scripts/check-doc-links.sh` in the shared quality gate;
+- README links point to current guidance: done, with the repository README
+  linking the documentation index and current architecture, guides, and
+  maintenance paths;
+- historical records are clearly labeled as historical: done, through the
+  history index description and explicit status labels on archived discovery,
+  roadmap, baseline, and prior-release records; and
+- architecture and release procedures do not contradict the current tree:
+  done, after an audit of current docs and removal of stale nested-backend CI
+  cache and race-test steps.
 
 ### Phase 6: Evaluate generated-artifact consolidation
 

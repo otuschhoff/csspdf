@@ -1,7 +1,7 @@
 # Root Package Structure Phase 0 Discovery
 
 Date: 2026-09-09
-Status: Completed
+Status: Historical evidence (completed)
 Baseline commit: `0964f76252f267812346a1b7e9c2dfdc3ed11cb7`
 
 ## Scope
@@ -139,7 +139,8 @@ available from `github.com/otuschhoff/csspdf`.
 
 Deprecation annotations on `AllowPartialRender`, `WarningWriter`,
 `WithLegacyPartialRendering`, and `WithWarningWriter` are part of the public
-documentation baseline and remain governed by `docs/api-compatibility.md`.
+documentation baseline and remain governed by
+`docs/architecture/api-compatibility.md`.
 
 ## Production File Ownership
 
@@ -272,9 +273,9 @@ Phase 1 must review these documents when files are renamed:
 
 | Document | Current references | Required treatment |
 | --- | --- | --- |
-| `docs/root-package-structure-initiative.md` | Proposed current and target filenames. | Update implementation status and any target name changed during execution. |
-| `docs/code-quality-review.md` | `output.go`, `sources_test.go`, `render_test.go`, `render_options.go`, `render_options_test.go`, `diagnostics.go`, `limits.go`, and `resource_resolver.go`. | Preserve historical evidence wording where it describes the review baseline; update links or present-tense claims where applicable. |
-| `docs/phase5-performance.md` | `performance_test.go`. | Update to `render_benchmark_test.go` when renamed. |
+| `docs/maintenance/root-package-structure-initiative.md` | Proposed current and target filenames. | Update implementation status and any target name changed during execution. |
+| `docs/maintenance/code-quality-review.md` | `output.go`, `sources_test.go`, `render_test.go`, `render_options.go`, `render_options_test.go`, `diagnostics.go`, `limits.go`, and `resource_resolver.go`. | Preserve historical evidence wording where it describes the review baseline; update links or present-tense claims where applicable. |
+| `docs/maintenance/performance.md` | `performance_test.go`. | Update to `render_benchmark_test.go` when renamed. |
 
 No root Go filename references were found in `README.md`, `SECURITY.md`, or the
 quality and maintainability scripts at this baseline.

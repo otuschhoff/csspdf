@@ -25,7 +25,7 @@ release; `gen-example` remains focused on rendering repository examples.
 Every intentional public behavior change must include:
 
 - a regression test for the new contract;
-- a migration note in `docs/phase1-migration.md` or release notes;
+- a migration note in `docs/guides/migration-v0.2.md` or release notes;
 - a compatibility classification in the release checklist; and
 - a major-version decision once the project reaches v1.
 
@@ -58,4 +58,5 @@ on current GitHub-hosted Linux, macOS, and Windows amd64 runners. New Go release
 lines enter the matrix after a green quality and race run. A minimum-version
 change requires vulnerability or dependency evidence, documentation, and a
 release note. File replacement and path policy follow host OS behavior
-documented in `docs/phase1-migration.md` and `docs/phase3-security.md`.
+documented in `docs/guides/migration-v0.2.md` and
+`docs/architecture/security.md`.

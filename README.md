@@ -21,9 +21,10 @@ The required APIs, UTF-8 fixes, and their regression tests are maintained in
 that repository; csspdf does not require a sibling checkout or local replace.
 
 Supported release lines, compatibility rules, deprecations, provenance, and
-release checks are documented in [API compatibility](docs/api-compatibility.md),
-[asset provenance](docs/provenance.md), and the
-[release procedure](docs/release.md). The project is distributed under the
+release checks are documented in [API compatibility](docs/architecture/api-compatibility.md),
+[asset provenance](docs/maintenance/provenance.md), and the
+[release procedure](docs/maintenance/release.md). The complete documentation
+map is in [docs/README.md](docs/README.md). The project is distributed under the
 [MIT License](LICENSE).
 
 ## Status
@@ -183,7 +184,7 @@ err := csspdf.RenderContext(ctx, "output/document.pdf",
 Zero limit fields use safe library defaults. Budget violations return
 `*csspdf.BudgetError`; file output remains atomic. Templates and custom Go
 functions remain trusted code, and hard resource ceilings require process or
-container isolation. See [the Phase 3 security contract](docs/phase3-security.md).
+container isolation. See [the security contract](docs/architecture/security.md).
 
 ## Layered CSS Usage
 
@@ -330,7 +331,7 @@ Supported runtime expressions:
 
 RenderInput supports warning sinks via:
 - Logger (preferred)
-- WarningWriter (deprecated; removed in v0.3.0, see docs/api-compatibility.md)
+- WarningWriter (deprecated; removed in v0.3.0, see docs/architecture/api-compatibility.md)
 
 The warning sink intentionally remains a minimal `Warnf` compatibility
 interface. Typed render failures use `DiagnosticError`; applications that need
@@ -356,7 +357,7 @@ scheduled for removal in v0.3.0.
 a temporary file in the destination directory. Existing file permissions are
 preserved; new files are owner-only (`0600`). `RenderToWriter` cannot roll back
 bytes already accepted by an arbitrary writer. See
-`docs/phase1-migration.md` for the complete output contract.
+`docs/guides/migration-v0.2.md` for the complete output contract.
 
 ## Input Normalization
 
@@ -394,7 +395,7 @@ and rendering. A table row or image that cannot fit on an empty content box
 returns an overflow error rather than rendering beyond the page. Long text
 continues across pages without rewrapping already rendered lines.
 
-See [the Phase 2 layout contract](docs/phase2-layout.md) for detailed overflow
+See [the layout contract](docs/architecture/layout.md) for detailed overflow
 and compatibility behavior.
 
 ## Security and Trust Model
@@ -443,10 +444,10 @@ static analysis, all root and backend tests, package coverage floors, and
 reachable vulnerabilities.
 The vulnerability tool is pinned; set `RUN_VULN_CHECK=false` only for a fast
 local iteration after an unchanged successful scan. The initial scan and
-clean-checkout evidence are recorded in `docs/phase0-baseline.md`.
+clean-checkout evidence are recorded in `docs/history/phase0-baseline.md`.
 
 Release-readiness evidence and troubleshooting guidance are recorded in
-`docs/phase6-release-readiness.md` and `docs/troubleshooting.md`.
+`docs/maintenance/release-readiness.md` and `docs/guides/troubleshooting.md`.
 
 Run the changed-code maintainability ratchet with:
 
@@ -462,7 +463,7 @@ Run the measured performance corpus with:
 ```
 
 Reference results, workload definitions, the regression budget, and the
-determinism contract are recorded in `docs/phase5-performance.md`.
+determinism contract are recorded in `docs/maintenance/performance.md`.
 
 ## Tasks
 

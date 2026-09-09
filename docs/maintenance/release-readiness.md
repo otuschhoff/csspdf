@@ -60,17 +60,17 @@ behavior; wrapper-only tests added solely to move the percentage are rejected.
 
 | Findings | Status | Permanent evidence |
 | --- | --- | --- |
-| R01 | Closed | Pinned remote dependencies, clean-checkout and external-consumer gates; `docs/phase0-baseline.md` |
-| R02-R04 | Closed | Required-content, atomic-output, and currency policy regressions; `docs/phase1-migration.md` |
-| R05-R07 | Closed | Section flow, pagination, colspan, and pdfcpu semantic tests; `docs/phase2-layout.md` |
-| R08-R09 | Closed | Exact JSON-number and self-contained i18n tests; `docs/phase1-migration.md` |
-| R10, R14-R15 | Closed | Confined resources, immutable inputs, budgets, cancellation, and fuzz tests; `docs/phase3-security.md` |
+| R01 | Closed | Pinned remote dependencies, clean-checkout and external-consumer gates; `docs/history/phase0-baseline.md` |
+| R02-R04 | Closed | Required-content, atomic-output, and currency policy regressions; `docs/guides/migration-v0.2.md` |
+| R05-R07 | Closed | Section flow, pagination, colspan, and pdfcpu semantic tests; `docs/architecture/layout.md` |
+| R08-R09 | Closed | Exact JSON-number and self-contained i18n tests; `docs/guides/migration-v0.2.md` |
+| R10, R14-R15 | Closed | Confined resources, immutable inputs, budgets, cancellation, and fuzz tests; `docs/architecture/security.md` |
 | R11 | Closed | Multi-Go/multi-OS quality, race, coverage, maintainability, scheduled fuzz and vulnerability workflows |
-| R12-R13 | Closed | Explicit CSS source and layered flow inference regressions; `docs/phase1-migration.md` |
+| R12-R13 | Closed | Explicit CSS source and layered flow inference regressions; `docs/guides/migration-v0.2.md` |
 | R16-R17 | Closed | Public ownership boundaries, structured diagnostics, redaction, and external consumer tests; architecture docs |
-| R18 | Closed | Prepared render inputs, measured caches, benchmarks, and race tests; `docs/phase5-performance.md` |
+| R18 | Closed | Prepared render inputs, measured caches, benchmarks, and race tests; `docs/maintenance/performance.md` |
 | R19 | Closed | Executable CSS matrix and support diagnostics; `docs/concepts/layered-css-organization.md` |
-| R20 | Closed | Consolidated dumper, supported command tests, utility status, sanitized examples, and `docs/provenance.md` |
+| R20 | Closed | Consolidated dumper, supported command tests, utility status, sanitized examples, and `docs/maintenance/provenance.md` |
 
 All P1 and conditional P1 findings in the review have a regression surface and
 are closed. No engineering P2 is deferred from R01-R20.
@@ -87,13 +87,13 @@ approved.
 
 ## Documentation Index
 
-- API compatibility and deprecations: `docs/api-compatibility.md`
-- Security and resource policy: `docs/phase3-security.md`
+- API compatibility and deprecations: `docs/architecture/api-compatibility.md`
+- Security and resource policy: `docs/architecture/security.md`
 - HTML/CSS support: `docs/concepts/layered-css-organization.md`
-- Troubleshooting: `docs/troubleshooting.md`
-- Asset and utility provenance: `docs/provenance.md`
-- Performance and determinism: `docs/phase5-performance.md`
-- Release procedure: `docs/release.md`
+- Troubleshooting: `docs/guides/troubleshooting.md`
+- Asset and utility provenance: `docs/maintenance/provenance.md`
+- Performance and determinism: `docs/maintenance/performance.md`
+- Release procedure: `docs/maintenance/release.md`
 
 Phase 6 establishes repeatable evidence; it does not claim that linting alone
 makes the project defect-free or that trusted Go templates are sandboxed.

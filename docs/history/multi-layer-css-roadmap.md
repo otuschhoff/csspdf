@@ -1,5 +1,7 @@
 # Multi-layer CSS Implementation Roadmap
 
+Status: Historical roadmap (completed)
+
 ## Objective
 
 Enable ordered CSS layering so a reusable corporate identity style can be combined with document-specific styles, with deterministic override behavior.

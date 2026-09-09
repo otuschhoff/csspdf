@@ -1,5 +1,10 @@
 # Phase 0 Reproducible Baseline
 
+Status: Historical evidence (completed 2026-09-07)
+
+The current minimum Go version and dependency layout are documented in the
+[repository README](../../README.md); values below describe this baseline only.
+
 This record closes Phase 0 of the code-quality review. It describes the
 repository state and checks established on 2026-09-07. The backend layout in
 this section is historical; v0.2.0 replaced the embedded nested module with a
