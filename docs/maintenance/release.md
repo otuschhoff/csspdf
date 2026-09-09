@@ -1,7 +1,7 @@
 # Release Procedure
 
-csspdf has no published release tags yet. This procedure governs the first
-pre-v1 release and subsequent releases.
+csspdf publishes pre-v1 releases as annotated semantic-version tags. This
+procedure governs patch and minor releases after `v0.1.0`.
 
 ## Release Blockers
 

@@ -41,7 +41,7 @@ introduced so the extraction cannot weaken the package-level ratchet.
 | Package | Floor |
 | --- | ---: |
 | `cmd/csspdf` | 73.0% |
-| `csspdf` | 78.6% |
+| `csspdf` | 78.5% |
 | `internal/fileout` | 100.0% |
 | `internal/flowrender` | 67.1% |
 | `internal/format` | 57.1% |

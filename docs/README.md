@@ -53,5 +53,6 @@ current tree.
 
 Published release notes retain stable paths:
 
-- Current release: [v0.2.0](releases/v0.2.0.md)
+- Current release: [v0.2.1](releases/v0.2.1.md)
+- Unpublished migration baseline: [v0.2.0](releases/v0.2.0.md)
 - Historical release: [v0.1.0](releases/v0.1.0.md)

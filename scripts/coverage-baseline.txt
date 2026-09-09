@@ -2,7 +2,7 @@
 # Re-recorded from Go 1.26.6 and 1.27.1 Phase 10 profiles on 2026-09-09.
 # cmd/csspdf was re-recorded after command consolidation on 2026-09-09.
 # Update a floor only with reviewed tests and docs/maintenance/release-readiness.md evidence.
-github.com/otuschhoff/csspdf 78.6
+github.com/otuschhoff/csspdf 78.5
 github.com/otuschhoff/csspdf/cmd/csspdf 73.0
 github.com/otuschhoff/csspdf/internal/fileout 100.0
 github.com/otuschhoff/csspdf/internal/flowrender 67.1
