@@ -24,7 +24,7 @@ and is reported as `B/op` below.
 
 ## Workload Corpus
 
-The corpus in `performance_test.go` is generated in test-owned
+The corpus in `render_benchmark_test.go` is generated in test-owned
 memory and temporary directories. It does not depend on private files,
 checked-in output PDFs, or system fonts.
 
