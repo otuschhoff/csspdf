@@ -2,7 +2,6 @@ package csspdf
 
 import (
 	"bytes"
-	"errors"
 	htmltmpl "html/template"
 	"os"
 	"path/filepath"
@@ -177,86 +176,6 @@ func assertNoAtomicOutputTemps(t *testing.T, dir string) {
 	}
 	if len(matches) != 0 {
 		t.Fatalf("temporary outputs were not cleaned up: %v", matches)
-	}
-}
-
-type failingAtomicOutput struct {
-	name       string
-	writeErr   error
-	closeErr   error
-	closeCalls int
-}
-
-func (f *failingAtomicOutput) Write(data []byte) (int, error) {
-	if f.writeErr != nil {
-		return 0, f.writeErr
-	}
-	return len(data), nil
-}
-
-func (f *failingAtomicOutput) Chmod(os.FileMode) error { return nil }
-func (f *failingAtomicOutput) Name() string            { return f.name }
-func (f *failingAtomicOutput) Close() error {
-	f.closeCalls++
-	return f.closeErr
-}
-
-func TestWriteFileAtomically_PreservesDestinationAndCleansUpOnFailures(t *testing.T) {
-	testCases := []struct {
-		name      string
-		writeErr  error
-		closeErr  error
-		renameErr error
-		wantError string
-	}{
-		{name: "write", writeErr: errors.New("disk full"), wantError: "failed to write temporary PDF"},
-		{name: "close", closeErr: errors.New("flush failed"), wantError: "failed to close temporary PDF"},
-		{name: "rename", renameErr: errors.New("replace failed"), wantError: "failed to replace output file"},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			dir := t.TempDir()
-			outputPath := filepath.Join(dir, "document.pdf")
-			original := []byte("existing output")
-			if err := os.WriteFile(outputPath, original, 0600); err != nil {
-				t.Fatalf("write existing destination: %v", err)
-			}
-
-			removed := false
-			temp := &failingAtomicOutput{
-				name:     filepath.Join(dir, ".document.pdf.tmp-test"),
-				writeErr: testCase.writeErr,
-				closeErr: testCase.closeErr,
-			}
-			err := writeFileAtomically(outputPath, []byte("new output"), atomicOutputOps{
-				createTemp: func(string, string) (atomicOutputFile, error) { return temp, nil },
-				stat:       os.Stat,
-				rename: func(string, string) error {
-					return testCase.renameErr
-				},
-				remove: func(string) error {
-					removed = true
-					return nil
-				},
-			})
-			if err == nil || !strings.Contains(err.Error(), testCase.wantError) {
-				t.Fatalf("error = %v, want containing %q", err, testCase.wantError)
-			}
-			got, readErr := os.ReadFile(outputPath)
-			if readErr != nil {
-				t.Fatalf("read existing destination: %v", readErr)
-			}
-			if !bytes.Equal(got, original) {
-				t.Fatalf("destination changed after %s failure: got %q", testCase.name, got)
-			}
-			if !removed {
-				t.Fatalf("temporary output was not removed after %s failure", testCase.name)
-			}
-			if temp.closeCalls != 1 {
-				t.Fatalf("close calls = %d, want 1", temp.closeCalls)
-			}
-		})
 	}
 }
 

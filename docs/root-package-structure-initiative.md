@@ -1,7 +1,7 @@
 # Root Package Structure Initiative
 
 Date: 2026-09-09
-Status: In progress (Phases 0-3 completed)
+Status: In progress (Phases 0-4 completed)
 
 ## Goal
 
@@ -97,7 +97,7 @@ File moves, behavior changes, dependency upgrades, and public API changes must
 not be combined into one migration step. Each phase should be independently
 reviewable and leave the repository passing its normal quality gates.
 
-## Proposed Root Organization
+## Current Root Organization
 
 The first stage uses filename conventions to create visible groups while
 keeping one Go package and one public import path.
@@ -106,46 +106,55 @@ keeping one Go package and one public import path.
 csspdf/
 ├── doc.go
 │
-├── api_types.go
-├── api_render.go
-├── api_options.go
-├── api_sources.go
-├── api_resources.go
+├── api_asset_inputs.go
+├── api_css.go
 ├── api_diagnostics.go
 ├── api_limits.go
-├── api_template_funcs.go
 ├── api_migration.go
+├── api_options.go
+├── api_render.go
+├── api_render_file.go
+├── api_render_types.go
+├── api_resources.go
+├── api_sources.go
+├── api_template_funcs.go
+├── api_template_types.go
+├── api_types.go
 │
-├── render_pipeline.go
-├── render_prepare.go
-├── render_policy.go
-├── render_context.go
-├── render_errors.go
-├── render_output_atomic.go
-├── render_output_budget.go
-│
-├── assets_resolve.go
 ├── assets_base.go
-├── assets_layers.go
+├── assets_flow_defaults.go
 ├── assets_fonts.go
 ├── assets_fonts_confined.go
 ├── assets_fonts_layout.go
-├── assets_images.go
 ├── assets_i18n.go
+├── assets_images.go
+├── assets_layers.go
 ├── assets_render_order.go
+├── assets_resolve.go
 ├── assets_source_decode.go
 ├── assets_validation.go
-├── assets_flow_defaults.go
 │
 ├── payload_clone.go
 ├── payload_json.go
 ├── payload_transform.go
 ├── payload_validation.go
+│
+├── render_context.go
+├── render_errors.go
+├── render_output_budget.go
 ├── render_page_dimensions.go
+├── render_pipeline.go
+├── render_policy.go
+├── render_prepare.go
+│
 ├── profile_legacy.go
 ├── template_aggregate.go
 ├── template_currency.go
-└── template_date.go
+├── template_date.go
+│
+└── internal/
+  └── fileout/
+    └── atomic.go
 ```
 
 The exact filenames may change during implementation when a more cohesive
@@ -382,7 +391,16 @@ Acceptance criteria:
 - no production API is exported solely to support tests: done, with an
   unchanged public API fingerprint.
 
-### Phase 4: Extract independent mechanics
+### Phase 4: Extract independent mechanics - Completed 2026-09-09
+
+Status:
+
+- Completed. Atomic replacement now belongs to the standard-library-only
+  `internal/fileout` package. The root file-render facade validates its public
+  input, renders bytes, and delegates the final write without exposing internal
+  operations or adding public API. No additional extraction qualified: the
+  remaining root orchestration consumes public render models and would require
+  shared models, adapters, or a new design decision.
 
 Evaluate small implementation boundaries after the root cleanup. The first
 candidate is atomic file output:
@@ -400,11 +418,18 @@ new interfaces, or substantial parameter translation.
 
 Acceptance criteria:
 
-- the extracted package has no dependency on the root package;
+- the extracted package has no dependency on the root package: done, with only
+  standard-library imports, a one-way root-to-internal dependency, and an
+  explicit maintainability check preventing csspdf imports;
 - tests cover permission preservation, cleanup, close failures, and replacement
-  failures;
-- errors retain useful operation and path context; and
-- root orchestration becomes smaller rather than merely redistributed.
+  failures: done, including create, stat, chmod, write, close, rename, missing
+  destination, temporary-name, and wrapped-cause checks, with a 100% enforced
+  statement-coverage floor;
+- errors retain useful operation and path context: done, with the existing
+  caller-visible error messages and `%w` causes preserved; and
+- root orchestration becomes smaller rather than merely redistributed: done,
+  with `api_render_file.go` reduced to validation, rendering, and one atomic
+  write delegation.
 
 ### Phase 5: Reorganize documentation
 

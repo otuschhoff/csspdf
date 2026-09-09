@@ -33,6 +33,12 @@ that are enforced by `scripts/check-maintainability.sh`.
 - `internal/pdfdump`
 - Diagnostic PDF inspection used by repository commands.
 
+- `internal/fileout`
+- Atomic file replacement mechanics, including temporary-file cleanup and
+	permission preservation.
+- Standard-library-only leaf package; it must not import the root package or
+	rendering packages.
+
 - `github.com/otuschhoff/gofpdf`
 - External PDF backend pinned as a module dependency. Backend implementation
 	changes and focused regression tests belong in the fork repository.

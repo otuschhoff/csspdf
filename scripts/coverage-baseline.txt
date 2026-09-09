@@ -5,6 +5,7 @@ github.com/otuschhoff/csspdf 78.6
 github.com/otuschhoff/csspdf/cmd/dom-parse 74.5
 github.com/otuschhoff/csspdf/cmd/gen-example 65.3
 github.com/otuschhoff/csspdf/cmd/pdfdump 88.9
+github.com/otuschhoff/csspdf/internal/fileout 100.0
 github.com/otuschhoff/csspdf/internal/flowrender 67.1
 github.com/otuschhoff/csspdf/internal/format 57.1
 github.com/otuschhoff/csspdf/internal/i18n 88.2

@@ -221,6 +221,7 @@ check_forbidden_imports() {
 
 check_forbidden_imports "internal/templating" 'github.com/otuschhoff/csspdf/internal/(invoice|pdfrender|app)' "internal/templating must stay parser/template only"
 check_forbidden_imports "internal/flowrender" 'github.com/otuschhoff/csspdf/internal/(invoice|app)' "internal/flowrender must stay adapter-only (no business layer imports)"
+check_forbidden_imports "internal/fileout" 'github.com/otuschhoff/csspdf' "internal/fileout must remain independent of root and sibling packages"
 
 if (( status != 0 )); then
   echo "[maintainability] FAILED"

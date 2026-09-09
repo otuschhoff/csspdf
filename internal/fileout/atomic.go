@@ -1,4 +1,4 @@
-package csspdf
+package fileout
 
 import (
 	"bytes"
@@ -9,21 +9,34 @@ import (
 	"path/filepath"
 )
 
-type atomicOutputFile interface {
+type outputFile interface {
 	io.Writer
 	Chmod(os.FileMode) error
 	Close() error
 	Name() string
 }
 
-type atomicOutputOps struct {
-	createTemp func(string, string) (atomicOutputFile, error)
+type operations struct {
+	createTemp func(string, string) (outputFile, error)
 	stat       func(string) (os.FileInfo, error)
 	rename     func(string, string) error
 	remove     func(string) error
 }
 
-func writeFileAtomically(outputPath string, data []byte, ops atomicOutputOps) error {
+// WriteAtomically writes data to a temporary file and replaces outputPath only
+// after the write and close operations succeed.
+func WriteAtomically(outputPath string, data []byte) error {
+	return writeAtomically(outputPath, data, operations{
+		createTemp: func(dir, pattern string) (outputFile, error) {
+			return os.CreateTemp(dir, pattern)
+		},
+		stat:   os.Stat,
+		rename: os.Rename,
+		remove: os.Remove,
+	})
+}
+
+func writeAtomically(outputPath string, data []byte, ops operations) error {
 	dir := filepath.Dir(outputPath)
 	temp, err := ops.createTemp(dir, "."+filepath.Base(outputPath)+".tmp-*")
 	if err != nil {

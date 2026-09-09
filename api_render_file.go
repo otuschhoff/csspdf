@@ -3,8 +3,9 @@ package csspdf
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
+
+	"github.com/otuschhoff/csspdf/internal/fileout"
 )
 
 // RenderToFile renders and atomically writes a PDF to the given file path.
@@ -21,12 +22,5 @@ func RenderToFileContext(ctx context.Context, input RenderInput, outputPath stri
 	if err != nil {
 		return fmt.Errorf("failed to render PDF for %s: %w", outputPath, err)
 	}
-	return writeFileAtomically(outputPath, pdf, atomicOutputOps{
-		createTemp: func(dir, pattern string) (atomicOutputFile, error) {
-			return os.CreateTemp(dir, pattern)
-		},
-		stat:   os.Stat,
-		rename: os.Rename,
-		remove: os.Remove,
-	})
+	return fileout.WriteAtomically(outputPath, pdf)
 }

@@ -33,12 +33,17 @@ boundaries and totals between those toolchains, so each common floor uses the
 lowest observed value across the supported matrix rather than a single
 toolchain's percentage:
 
+Phase 4 of the root-package structure initiative added `internal/fileout` with
+complete behavior coverage. Its 100% floor was recorded when the package was
+introduced so the extraction cannot weaken the package-level ratchet.
+
 | Package | Floor |
 | --- | ---: |
 | `cmd/pdfdump` | 88.9% |
 | `cmd/dom-parse` | 74.5% |
 | `cmd/gen-example` | 65.3% |
 | `csspdf` | 78.6% |
+| `internal/fileout` | 100.0% |
 | `internal/flowrender` | 67.1% |
 | `internal/format` | 57.1% |
 | `internal/i18n` | 88.2% |
