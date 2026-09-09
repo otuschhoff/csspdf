@@ -6,6 +6,7 @@ import (
 	htmltmpl "html/template"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -142,13 +143,18 @@ func TestRenderToFile_AtomicallyReplacesDestinationAndPreservesMode(t *testing.T
 	if statErr != nil {
 		t.Fatalf("stat replaced destination: %v", statErr)
 	}
-	if gotMode := info.Mode().Perm(); gotMode != 0640 {
-		t.Fatalf("destination mode = %o, want 640", gotMode)
+	if runtime.GOOS != "windows" {
+		if gotMode := info.Mode().Perm(); gotMode != 0640 {
+			t.Fatalf("destination mode = %o, want 640", gotMode)
+		}
 	}
 	assertNoAtomicOutputTemps(t, dir)
 }
 
 func TestRenderToFile_NewDestinationIsOwnerOnly(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not expose Unix permission bits")
+	}
 	outputPath := filepath.Join(t.TempDir(), "document.pdf")
 	err := RenderToFile(RenderInput{Assets: minimalAssets()}, outputPath)
 	if err != nil {

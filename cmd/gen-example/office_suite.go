@@ -70,7 +70,7 @@ func runOfficeSuite(programName string, args []string) int {
 		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
 		return 1
 	}
-	logoPath := filepath.Join(*outputDir, "assets", "northstar-mark.png")
+	logoPath := filepath.Join(*outputDir, "images", "northstar-mark.png")
 	if err := writeOfficeSuiteLogo(logoPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating example image: %v\n", err)
 		return 1
@@ -184,11 +184,7 @@ func renderOfficeSuiteCase(baseDir, outputDir, logoPath string, example officeSu
 		return fmt.Errorf("parse source data: %w", err)
 	}
 	populateOfficeSuiteStressData(example.ID, source)
-	absLogoPath, err := filepath.Abs(logoPath)
-	if err != nil {
-		return fmt.Errorf("resolve generated image: %w", err)
-	}
-	source["AssetLogo"] = absLogoPath
+	source["AssetLogo"] = filepath.Base(logoPath)
 
 	flow := docflowpdf.Flow{
 		MainFlow: []docflowpdf.Section{{
@@ -210,7 +206,7 @@ func renderOfficeSuiteCase(baseDir, outputDir, logoPath string, example officeSu
 		orientation = "portrait"
 	}
 	return docflowpdf.Render(filepath.Join(outputDir, example.ID+".pdf"),
-		docflowpdf.WithAssetBaseDir(baseDir),
+		docflowpdf.WithAssetBaseDir(outputDir),
 		docflowpdf.WithAssetInput(docflowpdf.AssetInput{
 			HTML:       docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "templates.html")},
 			CSS:        docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "styles.css")},

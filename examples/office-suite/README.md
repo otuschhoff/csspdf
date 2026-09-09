@@ -10,7 +10,7 @@ From the repository root:
 go run ./cmd/gen-example office-suite
 ```
 
-Successful PDFs are written to `output/office-suite`. A deterministic PNG brand mark is generated under `output/office-suite/assets` so image loading is tested without committing an opaque or externally licensed binary.
+Successful PDFs are written to `output/office-suite`. A deterministic PNG brand mark is generated under `output/office-suite/images` so image loading is tested without committing an opaque or externally licensed binary.
 
 Useful variants:
 

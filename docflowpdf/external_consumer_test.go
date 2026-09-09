@@ -5,12 +5,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
 func TestExternalConsumerBuildsAndRendersFromCleanDirectory(t *testing.T) {
 	fixture := filepath.Join("testdata", "external-consumer")
 	binary := filepath.Join(t.TempDir(), "external-consumer")
+	if runtime.GOOS == "windows" {
+		binary += ".exe"
+	}
 	build := exec.Command("go", "build", "-o", binary, ".")
 	build.Dir = fixture
 	build.Env = append(os.Environ(), "GOWORK=off")
