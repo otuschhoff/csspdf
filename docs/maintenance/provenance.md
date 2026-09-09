@@ -39,4 +39,4 @@ outside version control and release archives.
 | `cmd/gen-example` | Supported repository tool | Layered smoke test and rollout script |
 | `cmd/dom-parse` | Supported repository tool | Writer-injected usage, error, and DOM output tests |
 | `cmd/pdfdump` | Supported bounded diagnostic tool, not a conformance validator | CLI tests and shared `internal/pdfdump` fuzzing |
-| generated files under `bin/` and `output/` | Unsupported artifacts | Excluded from source releases |
+| generated files under `.build/` | Unsupported artifacts | Excluded from source releases |

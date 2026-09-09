@@ -15,8 +15,9 @@ promises for other machines or documents.
   subject in history
 - Command: `BENCHTIME=10x COUNT=5 scripts/benchmark-phase5.sh`
 
-The benchmark runner also writes CPU and heap profiles under
-`/tmp/csspdf-phase5-profile` by default. The long-table benchmark process
+The benchmark runner also writes its test binary plus CPU and heap profiles
+under `.build/profiles/phase5` by default. Set `PROFILE_DIR` to override this
+location. The long-table benchmark process
 reported a maximum resident set size of 149,061,632 bytes (about 142 MiB),
 including the Go test harness. Its allocation profile sampled 146.96 MiB over
 10 measured renders. Per-render heap allocation is the more useful comparison

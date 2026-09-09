@@ -1,16 +1,18 @@
 .DS_Store
 
+# Repository-local generated artifacts
+/.build/
+
+# Legacy artifact locations; retained so existing local outputs stay ignored
+/bin/
+/output/
+
 # Temporary image optimization files
 Unterschrift*.jpg
 *.150dpi.*
 *.300dpi.*
-output/*.pdf
 .*.swp
-bin/*
-output/*.txt
 inv_builder.go
 /invoice-gen
 letter.pdf
 gen_inv
-output/test.html
-output/phase5/invoice-legacy.pdf

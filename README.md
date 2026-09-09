@@ -165,7 +165,10 @@ For service workloads, confine file-backed resources and set explicit budgets:
 ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 defer cancel()
 
-err := csspdf.RenderContext(ctx, "output/document.pdf",
+if err := os.MkdirAll(".build/output", 0o755); err != nil {
+	log.Fatal(err)
+}
+err := csspdf.RenderContext(ctx, ".build/output/document.pdf",
 	csspdf.WithConfinedResourceRoot("/srv/csspdf/jobs/job-123"),
 	csspdf.WithRenderLimits(csspdf.RenderLimits{
 		SourceBytes:         4 << 20,
@@ -209,7 +212,10 @@ assetInput := csspdf.AssetInput{
 	},
 }
 
-err := csspdf.Render("output/layered.pdf",
+if err := os.MkdirAll(".build/output", 0o755); err != nil {
+	log.Fatal(err)
+}
+err := csspdf.Render(".build/output/layered.pdf",
 	csspdf.WithAssetInput(assetInput),
 	csspdf.WithDefaultLocale("en"),
 	csspdf.WithDefaultCurrencyCode("EUR"),
@@ -223,13 +229,13 @@ if err != nil {
 Run the included end-to-end layered profile example:
 
 ```bash
-go run ./cmd/gen-example layered -o output/layered.pdf
+go run ./cmd/gen-example layered -o .build/output/layered.pdf
 ```
 
 Render the 20-case office and business document gallery:
 
 ```bash
-go run ./cmd/gen-example office-suite -o output/office-suite
+go run ./cmd/gen-example office-suite -o .build/output/office-suite
 ```
 
 The gallery includes memos, letters, receipts, quotes, orders, invoices,
@@ -440,8 +446,8 @@ Run the complete local quality gate:
 ```
 
 The gate checks module tidiness, dependency checksums, formatting, builds,
-static analysis, all root and backend tests, package coverage floors, and
-reachable vulnerabilities.
+static analysis, root-module tests, package coverage floors, and reachable
+vulnerabilities.
 The vulnerability tool is pinned; set `RUN_VULN_CHECK=false` only for a fast
 local iteration after an unchanged successful scan. The initial scan and
 clean-checkout evidence are recorded in `docs/history/phase0-baseline.md`.
@@ -471,12 +477,16 @@ Run tasks with `xc <task>`. The task definitions below are xc-compatible.
 
 ### build
 
-Build CLI binaries into `bin/`.
+Build CLI binaries into `.build/bin/`. Repository-local binaries, rendered
+examples, and persistent profiles belong under the ignored `.build/` tree;
+self-cleaning test and coverage files remain in the operating-system temp
+directory.
 
 ```sh
-go build -o bin/gen-example ./cmd/gen-example
-go build -o bin/dom-parse ./cmd/dom-parse
-go build -o bin/pdfdump ./cmd/pdfdump
+mkdir -p .build/bin
+go build -o .build/bin/gen-example ./cmd/gen-example
+go build -o .build/bin/dom-parse ./cmd/dom-parse
+go build -o .build/bin/pdfdump ./cmd/pdfdump
 ```
 
 ### render-sample
@@ -484,8 +494,9 @@ go build -o bin/pdfdump ./cmd/pdfdump
 Build and render the layered sample document.
 
 ```sh
-go build -o bin/gen-example ./cmd/gen-example
-./bin/gen-example layered -o output/layered.pdf
+mkdir -p .build/bin
+go build -o .build/bin/gen-example ./cmd/gen-example
+./.build/bin/gen-example layered -o .build/output/layered.pdf
 ```
 
 ### test

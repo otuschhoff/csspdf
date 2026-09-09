@@ -101,7 +101,7 @@ func runLayered(programName string, args []string) int {
 	cmd := flag.NewFlagSet("layered", flag.ContinueOnError)
 	cmd.SetOutput(os.Stderr)
 
-	outputPath := cmd.String("o", "output/layered.pdf", "Output PDF path")
+	outputPath := cmd.String("o", ".build/output/layered.pdf", "Output PDF path")
 
 	cmd.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage:")

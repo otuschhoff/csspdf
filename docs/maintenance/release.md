@@ -9,7 +9,8 @@ A public release must not be created until all of the following are true:
 
 - the repository owner has selected and added a root source license;
 - every distributed asset passes `docs/maintenance/provenance.md` requirements;
-- the working tree is clean and generated `output/` or `bin/` files are absent;
+- the working tree is clean except for ignored `.build/` artifacts or legacy
+   local `output/` and `bin/` files;
 - all P1 findings are closed by regression tests;
 - remaining P2 risks have an owner, rationale, and milestone;
 - the supported Go/OS quality matrix and race job are green;
@@ -60,7 +61,8 @@ human-reviewed reference-runner signal, not a shared-CI promise.
 
 Inspect the release tree with `git status --short`, `git diff --check`, and
 `git ls-files`. Confirm no private source data, unknown-provenance assets,
-profiles, test binaries, generated PDFs, or editor files are included.
+`.build/` content, profiles, test binaries, generated PDFs, or editor files are
+included.
 
 ## Publish
 

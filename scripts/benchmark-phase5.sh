@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BENCHTIME="${BENCHTIME:-10x}"
 COUNT="${COUNT:-1}"
-PROFILE_DIR="${PROFILE_DIR:-/tmp/csspdf-phase5-profile}"
+PROFILE_DIR="${PROFILE_DIR:-$ROOT_DIR/.build/profiles/phase5}"
 
 cd "$ROOT_DIR"
 mkdir -p "$PROFILE_DIR"

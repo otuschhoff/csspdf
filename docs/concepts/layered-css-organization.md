@@ -78,7 +78,7 @@ See [examples/layered/doc.html](../../examples/layered/doc.html) with:
 Render via CLI:
 
 ```bash
-go run ./cmd/gen-example layered -o output/layered.pdf
+go run ./cmd/gen-example layered -o .build/output/layered.pdf
 ```
 
 ## Migration guidance

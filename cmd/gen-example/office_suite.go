@@ -35,7 +35,7 @@ type officeSuiteCase struct {
 func runOfficeSuite(programName string, args []string) int {
 	cmd := flag.NewFlagSet("office-suite", flag.ContinueOnError)
 	cmd.SetOutput(os.Stderr)
-	outputDir := cmd.String("o", "output/office-suite", "Output directory")
+	outputDir := cmd.String("o", ".build/output/office-suite", "Output directory")
 	caseID := cmd.String("case", "", "Render one case by ID")
 	list := cmd.Bool("list", false, "List cases without rendering")
 	cmd.Usage = func() {

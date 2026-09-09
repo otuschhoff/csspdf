@@ -1,7 +1,7 @@
 # Root Package Structure Initiative
 
 Date: 2026-09-09
-Status: In progress (Phases 0-5 completed)
+Status: Completed (Phases 0-6)
 
 ## Goal
 
@@ -251,10 +251,12 @@ and complete index coverage as part of the quality gate.
 
 ### Generated artifacts
 
-Generated binaries, PDFs, coverage files, and profiles should remain outside
-the source structure and outside version control. A future cleanup may collect
-them under one ignored `.build/` directory, provided command behavior and CI
-artifact paths are updated together.
+Generated artifacts remain outside the source structure and version control.
+Repository-local binaries, rendered examples, rollout output, and persistent
+benchmark profiles use the ignored `.build/` tree. Test-owned files remain in
+`t.TempDir()`, and the coverage gate retains its auto-cleaned operating-system
+temporary file. Legacy `bin/` and `output/` trees remain ignored so existing
+local artifacts do not become visible or require destructive migration.
 
 ## Implementation Steps
 
@@ -460,18 +462,39 @@ Acceptance criteria:
   done, after an audit of current docs and removal of stale nested-backend CI
   cache and race-test steps.
 
-### Phase 6: Evaluate generated-artifact consolidation
+### Phase 6: Evaluate generated-artifact consolidation - Completed 2026-09-09
 
 Decide whether `bin/`, `output/`, coverage profiles, and benchmark artifacts
 should move under `.build/`. This phase is optional and should proceed only if
 the resulting command and CI conventions are simpler.
 
+Decision:
+
+- repository-local CLI binaries use `.build/bin/`;
+- example and rollout PDFs use `.build/output/`;
+- persistent benchmark artifacts use `.build/profiles/`;
+- temporary coverage profiles remain under `${TMPDIR:-/tmp}` and are removed
+  automatically unless `COVERAGE_PROFILE` explicitly preserves one;
+- test artifacts remain in `t.TempDir()`; and
+- existing `bin/` and `output/` directories are not moved or deleted and stay
+  ignored as legacy local artifact locations.
+
+This partial consolidation is simpler than forcing every generated file into
+one directory: persistent repository-local artifacts have one visible home,
+while self-cleaning temporary files keep their existing lifecycle and do not
+leave repository clutter.
+
 Acceptance criteria:
 
-- generated artifacts remain ignored;
-- examples and release checks use the same paths locally and in CI; and
+- generated artifacts remain ignored: done, with `/.build/`, `/bin/`, and
+  `/output/` rules covering the current and legacy local locations;
+- examples and release checks use the same paths locally and in CI: done,
+  because command defaults, documentation, and `check-layered-rollout.sh` use
+  `.build/output/`, while the benchmark runner defaults to
+  `.build/profiles/phase5`; and
 - no source, fixture, or provenance-controlled asset moves into the generated
-  directory.
+  directory: done; all tracked example inputs remain under `examples/`, and
+  `git ls-files .build bin output` is empty.
 
 ## Validation Strategy
 

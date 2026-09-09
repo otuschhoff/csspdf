@@ -43,6 +43,7 @@ while IFS=$'\t' read -r source line target; do
 done < <(
   find . \
     -path './.git' -prune -o \
+    -path './.build' -prune -o \
     -path './output' -prune -o \
     -type f -name '*.md' -print0 \
   | xargs -0 perl -ne '

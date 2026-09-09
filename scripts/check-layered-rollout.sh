@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
-OUT_DIR="output/phase5"
+OUT_DIR="${ARTIFACT_DIR:-$ROOT_DIR/.build/output/phase5}"
 mkdir -p "$OUT_DIR"
 
 echo "[1/3] Running focused regression tests"
