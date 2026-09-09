@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -23,13 +22,13 @@ const (
 	colorComment = "\033[90m" // bright black
 )
 
-func main() {
-	os.Exit(run(os.Args[0], os.Args[1:], os.Stdout, os.Stderr))
-}
-
-func run(program string, args []string, stdout, stderr io.Writer) int {
+func runDOMParse(program string, args []string, stdout, stderr io.Writer) int {
+	if len(args) == 1 && isHelpArgument(args[0]) {
+		printDOMParseUsage(stdout, program)
+		return 0
+	}
 	if len(args) != 1 {
-		fmt.Fprintf(stderr, "Usage: %s <input-html-file>\n", filepath.Base(program))
+		printDOMParseUsage(stderr, program)
 		return 2
 	}
 
@@ -55,6 +54,10 @@ func run(program string, args []string, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "%sDOM%s %s(%s)%s\n", colorType, colorReset, colorDim, input, colorReset)
 	printNode(stdout, doc, 0)
 	return 0
+}
+
+func printDOMParseUsage(w io.Writer, program string) {
+	fmt.Fprintf(w, "Usage: %s <input-html-file>\n", filepath.Base(program))
 }
 
 func printNode(writer io.Writer, n *html.Node, depth int) {

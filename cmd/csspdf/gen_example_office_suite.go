@@ -32,14 +32,14 @@ type officeSuiteCase struct {
 	ExpectedError string `json:"expectedError"`
 }
 
-func runOfficeSuite(programName string, args []string) int {
+func runOfficeSuite(programName string, args []string, stdout, stderr io.Writer) int {
 	cmd := flag.NewFlagSet("office-suite", flag.ContinueOnError)
-	cmd.SetOutput(os.Stderr)
+	cmd.SetOutput(stderr)
 	outputDir := cmd.String("o", ".build/output/office-suite", "Output directory")
 	caseID := cmd.String("case", "", "Render one case by ID")
 	list := cmd.Bool("list", false, "List cases without rendering")
 	cmd.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s office-suite [options]\n\n", programName)
+		fmt.Fprintf(stderr, "Usage: %s office-suite [options]\n\n", programName)
 		cmd.PrintDefaults()
 	}
 	if err := cmd.Parse(args); err != nil {
@@ -48,68 +48,68 @@ func runOfficeSuite(programName string, args []string) int {
 
 	baseDir, err := resolveOfficeSuiteBaseDir()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error locating office suite: %v\n", err)
+		fmt.Fprintf(stderr, "Error locating office suite: %v\n", err)
 		return 1
 	}
 	catalog, err := loadOfficeSuiteCatalog(baseDir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading office suite: %v\n", err)
+		fmt.Fprintf(stderr, "Error loading office suite: %v\n", err)
 		return 1
 	}
 	cases := selectOfficeSuiteCases(catalog.Cases, *caseID)
 	if len(cases) == 0 {
-		fmt.Fprintf(os.Stderr, "Error: office-suite case %q not found\n", *caseID)
+		fmt.Fprintf(stderr, "Error: office-suite case %q not found\n", *caseID)
 		return 2
 	}
 	if *list {
-		listOfficeSuiteCases(os.Stdout, cases)
+		listOfficeSuiteCases(stdout, cases)
 		return 0
 	}
 
 	if err := os.MkdirAll(*outputDir, 0o755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		fmt.Fprintf(stderr, "Error creating output directory: %v\n", err)
 		return 1
 	}
 	logoPath := filepath.Join(*outputDir, "images", "northstar-mark.png")
 	if err := writeOfficeSuiteLogo(logoPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating example image: %v\n", err)
+		fmt.Fprintf(stderr, "Error creating example image: %v\n", err)
 		return 1
 	}
 
-	if runOfficeSuiteCases(baseDir, *outputDir, logoPath, cases) {
+	if runOfficeSuiteCases(baseDir, *outputDir, logoPath, cases, stdout, stderr) {
 		return 1
 	}
 	return 0
 }
 
-func runOfficeSuiteCases(baseDir, outputDir, logoPath string, cases []officeSuiteCase) bool {
+func runOfficeSuiteCases(baseDir, outputDir, logoPath string, cases []officeSuiteCase, stdout, stderr io.Writer) bool {
 	failed := false
 	for _, example := range cases {
-		if reportOfficeSuiteResult(outputDir, example, renderOfficeSuiteCase(baseDir, outputDir, logoPath, example)) {
+		if reportOfficeSuiteResult(outputDir, example, renderOfficeSuiteCase(baseDir, outputDir, logoPath, example), stdout, stderr) {
 			failed = true
 		}
 	}
 	return failed
 }
 
-func reportOfficeSuiteResult(outputDir string, example officeSuiteCase, err error) bool {
+func reportOfficeSuiteResult(outputDir string, example officeSuiteCase, err error, stdout, stderr io.Writer) bool {
 	if example.ExpectedError != "" {
 		if err == nil {
-			fmt.Fprintf(os.Stderr, "FAIL %-24s expected error containing %q\n", example.ID, example.ExpectedError)
+			fmt.Fprintf(stderr, "FAIL %-24s expected error containing %q\n", example.ID, example.ExpectedError)
 			return true
 		}
 		if !strings.Contains(err.Error(), example.ExpectedError) {
-			fmt.Fprintf(os.Stderr, "FAIL %-24s wrong error: %s\n", example.ID, formatCommandError(err))
+			fmt.Fprintf(stderr, "FAIL %-24s wrong error: %s\n", example.ID, formatCommandError(err))
 			return true
 		}
-		fmt.Printf("PASS %-24s caught expected error: %s\n", example.ID, example.ExpectedError)
+		fmt.Fprintf(stdout, "PASS %-24s caught expected error: %s\n", example.ID, example.ExpectedError)
 		return false
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "FAIL %-24s %s\n", example.ID, formatCommandError(err))
+		fmt.Fprintf(stderr, "FAIL %-24s %s\n", example.ID, formatCommandError(err))
 		return true
 	}
-	fmt.Printf("PASS %-24s %s\n", example.ID, filepath.Join(outputDir, example.ID+".pdf"))
+	fmt.Fprintf(stdout, "PASS %-24s %s\n", example.ID, filepath.Join(outputDir, example.ID+".pdf"))
 	return false
 }
 

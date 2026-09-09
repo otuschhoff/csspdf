@@ -10,10 +10,10 @@ import (
 
 func TestPDFDumpCLIUsage(t *testing.T) {
 	var stderr bytes.Buffer
-	if code := run(nil, &stderr); code != 2 {
+	if code := runPDFDump("csspdf pdfdump", nil, &bytes.Buffer{}, &stderr); code != 2 {
 		t.Fatalf("expected usage exit code 2, got %d", code)
 	}
-	if !strings.Contains(stderr.String(), "Usage: pdfdump") {
+	if !strings.Contains(stderr.String(), "Usage: csspdf pdfdump") {
 		t.Fatalf("expected usage message, got %q", stderr.String())
 	}
 }
@@ -24,7 +24,7 @@ func TestPDFDumpCLISmoke(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stderr bytes.Buffer
-	if code := run([]string{path}, &stderr); code != 0 {
+	if code := runPDFDump("csspdf pdfdump", []string{path}, &bytes.Buffer{}, &stderr); code != 0 {
 		t.Fatalf("expected success, got exit code %d: %s", code, stderr.String())
 	}
 }
@@ -32,7 +32,7 @@ func TestPDFDumpCLISmoke(t *testing.T) {
 func TestPDFDumpCLIMissingFile(t *testing.T) {
 	var stderr bytes.Buffer
 	path := filepath.Join(t.TempDir(), "missing.pdf")
-	if code := run([]string{path}, &stderr); code != 1 {
+	if code := runPDFDump("csspdf pdfdump", []string{path}, &bytes.Buffer{}, &stderr); code != 1 {
 		t.Fatalf("expected failure, got exit code %d: %s", code, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "failed to read PDF") {
@@ -54,7 +54,7 @@ func TestPDFDumpCLIOverLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stderr bytes.Buffer
-	if code := run([]string{path}, &stderr); code != 1 {
+	if code := runPDFDump("csspdf pdfdump", []string{path}, &bytes.Buffer{}, &stderr); code != 1 {
 		t.Fatalf("expected failure, got exit code %d: %s", code, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "exceeds byte limit") {

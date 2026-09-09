@@ -77,7 +77,8 @@ is itself a finding (N09).
 ## Current Metrics
 
 Source and test volume by package (non-test lines / test lines) and statement
-coverage at the baseline commit:
+coverage at the baseline commit follow. These measurements predate the later
+consolidation of the three command packages into `cmd/csspdf`:
 
 | Package | Source | Tests | Coverage | Floor | Functions below 50% |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -513,7 +514,7 @@ the security workflow.
 | 9B Templating characterization | `docflow_parser.go` exports, `page_css.go` edge cases. | `internal/templating` at or above 60%. | Selector application, prepared stylesheets, node helpers, CSS support diagnostics, page sizes, margins, and invalid declarations are characterized; coverage is 92.4%. |
 | 9C PDFDOM characterization | `span_style.go`, `html_parser.go` branches, `elements.go` validation. | `internal/pdfdom` at or above 65%. | All element families, child validation, formatting, style inheritance, strict/legacy spans, and prepared parsing are covered; coverage is 76.2%. A nil-receiver panic in `SetAttribute` was fixed. |
 | 9D Renderer characterization | Table layout, text continuation, use-template, flow margins. | `internal/pdfrender` at or above 72%. | Text/image helpers, table-cell parsing, flow bounds, page metadata, callbacks, and cancellation are characterized; coverage is 75.6%. |
-| 9E Dumper tests and consolidation | Synthetic-PDF golden tests; one CLI entry point. | `internal/pdfdump` at or above 50%; `dump-pdf` duplication removed. | Dictionary, PNG predictor, xref, text-array, binary, bounded-I/O, and synthetic compressed-PDF paths are covered at 90.6%. `cmd/pdfdump` is the sole inspection CLI. |
+| 9E Dumper tests and consolidation | Synthetic-PDF golden tests; one CLI entry point. | `internal/pdfdump` at or above 50%; `dump-pdf` duplication removed. | Dictionary, PNG predictor, xref, text-array, binary, bounded-I/O, and synthetic compressed-PDF paths are covered at 90.6%. `csspdf pdfdump` is the sole inspection command. |
 | 9F Test file split | `render_test.go`, `sources_test.go` by concern. | No test file above 600 lines. | Renderer and source tests are split by concern; the largest test file is 597 lines. |
 
 **Exit:** Overall coverage is 78.7%. Package floors were re-recorded after
@@ -548,7 +549,7 @@ compatibility decision before implementation starts.
 ## Maintainer Decisions
 
 Phase 8 resolved the builder-error and legacy-rendering decisions. Phase 9
-retained `cmd/pdfdump` as the sole inspection command and adopted the
+retained one inspection command, now exposed as `csspdf pdfdump`, and adopted the
 proposed coverage targets. Phase 10 selected Go 1.22 for the gofpdf module,
 the lowest version with per-iteration loop semantics, while leaving the root
 module's newer minimum independent. The validated module was later published

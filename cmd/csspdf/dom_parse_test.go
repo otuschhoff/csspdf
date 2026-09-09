@@ -14,7 +14,7 @@ func TestRunPrintsRenderedDOM(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	if exitCode := run("dom-parse", []string{input}, &stdout, &stderr); exitCode != 0 {
+	if exitCode := runDOMParse("csspdf dom-parse", []string{input}, &stdout, &stderr); exitCode != 0 {
 		t.Fatalf("exit code = %d, stderr = %q", exitCode, stderr.String())
 	}
 	for _, expected := range []string{"DocumentNode", "ElementNode", "message", "Hello"} {
@@ -26,17 +26,17 @@ func TestRunPrintsRenderedDOM(t *testing.T) {
 
 func TestRunRejectsInvalidArguments(t *testing.T) {
 	var stderr bytes.Buffer
-	if exitCode := run("dom-parse", nil, &bytes.Buffer{}, &stderr); exitCode != 2 {
+	if exitCode := runDOMParse("csspdf dom-parse", nil, &bytes.Buffer{}, &stderr); exitCode != 2 {
 		t.Fatalf("exit code = %d, want 2", exitCode)
 	}
-	if !strings.Contains(stderr.String(), "Usage: dom-parse") {
+	if !strings.Contains(stderr.String(), "Usage: csspdf dom-parse") {
 		t.Fatalf("missing usage message: %q", stderr.String())
 	}
 }
 
 func TestRunReportsTemplateReadFailure(t *testing.T) {
 	var stderr bytes.Buffer
-	if exitCode := run("dom-parse", []string{filepath.Join(t.TempDir(), "missing.html")}, &bytes.Buffer{}, &stderr); exitCode != 1 {
+	if exitCode := runDOMParse("csspdf dom-parse", []string{filepath.Join(t.TempDir(), "missing.html")}, &bytes.Buffer{}, &stderr); exitCode != 1 {
 		t.Fatalf("exit code = %d, want 1", exitCode)
 	}
 	if !strings.Contains(stderr.String(), "Error parsing template") {

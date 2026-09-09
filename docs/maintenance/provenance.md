@@ -36,7 +36,5 @@ outside version control and release archives.
 | Component | Status | Validation |
 | --- | --- | --- |
 | `csspdf` | Supported public Go package | Full tests, external-consumer build/render, race and coverage gates |
-| `cmd/gen-example` | Supported repository tool | Layered smoke test and rollout script |
-| `cmd/dom-parse` | Supported repository tool | Writer-injected usage, error, and DOM output tests |
-| `cmd/pdfdump` | Supported bounded diagnostic tool, not a conformance validator | CLI tests and shared `internal/pdfdump` fuzzing |
+| `cmd/csspdf` | Supported repository tool with `gen-example`, `dom-parse`, and bounded diagnostic `pdfdump` commands | Dispatcher and command tests, layered rollout, and shared `internal/pdfdump` fuzzing |
 | generated files under `.build/` | Unsupported artifacts | Excluded from source releases |

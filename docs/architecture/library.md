@@ -57,5 +57,5 @@ Flow validation enforces:
 
 Profile-specific defaults and template function maps should live outside the core engine.
 
-The example directories contain assets consumed by `cmd/gen-example`; they are
-not Go packages or stable library APIs.
+The example directories contain assets consumed by `cmd/csspdf gen-example`;
+they are not Go packages or stable library APIs.

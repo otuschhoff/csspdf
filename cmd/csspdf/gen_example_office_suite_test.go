@@ -24,7 +24,7 @@ func TestLoadOfficeSuiteCatalogDefinesTwentyUniqueCases(t *testing.T) {
 
 func TestRunOfficeSuiteRendersImageCase(t *testing.T) {
 	outputDir := t.TempDir()
-	if exitCode := Run("gen-example", []string{"office-suite", "-case", "04-receipt", "-o", outputDir}); exitCode != 0 {
+	if exitCode := runGenExample("csspdf gen-example", []string{"office-suite", "-case", "04-receipt", "-o", outputDir}, &bytes.Buffer{}, &bytes.Buffer{}); exitCode != 0 {
 		t.Fatalf("Run exit code = %d, want 0", exitCode)
 	}
 	info, err := os.Stat(filepath.Join(outputDir, "04-receipt.pdf"))
@@ -37,7 +37,7 @@ func TestRunOfficeSuiteRendersImageCase(t *testing.T) {
 }
 
 func TestRunOfficeSuiteVerifiesExpectedFailure(t *testing.T) {
-	if exitCode := Run("gen-example", []string{"office-suite", "-case", "18-invalid-font-size", "-o", t.TempDir()}); exitCode != 0 {
+	if exitCode := runGenExample("csspdf gen-example", []string{"office-suite", "-case", "18-invalid-font-size", "-o", t.TempDir()}, &bytes.Buffer{}, &bytes.Buffer{}); exitCode != 0 {
 		t.Fatalf("Run exit code = %d, want 0 for caught expected failure", exitCode)
 	}
 }

@@ -7,7 +7,7 @@ This gallery exercises the renderer with 20 synthetic, non-production documents.
 From the repository root:
 
 ```bash
-go run ./cmd/gen-example office-suite
+go run ./cmd/csspdf gen-example office-suite
 ```
 
 Successful PDFs are written to `.build/output/office-suite`. A deterministic
@@ -18,13 +18,13 @@ Useful variants:
 
 ```bash
 # Discover all cases and complexity levels.
-go run ./cmd/gen-example office-suite -list
+go run ./cmd/csspdf gen-example office-suite -list
 
 # Render one successful case.
-go run ./cmd/gen-example office-suite -case 12-board-pack -o .build/output/board-demo
+go run ./cmd/csspdf gen-example office-suite -case 12-board-pack -o .build/output/board-demo
 
 # Verify one intentional failure.
-go run ./cmd/gen-example office-suite -case 19-invalid-colspan
+go run ./cmd/csspdf gen-example office-suite -case 19-invalid-colspan
 ```
 
 The command exits successfully for an intentional failure only when the renderer returns the expected error. A missing error or a different error makes the suite fail.

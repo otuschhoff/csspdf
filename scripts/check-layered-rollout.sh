@@ -11,7 +11,7 @@ echo "[1/3] Running focused regression tests"
 go test . ./internal/pdfrender ./internal/pdfdom
 
 echo "[2/3] Rendering layered profile"
-go run ./cmd/gen-example layered -o "$OUT_DIR/layered.pdf"
+go run ./cmd/csspdf gen-example layered -o "$OUT_DIR/layered.pdf"
 
 echo "[3/3] Measuring layered-style duplication"
 "$ROOT_DIR/scripts/measure-layered-duplication.sh"

@@ -229,13 +229,13 @@ if err != nil {
 Run the included end-to-end layered profile example:
 
 ```bash
-go run ./cmd/gen-example layered -o .build/output/layered.pdf
+go run ./cmd/csspdf gen-example layered -o .build/output/layered.pdf
 ```
 
 Render the 20-case office and business document gallery:
 
 ```bash
-go run ./cmd/gen-example office-suite -o .build/output/office-suite
+go run ./cmd/csspdf gen-example office-suite -o .build/output/office-suite
 ```
 
 The gallery includes memos, letters, receipts, quotes, orders, invoices,
@@ -477,16 +477,14 @@ Run tasks with `xc <task>`. The task definitions below are xc-compatible.
 
 ### build
 
-Build CLI binaries into `.build/bin/`. Repository-local binaries, rendered
+Build the CLI binary into `.build/bin/`. Repository-local binaries, rendered
 examples, and persistent profiles belong under the ignored `.build/` tree;
 self-cleaning test and coverage files remain in the operating-system temp
 directory.
 
 ```sh
 mkdir -p .build/bin
-go build -o .build/bin/gen-example ./cmd/gen-example
-go build -o .build/bin/dom-parse ./cmd/dom-parse
-go build -o .build/bin/pdfdump ./cmd/pdfdump
+go build -o .build/bin/csspdf ./cmd/csspdf
 ```
 
 ### render-sample
@@ -495,8 +493,8 @@ Build and render the layered sample document.
 
 ```sh
 mkdir -p .build/bin
-go build -o .build/bin/gen-example ./cmd/gen-example
-./.build/bin/gen-example layered -o .build/output/layered.pdf
+go build -o .build/bin/csspdf ./cmd/csspdf
+./.build/bin/csspdf gen-example layered -o .build/output/layered.pdf
 ```
 
 ### test
@@ -510,8 +508,9 @@ go test ./... -count=1
 ## Supported Components
 
 - `csspdf` is the supported library API.
-- `cmd/gen-example`, `cmd/dom-parse`, and `cmd/pdfdump` are supported repository tools.
-- The `cmd/pdfdump` diagnostic command is supported for bounded inspection;
+- `cmd/csspdf` is the supported repository tool, with `gen-example`,
+  `dom-parse`, and `pdfdump` commands.
+- The `csspdf pdfdump` command is supported for bounded inspection;
 	it is not a PDF conformance validator.
 - `examples/layered` contains reference assets, not stable Go APIs.
 - Generated binaries and output files are unsupported artifacts and are ignored

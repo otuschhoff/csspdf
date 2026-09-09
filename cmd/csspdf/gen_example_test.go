@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,8 +9,8 @@ import (
 
 func TestRun_LayeredRendersBundledProfile(t *testing.T) {
 	outputPath := filepath.Join(t.TempDir(), "layered.pdf")
-	if exitCode := Run("gen-example", []string{"layered", "-o", outputPath}); exitCode != 0 {
-		t.Fatalf("Run exit code = %d, want 0", exitCode)
+	if exitCode := runGenExample("csspdf gen-example", []string{"layered", "-o", outputPath}, &bytes.Buffer{}, &bytes.Buffer{}); exitCode != 0 {
+		t.Fatalf("runGenExample exit code = %d, want 0", exitCode)
 	}
 	info, err := os.Stat(outputPath)
 	if err != nil {
@@ -21,7 +22,7 @@ func TestRun_LayeredRendersBundledProfile(t *testing.T) {
 }
 
 func TestRun_UnknownSubcommandReturnsUsageError(t *testing.T) {
-	if exitCode := Run("gen-example", []string{"unknown"}); exitCode != 2 {
-		t.Fatalf("Run exit code = %d, want 2 for usage error", exitCode)
+	if exitCode := runGenExample("csspdf gen-example", []string{"unknown"}, &bytes.Buffer{}, &bytes.Buffer{}); exitCode != 2 {
+		t.Fatalf("runGenExample exit code = %d, want 2 for usage error", exitCode)
 	}
 }

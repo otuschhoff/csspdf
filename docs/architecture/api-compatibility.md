@@ -18,9 +18,10 @@ package from `docflowpdf` to `csspdf`. This is an intentional pre-v1 breaking
 change. Consumers must replace the import path and package qualifier; exported
 API behavior is otherwise unchanged.
 
-The `cmd/pdfdump` command is the single supported PDF inspection entry point.
-The duplicate `gen-example dump-pdf` subcommand was removed before a stable CLI
-release; `gen-example` remains focused on rendering repository examples.
+The `csspdf pdfdump` command is the single supported PDF inspection entry
+point. The duplicate `gen-example dump-pdf` subcommand was removed before a
+stable CLI release; `csspdf gen-example` remains focused on rendering
+repository examples.
 
 Every intentional public behavior change must include:
 

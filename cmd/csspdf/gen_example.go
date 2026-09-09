@@ -10,35 +10,33 @@ import (
 	"github.com/otuschhoff/csspdf"
 )
 
-const version = "0.2.0"
-
 const defaultCurrencyCode = "EUR"
 
-// Run executes the CLI for a specific program name with argv without the
-// executable name itself.
-func Run(programName string, args []string) int {
+// runGenExample executes the example generator with arguments that omit the
+// executable name.
+func runGenExample(programName string, args []string, stdout, stderr io.Writer) int {
 	if len(args) < 1 {
-		printUsage(os.Stderr, programName)
+		printUsage(stderr, programName)
 		return 2
 	}
 
 	switch args[0] {
 	case "layered":
-		return runLayered(programName, args[1:])
+		return runLayered(programName, args[1:], stdout, stderr)
 	case "office-suite":
-		return runOfficeSuite(programName, args[1:])
+		return runOfficeSuite(programName, args[1:], stdout, stderr)
 	case "version", "-version", "--version":
-		fmt.Printf("%s version %s\n", programName, version)
+		fmt.Fprintf(stdout, "%s version %s\n", programName, version)
 		return 0
 	case "help", "-h", "--help", "":
-		printUsage(os.Stdout, programName)
+		printUsage(stdout, programName)
 		if args[0] == "" {
 			return 2
 		}
 		return 0
 	default:
-		fmt.Fprintf(os.Stderr, "Error: unknown subcommand %q\n\n", args[0])
-		printUsage(os.Stderr, programName)
+		fmt.Fprintf(stderr, "Error: unknown subcommand %q\n\n", args[0])
+		printUsage(stderr, programName)
 		return 2
 	}
 }
@@ -97,17 +95,17 @@ func printUsage(w io.Writer, programName string) {
 	fmt.Fprintf(w, "Use '%s <subcommand> -h' for command-specific options.\n", programName)
 }
 
-func runLayered(programName string, args []string) int {
+func runLayered(programName string, args []string, stdout, stderr io.Writer) int {
 	cmd := flag.NewFlagSet("layered", flag.ContinueOnError)
-	cmd.SetOutput(os.Stderr)
+	cmd.SetOutput(stderr)
 
 	outputPath := cmd.String("o", ".build/output/layered.pdf", "Output PDF path")
 
 	cmd.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Usage:")
-		fmt.Fprintf(os.Stderr, "  %s layered [options]\n", programName)
-		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintln(os.Stderr, "Options:")
+		fmt.Fprintln(stderr, "Usage:")
+		fmt.Fprintf(stderr, "  %s layered [options]\n", programName)
+		fmt.Fprintln(stderr)
+		fmt.Fprintln(stderr, "Options:")
 		cmd.PrintDefaults()
 	}
 
@@ -116,19 +114,15 @@ func runLayered(programName string, args []string) int {
 	}
 
 	if err := os.MkdirAll(filepath.Dir(*outputPath), 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		fmt.Fprintf(stderr, "Error creating output directory: %v\n", err)
 		return 1
 	}
 
 	if err := renderLayeredPDF(*outputPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Error rendering layered example PDF: %s\n", formatCommandError(err))
+		fmt.Fprintf(stderr, "Error rendering layered example PDF: %s\n", formatCommandError(err))
 		return 1
 	}
 
-	fmt.Printf("✓ Layered example PDF generated successfully: %s\n", *outputPath)
+	fmt.Fprintf(stdout, "✓ Layered example PDF generated successfully: %s\n", *outputPath)
 	return 0
-}
-
-func main() {
-	os.Exit(Run("gen-example", os.Args[1:]))
 }
