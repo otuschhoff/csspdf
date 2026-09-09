@@ -510,8 +510,9 @@ the security workflow.
 | 9E Dumper tests and consolidation | Synthetic-PDF golden tests; one CLI entry point. | `internal/pdfdump` at or above 50%; `dump-pdf` duplication removed. | Dictionary, PNG predictor, xref, text-array, binary, bounded-I/O, and synthetic compressed-PDF paths are covered at 90.6%. Root `pdfdump.go` is the sole inspection CLI. |
 | 9F Test file split | `render_test.go`, `sources_test.go` by concern. | No test file above 600 lines. | Renderer and source tests are split by concern; the largest test file is 597 lines. |
 
-**Exit:** Overall coverage is 78.7%. Package floors were re-recorded from the
-Phase 9 profile and all exceed their required targets.
+**Exit:** Overall coverage is 78.7%. Package floors were re-recorded after
+Phase 10 from Go 1.26.6 and Go 1.27.1 profiles using the supported-matrix
+minimum for each package; all exceed their required targets.
 
 ### Phase 10: Complexity Headroom and Backend Module
 

@@ -26,23 +26,24 @@ lowest observed value across supported Go/OS cells because instrumentation and
 platform-specific code change statement totals. They are package-specific so
 high coverage in one package cannot conceal a regression in another.
 
-The coverage baseline was re-recorded in Phase 9 after direct core-package
-characterization and CLI consolidation changed statement totals. Values are
-the observed Go 1.27.1 results and are enforced unchanged across the supported
-Linux, macOS, and Windows amd64 matrix on Go 1.26.6 and Go 1.27.x:
+The coverage baseline was re-recorded after Phase 10 using Go 1.26.6 and Go
+1.27.1 profiles. Go coverage instrumentation assigns different statement
+boundaries and totals between those toolchains, so each common floor uses the
+lowest observed value across the supported matrix rather than a single
+toolchain's percentage:
 
 | Package | Floor |
 | --- | ---: |
 | root diagnostic command | 88.9% |
-| `cmd/dom-parse` | 76.0% |
-| `cmd/gen-example` | 68.2% |
-| `docflowpdf` | 78.8% |
+| `cmd/dom-parse` | 74.5% |
+| `cmd/gen-example` | 65.3% |
+| `docflowpdf` | 78.6% |
 | `internal/flowrender` | 67.1% |
 | `internal/format` | 57.1% |
-| `internal/i18n` | 88.6% |
+| `internal/i18n` | 88.2% |
 | `internal/pdfdom` | 76.2% |
-| `internal/pdfdump` | 90.6% |
-| `internal/pdfrender` | 75.6% |
+| `internal/pdfdump` | 89.5% |
+| `internal/pdfrender` | 75.0% |
 | `internal/templating` | 92.4% |
 
 Floors may increase with reviewed behavior tests. Lowering one requires an

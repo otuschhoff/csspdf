@@ -1,14 +1,14 @@
 # Package coverage floors enforced across the supported CI matrix.
-# Re-recorded from the Go 1.27.1 Phase 9 profile on 2026-09-08.
+# Re-recorded from Go 1.26.6 and 1.27.1 Phase 10 profiles on 2026-09-09.
 # Update a floor only with reviewed tests and docs/phase6-release-readiness.md evidence.
 github.com/otuschhoff/csspdf 88.9
-github.com/otuschhoff/csspdf/cmd/dom-parse 76.0
-github.com/otuschhoff/csspdf/cmd/gen-example 68.2
-github.com/otuschhoff/csspdf/docflowpdf 78.8
+github.com/otuschhoff/csspdf/cmd/dom-parse 74.5
+github.com/otuschhoff/csspdf/cmd/gen-example 65.3
+github.com/otuschhoff/csspdf/docflowpdf 78.6
 github.com/otuschhoff/csspdf/internal/flowrender 67.1
 github.com/otuschhoff/csspdf/internal/format 57.1
-github.com/otuschhoff/csspdf/internal/i18n 88.6
+github.com/otuschhoff/csspdf/internal/i18n 88.2
 github.com/otuschhoff/csspdf/internal/pdfdom 76.2
-github.com/otuschhoff/csspdf/internal/pdfdump 90.6
-github.com/otuschhoff/csspdf/internal/pdfrender 75.6
+github.com/otuschhoff/csspdf/internal/pdfdump 89.5
+github.com/otuschhoff/csspdf/internal/pdfrender 75.0
 github.com/otuschhoff/csspdf/internal/templating 92.4
