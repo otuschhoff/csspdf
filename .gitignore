@@ -9,7 +9,6 @@ output/*.pdf
 bin/*
 output/*.txt
 inv_builder.go
-pdfdump.go
 /invoice-gen
 letter.pdf
 gen_inv

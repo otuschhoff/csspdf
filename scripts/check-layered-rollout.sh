@@ -8,7 +8,7 @@ OUT_DIR="output/phase5"
 mkdir -p "$OUT_DIR"
 
 echo "[1/3] Running focused regression tests"
-go test ./docflowpdf ./internal/pdfrender ./internal/pdfdom
+go test . ./internal/pdfrender ./internal/pdfdom
 
 echo "[2/3] Rendering layered profile"
 go run ./cmd/gen-example layered -o "$OUT_DIR/layered.pdf"

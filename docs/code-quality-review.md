@@ -32,7 +32,7 @@ certification, legal assessment, or PDF conformance audit.
 | --- | --- | --- | --- |
 | R01 | Builds depended on unpinned sibling checkouts | Closed | `go.mod` pins all dependencies; backend is repository-owned in `third_party/gofpdf`; clean-checkout and read-only container validation in `docs/phase0-baseline.md` |
 | R02 | Required-content failures returned success | Closed | Strict rendering is the default; legacy behavior only via `WithLegacyPartialRendering`; `docs/phase1-migration.md` |
-| R03 | Failed rendering destroyed existing output | Closed | Temp-file-and-rename in `docflowpdf/output.go` with cleanup tests |
+| R03 | Failed rendering destroyed existing output | Closed | Temp-file-and-rename in `output.go` with cleanup tests |
 | R04 | Monetary rounding produced invalid amounts | Closed | Carry-correct formatting with policy tests in `internal/format` |
 | R05 | Flow sections restarted at the same position | Closed | Persistent `docFlowState`; multi-section tests in `internal/pdfrender` |
 | R06 | Oversized tables/blocks not paginated | Closed | Row-aware pagination with repeated headers (`table_pagination.go`); text continuation; oversized-row policy tested |
@@ -81,10 +81,10 @@ coverage at the baseline commit:
 
 | Package | Source | Tests | Coverage | Floor | Functions below 50% |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| root `pdfdump.go` | 26 | 30 | 66.7% | 66.7 | 1 |
+| `cmd/pdfdump` | 26 | 30 | 66.7% | 66.7 | 1 |
 | `cmd/dom-parse` | 113 | 45 | 74.5% | 74.5 | 1 |
 | `cmd/gen-example` | 179 | 44 | 48.0% | 25.2 | 4 |
-| `docflowpdf` | 3,475 | 3,109 | 73.1% | 73.1 | 41 |
+| `csspdf` | 3,475 | 3,109 | 73.1% | 73.1 | 41 |
 | `internal/flowrender` | 266 | 76 | 64.4% | 64.4 | 9 |
 | `internal/format` | 210 | 98 | 57.7% | 56.5 | 6 |
 | `internal/i18n` | 165 | 56 | 88.2% | 88.2 | 0 |
@@ -97,10 +97,10 @@ coverage at the baseline commit:
 Largest source files: `internal/pdfrender/text_engine.go` (590),
 `internal/pdfdom/html_parser.go` (578), `internal/pdfdom/elements.go` (557),
 `internal/pdfrender/layout.go` (527), `internal/pdfrender/table_renderer.go`
-(525). Largest test file: `docflowpdf/render_test.go` (1,282).
+(525). Largest test file: `render_test.go` (1,282).
 
 Error construction sites (`fmt.Errorf`/`errors.New`) and how many wrap a
-cause with `%w`: `docflowpdf` 93/47, `internal/pdfrender` 69/15,
+cause with `%w`: `csspdf` 93/47, `internal/pdfrender` 69/15,
 `internal/pdfdom` 35/4, `internal/templating` 16/9, `internal/pdfdump` 11/4,
 `internal/i18n` 6/1. Typed error kinds: `DiagnosticError`, `BudgetError`,
 `LimitError`, `ComplexityLimitError`, `OutputLimitError`,
@@ -127,7 +127,7 @@ The public facade is well covered (73.1%) but the packages that do the
 actual parsing and layout are not: `internal/pdfdom` has 104 functions below
 50% coverage, `internal/pdfrender` 53, `internal/templating` 22. Test volume
 follows the same pattern: `pdfrender` has 4.1 source lines per test line,
-`pdfdom` 3.3, `pdfdump` 13.3, versus `docflowpdf` at 1.1. Most core-package
+`pdfdom` 3.3, `pdfdump` 13.3, versus `csspdf` at 1.1. Most core-package
 behavior is exercised only indirectly through facade integration tests, so
 failures surface as end-to-end PDF differences rather than as unit assertions
 that name the broken rule.
@@ -139,12 +139,12 @@ own package; `internal/pdfdom/span_style.go` attribute handling is untested;
 all `internal/pdfdump` PNG-predictor and dictionary-tokenizer functions are
 0%.
 
-Public option constructors in `docflowpdf/render_options.go` (twenty-plus
+Public option constructors in `render_options.go` (twenty-plus
 `With*` functions and `RenderContext`) are 0% covered. They are trivial, but
 they are the public contract; a single table test would prevent a
 misassigned field from shipping.
 
-`docflowpdf/render_test.go` at 1,282 lines and `sources_test.go` at 720
+`render_test.go` at 1,282 lines and `sources_test.go` at 720
 lines mix unrelated concerns, which discourages adding focused cases.
 
 **Remediation:** Add package-level characterization tests for the listed
@@ -164,8 +164,8 @@ public test file exceeds 600 lines.
 
 Evidence: caller counts via `rg` on non-test code.
 
-Functions with zero non-test callers: `docflowpdf.buildArtifact`,
-`docflowpdf.resolveRenderAssets`, `docflowpdf.resolveLegacyCSS`,
+Functions with zero non-test callers: `csspdf.buildArtifact`,
+`csspdf.resolveRenderAssets`, `csspdf.resolveLegacyCSS`,
 `templating.ExecuteNamed`, `templating.ExecuteNamedFromSources`,
 `templating.ApplyStylesheet`. Deprecated `pdfdom.ParseHTMLIntroElem`,
 `htmlBuildIntroDiv`, `flowrender.BuildNamedElements`, and
@@ -192,7 +192,7 @@ deprecated symbol.
 **P2 | Measured and inspected | Error handling, debuggability**
 
 Evidence: typed-error survey; wrap ratios in Current Metrics;
-`docflowpdf/diagnostics.go`, `limits.go`, `resource_resolver.go`,
+`diagnostics.go`, `limits.go`, `resource_resolver.go`,
 `internal/flowrender/complexity.go`, `internal/templating/execute.go`,
 `internal/pdfdump/bounded_output.go`, `internal/pdfrender/flow_state.go`.
 
@@ -216,7 +216,7 @@ Audit unwrapped constructions in `pdfdom`, `pdfrender`, and `i18n`; wrap
 where a cause exists, leave true leaves alone. Add a lint rule for
 `fmt.Errorf` with an `err` argument but no `%w`.
 
-**Acceptance:** `errors.Is(err, docflowpdf.ErrLimitExceeded)` (or
+**Acceptance:** `errors.Is(err, csspdf.ErrLimitExceeded)` (or
 equivalent) is true for every limit failure and is tested per limit. Wrap
 ratio in `pdfdom` and `pdfrender` reflects an explicit leaf-versus-wrapped
 classification recorded in the PR.
@@ -367,7 +367,7 @@ version-pinned, and passes on the baseline after N02/N05 are fixed.
 
 **P2 | Measured | Maintainability, test coverage**
 
-Evidence: `internal/pdfdump` 1,237 lines at 27.1%; root `pdfdump.go` and
+Evidence: `internal/pdfdump` 1,237 lines at 27.1%; `cmd/pdfdump` and
 `cmd/gen-example dump-pdf` both call `pdfdump.DumpPDF`.
 
 The dumper is documented as a supported bounded diagnostic tool, but its
@@ -485,7 +485,7 @@ by probe on 2026-09-08.
 
 | Work item | Scope and dependencies | Completion gate | Result |
 | --- | --- | --- | --- |
-| 8A Limit marker | Internal marker interface/sentinel; facade mapping; per-limit tests. | `errors.Is` identifies every limit failure. | `internal/limit.ErrExceeded` is re-exported as `docflowpdf.ErrLimitExceeded`; all six concrete limit error families match it through wrapping. Diagnostic and operational-boundary classification use the sentinel rather than concrete type lists. |
+| 8A Limit marker | Internal marker interface/sentinel; facade mapping; per-limit tests. | `errors.Is` identifies every limit failure. | `internal/limit.ErrExceeded` is re-exported as `csspdf.ErrLimitExceeded`; all six concrete limit error families match it through wrapping. Diagnostic and operational-boundary classification use the sentinel rather than concrete type lists. |
 | 8B Wrap audit | `pdfdom`, `pdfrender`, `i18n` error sites; classify leaf versus wrapped in PR description. | Causes preserved; `errors.Is(err, fs.ErrNotExist)` works through the facade for file sources. | Delegated parse, I/O, cancellation, template, layout, and rendering errors use `%w` or direct return; messages created solely from invalid local values remain leaf errors. A facade regression test proves `fs.ErrNotExist` survives `DiagnosticError` wrapping. |
 | 8C Builder errors | `pdfdom` `Add`/`AddLine` and 33 call sites, or facade `recover` boundary. | Invalid child yields `DiagnosticError`; no panic reaches callers. | `PDFElementNode.Add` and `AddLine` return validation errors without mutation. Every parser call site propagates the error, checked test builders replace fluent panic-prone construction, and create-template parsing no longer discards nested errors. |
 | 8D Span attribute strictness | `span_style.go` and tests. | Invalid numeric attributes fail in strict mode, warn in legacy mode. | `font-size` and `border-width` use the shared length parser and reject invalid, non-finite, or out-of-range values. Strict parsing returns contextual errors; legacy rendering warns and ignores only the invalid declaration. Unit-suffixed values are tested. |
@@ -503,11 +503,11 @@ the security workflow.
 
 | Work item | Scope and dependencies | Completion gate | Result |
 | --- | --- | --- | --- |
-| 9A Option table test | `docflowpdf/render_options_test.go`. | Every `With*` asserted; 100% of `render_options.go`. | Every public option is asserted, including defensive-copy behavior; all functions in `render_options.go` measure 100%. |
+| 9A Option table test | `render_options_test.go`. | Every `With*` asserted; 100% of `render_options.go`. | Every public option is asserted, including defensive-copy behavior; all functions in `render_options.go` measure 100%. |
 | 9B Templating characterization | `docflow_parser.go` exports, `page_css.go` edge cases. | `internal/templating` at or above 60%. | Selector application, prepared stylesheets, node helpers, CSS support diagnostics, page sizes, margins, and invalid declarations are characterized; coverage is 92.4%. |
 | 9C PDFDOM characterization | `span_style.go`, `html_parser.go` branches, `elements.go` validation. | `internal/pdfdom` at or above 65%. | All element families, child validation, formatting, style inheritance, strict/legacy spans, and prepared parsing are covered; coverage is 76.2%. A nil-receiver panic in `SetAttribute` was fixed. |
 | 9D Renderer characterization | Table layout, text continuation, use-template, flow margins. | `internal/pdfrender` at or above 72%. | Text/image helpers, table-cell parsing, flow bounds, page metadata, callbacks, and cancellation are characterized; coverage is 75.6%. |
-| 9E Dumper tests and consolidation | Synthetic-PDF golden tests; one CLI entry point. | `internal/pdfdump` at or above 50%; `dump-pdf` duplication removed. | Dictionary, PNG predictor, xref, text-array, binary, bounded-I/O, and synthetic compressed-PDF paths are covered at 90.6%. Root `pdfdump.go` is the sole inspection CLI. |
+| 9E Dumper tests and consolidation | Synthetic-PDF golden tests; one CLI entry point. | `internal/pdfdump` at or above 50%; `dump-pdf` duplication removed. | Dictionary, PNG predictor, xref, text-array, binary, bounded-I/O, and synthetic compressed-PDF paths are covered at 90.6%. `cmd/pdfdump` is the sole inspection CLI. |
 | 9F Test file split | `render_test.go`, `sources_test.go` by concern. | No test file above 600 lines. | Renderer and source tests are split by concern; the largest test file is 597 lines. |
 
 **Exit:** Overall coverage is 78.7%. Package floors were re-recorded after
@@ -542,7 +542,7 @@ compatibility decision before implementation starts.
 ## Maintainer Decisions
 
 Phase 8 resolved the builder-error and legacy-rendering decisions. Phase 9
-retained root `pdfdump.go` as the sole inspection command and adopted the
+retained `cmd/pdfdump` as the sole inspection command and adopted the
 proposed coverage targets. Phase 10 selected Go 1.22 for
 `third_party/gofpdf`, the lowest version with per-iteration loop semantics,
 while leaving the root module's newer minimum independent.

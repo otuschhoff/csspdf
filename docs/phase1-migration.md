@@ -4,6 +4,24 @@ Phase 1 makes input, rendering, and output failures explicit. These changes are
 intentional compatibility breaks for callers that relied on incomplete output
 or permissive configuration.
 
+## v0.2 Package Path
+
+Version v0.2.0 moves the public package to the module root. Replace:
+
+```go
+import "github.com/otuschhoff/csspdf/docflowpdf"
+```
+
+with:
+
+```go
+import "github.com/otuschhoff/csspdf"
+```
+
+Replace `docflowpdf.` qualifiers with `csspdf.`. The exported API behavior is
+otherwise unchanged. The old package path is not retained because all known
+consumers are migrated together before the v0.2.0 release.
+
 ## Strict Rendering
 
 Rendering now fails by default when a required template, template map value,

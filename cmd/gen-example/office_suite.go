@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/otuschhoff/csspdf/docflowpdf"
+	"github.com/otuschhoff/csspdf"
 )
 
 type officeSuiteCatalog struct {
@@ -186,16 +186,16 @@ func renderOfficeSuiteCase(baseDir, outputDir, logoPath string, example officeSu
 	populateOfficeSuiteStressData(example.ID, source)
 	source["AssetLogo"] = filepath.Base(logoPath)
 
-	flow := docflowpdf.Flow{
-		MainFlow: []docflowpdf.Section{{
+	flow := csspdf.Flow{
+		MainFlow: []csspdf.Section{{
 			Template:    example.Template,
 			Transformer: "generic",
-			Payload:     docflowpdf.PayloadConfig{IncludeSource: true},
+			Payload:     csspdf.PayloadConfig{IncludeSource: true},
 		}},
-		PageNumber: docflowpdf.Section{
+		PageNumber: csspdf.Section{
 			Template:    "page-number",
 			Transformer: "generic",
-			Payload: docflowpdf.PayloadConfig{Runtime: map[string]string{
+			Payload: csspdf.PayloadConfig{Runtime: map[string]string{
 				"Page":  "page.number",
 				"Total": "page.total",
 			}},
@@ -205,19 +205,19 @@ func renderOfficeSuiteCase(baseDir, outputDir, logoPath string, example officeSu
 	if orientation == "" {
 		orientation = "portrait"
 	}
-	return docflowpdf.Render(filepath.Join(outputDir, example.ID+".pdf"),
-		docflowpdf.WithAssetBaseDir(outputDir),
-		docflowpdf.WithAssetInput(docflowpdf.AssetInput{
-			HTML:       docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "templates.html")},
-			CSS:        docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "styles.css")},
-			Flow:       docflowpdf.JSONSource{Object: flow},
-			SourceData: docflowpdf.JSONSource{Object: source},
+	return csspdf.Render(filepath.Join(outputDir, example.ID+".pdf"),
+		csspdf.WithAssetBaseDir(outputDir),
+		csspdf.WithAssetInput(csspdf.AssetInput{
+			HTML:       csspdf.TextSource{FilePath: filepath.Join(baseDir, "templates.html")},
+			CSS:        csspdf.TextSource{FilePath: filepath.Join(baseDir, "styles.css")},
+			Flow:       csspdf.JSONSource{Object: flow},
+			SourceData: csspdf.JSONSource{Object: source},
 		}),
-		docflowpdf.WithPageOrientation(orientation),
-		docflowpdf.WithDefaultLocale("en"),
-		docflowpdf.WithDefaultCurrencyCode("USD"),
-		docflowpdf.WithNow(func() time.Time { return time.Date(2026, time.September, 8, 12, 0, 0, 0, time.UTC) }),
-		docflowpdf.WithFuncMapFactoryEx(docflowpdf.DefaultTemplateFuncMapWithContext),
+		csspdf.WithPageOrientation(orientation),
+		csspdf.WithDefaultLocale("en"),
+		csspdf.WithDefaultCurrencyCode("USD"),
+		csspdf.WithNow(func() time.Time { return time.Date(2026, time.September, 8, 12, 0, 0, 0, time.UTC) }),
+		csspdf.WithFuncMapFactoryEx(csspdf.DefaultTemplateFuncMapWithContext),
 	)
 }
 

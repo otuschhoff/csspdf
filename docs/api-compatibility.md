@@ -6,16 +6,21 @@ csspdf is pre-v1. Starting with v0.1.0, minor releases may contain documented
 compatibility changes when required for correctness or security. Patch releases
 must remain backward compatible within the current minor line.
 
-The supported Go API is the exported surface of
-`github.com/otuschhoff/csspdf/docflowpdf`. Packages below `internal/`, command
+The supported Go API is the exported surface of the root package
+`github.com/otuschhoff/csspdf`. Packages below `internal/`, command
 implementation details, examples, and repository scripts are not public Go
 APIs. Supported commands and their exit-code contracts are listed in the
 README.
 
-The root `pdfdump.go` command is the single supported PDF inspection entry
-point. The duplicate `gen-example dump-pdf` subcommand was removed before a
-stable CLI release; `gen-example` remains focused on rendering repository
-examples.
+Version v0.2.0 moved the public API from
+`github.com/otuschhoff/csspdf/docflowpdf` to the module root and renamed the Go
+package from `docflowpdf` to `csspdf`. This is an intentional pre-v1 breaking
+change. Consumers must replace the import path and package qualifier; exported
+API behavior is otherwise unchanged.
+
+The `cmd/pdfdump` command is the single supported PDF inspection entry point.
+The duplicate `gen-example dump-pdf` subcommand was removed before a stable CLI
+release; `gen-example` remains focused on rendering repository examples.
 
 Every intentional public behavior change must include:
 

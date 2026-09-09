@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/otuschhoff/csspdf/docflowpdf"
+	"github.com/otuschhoff/csspdf"
 )
 
 func formatCommandError(err error) string {
-	var diagnosticErr *docflowpdf.DiagnosticError
+	var diagnosticErr *csspdf.DiagnosticError
 	if !errors.As(err, &diagnosticErr) {
 		return err.Error()
 	}

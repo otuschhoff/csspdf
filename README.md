@@ -1,4 +1,4 @@
-# docflowpdf Library (csspdf)
+# csspdf
 
 A Go library for generating PDF files from:
 - HTML template fragments
@@ -8,7 +8,7 @@ A Go library for generating PDF files from:
 - optional Go template functions
 
 The reusable public package is:
-- github.com/otuschhoff/csspdf/docflowpdf
+- github.com/otuschhoff/csspdf
 
 ## Requirements and Dependency Policy
 
@@ -31,7 +31,7 @@ release checks are documented in [API compatibility](docs/api-compatibility.md),
 ## Status
 
 This repository now separates:
-- Generic rendering engine: docflowpdf
+- Generic rendering engine: csspdf
 - Rendering internals: internal/pdfrender, internal/pdfdom, internal/templating, internal/flowrender
 - Layered CSS example: examples/layered
 
@@ -43,22 +43,22 @@ package main
 import (
 	"log"
 
-	"github.com/otuschhoff/csspdf/docflowpdf"
+	"github.com/otuschhoff/csspdf"
 )
 
 func main() {
-	assets := docflowpdf.Assets{
+	assets := csspdf.Assets{
 		HTML: `{{define "document"}}<div>Hello {{.Source.Name}}</div>{{end}}`,
 		CSS:  `@page { size: A4; margin: 20pt; }`,
-		Flow: docflowpdf.Flow{MainFlow: []docflowpdf.Section{{
+		Flow: csspdf.Flow{MainFlow: []csspdf.Section{{
 			Template:    "document",
 			Transformer: "generic",
-			Payload:     docflowpdf.PayloadConfig{IncludeSource: true},
+			Payload:     csspdf.PayloadConfig{IncludeSource: true},
 		}}},
 		SourceData: map[string]any{"Name": "Docflow", "locale": "en"},
 	}
 
-	err := docflowpdf.RenderToFile(docflowpdf.RenderInput{
+	err := csspdf.RenderToFile(csspdf.RenderInput{
 		Assets:              assets,
 		DefaultLocale:       "en",
 		DefaultCurrencyCode: "EUR",
@@ -72,7 +72,7 @@ func main() {
 ## Public API Overview
 
 Primary package:
-- docflowpdf
+- csspdf
 
 Core methods:
 - Render(outputPath, options...): convenience API that builds RenderInput internally
@@ -166,9 +166,9 @@ For service workloads, confine file-backed resources and set explicit budgets:
 ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 defer cancel()
 
-err := docflowpdf.RenderContext(ctx, "output/document.pdf",
-	docflowpdf.WithConfinedResourceRoot("/srv/csspdf/jobs/job-123"),
-	docflowpdf.WithRenderLimits(docflowpdf.RenderLimits{
+err := csspdf.RenderContext(ctx, "output/document.pdf",
+	csspdf.WithConfinedResourceRoot("/srv/csspdf/jobs/job-123"),
+	csspdf.WithRenderLimits(csspdf.RenderLimits{
 		SourceBytes:         4 << 20,
 		TemplateOutputBytes: 8 << 20,
 		ImageBytes:          8 << 20,
@@ -183,7 +183,7 @@ err := docflowpdf.RenderContext(ctx, "output/document.pdf",
 ```
 
 Zero limit fields use safe library defaults. Budget violations return
-`*docflowpdf.BudgetError`; file output remains atomic. Templates and custom Go
+`*csspdf.BudgetError`; file output remains atomic. Templates and custom Go
 functions remain trusted code, and hard resource ceilings require process or
 container isolation. See [the Phase 3 security contract](docs/phase3-security.md).
 
@@ -193,28 +193,28 @@ You can compose CSS in ordered layers with `AssetInput.CSSLayers`.
 Later layers override earlier mapped declarations.
 
 csspdf intentionally implements a documented CSS subset rather than a browser
-cascade. Use `docflowpdf.SupportedCSSProperties()` for the executable property
-matrix and `docflowpdf.AnalyzeCSSSupport(cssText)` to detect ignored properties
+cascade. Use `csspdf.SupportedCSSProperties()` for the executable property
+matrix and `csspdf.AnalyzeCSSSupport(cssText)` to detect ignored properties
 (`CSS001`) before rendering. Rules of equal or different selector shapes use
 source order; selector specificity and `!important` are not interpreted.
 
 ```go
-assetInput := docflowpdf.AssetInput{
-	HTML:       docflowpdf.TextSource{FilePath: "examples/layered/doc.html"},
-	Flow:       docflowpdf.JSONSource{FilePath: "examples/layered/flow.json"},
-	SourceData: docflowpdf.JSONSource{FilePath: "examples/layered/data.json"},
-	CSSLayers: []docflowpdf.CSSLayerInput{
-		{Name: "corporate-base", Source: docflowpdf.TextSource{FilePath: "examples/layered/styles/corporate/base.css"}},
-		{Name: "document", Source: docflowpdf.TextSource{FilePath: "examples/layered/styles/document/doc.css"}},
-		{Name: "customer-override", Source: docflowpdf.TextSource{FilePath: "examples/layered/styles/overrides/customer.css"}, Optional: true},
+assetInput := csspdf.AssetInput{
+	HTML:       csspdf.TextSource{FilePath: "examples/layered/doc.html"},
+	Flow:       csspdf.JSONSource{FilePath: "examples/layered/flow.json"},
+	SourceData: csspdf.JSONSource{FilePath: "examples/layered/data.json"},
+	CSSLayers: []csspdf.CSSLayerInput{
+		{Name: "corporate-base", Source: csspdf.TextSource{FilePath: "examples/layered/styles/corporate/base.css"}},
+		{Name: "document", Source: csspdf.TextSource{FilePath: "examples/layered/styles/document/doc.css"}},
+		{Name: "customer-override", Source: csspdf.TextSource{FilePath: "examples/layered/styles/overrides/customer.css"}, Optional: true},
 	},
 }
 
-err := docflowpdf.Render("output/layered.pdf",
-	docflowpdf.WithAssetInput(assetInput),
-	docflowpdf.WithDefaultLocale("en"),
-	docflowpdf.WithDefaultCurrencyCode("EUR"),
-	docflowpdf.WithFuncMapFactoryEx(docflowpdf.DefaultTemplateFuncMapWithContext),
+err := csspdf.Render("output/layered.pdf",
+	csspdf.WithAssetInput(assetInput),
+	csspdf.WithDefaultLocale("en"),
+	csspdf.WithDefaultCurrencyCode("EUR"),
+	csspdf.WithFuncMapFactoryEx(csspdf.DefaultTemplateFuncMapWithContext),
 )
 if err != nil {
 	log.Fatal(err)
@@ -246,13 +246,13 @@ Notes:
 Migration helper example:
 
 ```go
-legacyInput := docflowpdf.AssetInput{
-	HTML: docflowpdf.TextSource{FilePath: "templates/doc.html"},
-	CSS:  docflowpdf.TextSource{FilePath: "templates/doc.css"},
-	Flow: docflowpdf.JSONSource{FilePath: "templates/flow.json"},
+legacyInput := csspdf.AssetInput{
+	HTML: csspdf.TextSource{FilePath: "templates/doc.html"},
+	CSS:  csspdf.TextSource{FilePath: "templates/doc.css"},
+	Flow: csspdf.JSONSource{FilePath: "templates/flow.json"},
 }
 
-layeredInput := docflowpdf.MigrateAssetInputLegacyCSSToSingleLayer(legacyInput, "legacy")
+layeredInput := csspdf.MigrateAssetInputLegacyCSSToSingleLayer(legacyInput, "legacy")
 ```
 
 Rollout checks:
@@ -274,17 +274,17 @@ Layers are parsed first, then legacy `AssetInput.HTML` is parsed last as an
 implicit final layer, so document templates can override shared block defaults.
 
 ```go
-assetInput := docflowpdf.AssetInput{
-	HTML: docflowpdf.TextSource{FilePath: "templates/invoice.content.html"},
-	HTMLLayers: []docflowpdf.HTMLLayerInput{
+assetInput := csspdf.AssetInput{
+	HTML: csspdf.TextSource{FilePath: "templates/invoice.content.html"},
+	HTMLLayers: []csspdf.HTMLLayerInput{
 		{
 			Name: "shared-shell",
-			Source: docflowpdf.TextSource{FilePath: "templates/default.shell.html"},
+			Source: csspdf.TextSource{FilePath: "templates/default.shell.html"},
 		},
 	},
-	CSS:        docflowpdf.TextSource{FilePath: "templates/doc.css"},
-	Flow:       docflowpdf.JSONSource{FilePath: "templates/flow.json"},
-	SourceData: docflowpdf.JSONSource{FilePath: "templates/data.json"},
+	CSS:        csspdf.TextSource{FilePath: "templates/doc.css"},
+	Flow:       csspdf.JSONSource{FilePath: "templates/flow.json"},
+	SourceData: csspdf.JSONSource{FilePath: "templates/data.json"},
 }
 ```
 
@@ -340,8 +340,8 @@ structured logs should inspect those errors with `errors.As` and adapt warning
 messages at their boundary rather than parsing error strings.
 
 All configured resource and processing limit failures match
-`docflowpdf.ErrLimitExceeded` through wrapping. Use
-`errors.Is(err, docflowpdf.ErrLimitExceeded)` for the general category and
+`csspdf.ErrLimitExceeded` through wrapping. Use
+`errors.Is(err, csspdf.ErrLimitExceeded)` for the general category and
 `errors.As` with `BudgetError` or `LimitError` when concrete limit details are
 required. File-source errors preserve their underlying causes, including
 `fs.ErrNotExist` and `fs.ErrPermission`.
@@ -430,7 +430,7 @@ expected to be stable; byte identity is not part of the default contract.
 Layered CSS concept assets live in:
 - examples/layered
 
-This keeps docflowpdf generic while demonstrating layered style composition.
+This keeps csspdf generic while demonstrating layered style composition.
 
 ## Testing
 
@@ -477,6 +477,7 @@ Build CLI binaries into `bin/`.
 ```sh
 go build -o bin/gen-example ./cmd/gen-example
 go build -o bin/dom-parse ./cmd/dom-parse
+go build -o bin/pdfdump ./cmd/pdfdump
 ```
 
 ### render-sample
@@ -499,9 +500,9 @@ go test ./... -count=1
 
 ## Supported Components
 
-- `docflowpdf` is the supported library API.
-- `cmd/gen-example` and `cmd/dom-parse` are supported repository tools.
-- The root `pdfdump.go` diagnostic command is supported for bounded inspection;
+- `csspdf` is the supported library API.
+- `cmd/gen-example`, `cmd/dom-parse`, and `cmd/pdfdump` are supported repository tools.
+- The `cmd/pdfdump` diagnostic command is supported for bounded inspection;
 	it is not a PDF conformance validator.
 - `examples/layered` contains reference assets, not stable Go APIs.
 - Generated binaries and output files are unsupported artifacts and are ignored

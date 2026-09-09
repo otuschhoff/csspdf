@@ -18,19 +18,19 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 fi
 
 echo "[phase5] Workload corpus (benchtime=$BENCHTIME count=$COUNT)"
-go test ./docflowpdf -run '^$' -bench '^BenchmarkRenderWorkloads$' -benchtime="$BENCHTIME" -count="$COUNT" -benchmem
+go test . -run '^$' -bench '^BenchmarkRenderWorkloads$' -benchtime="$BENCHTIME" -count="$COUNT" -benchmem
 
 echo "[phase5] Long-table heap profile"
-go test ./docflowpdf -run '^$' -bench '^BenchmarkRenderWorkloads/long-table$' -benchtime="$BENCHTIME" -count=1 \
-  -o="$PROFILE_DIR/docflowpdf.test" \
+go test . -run '^$' -bench '^BenchmarkRenderWorkloads/long-table$' -benchtime="$BENCHTIME" -count=1 \
+  -o="$PROFILE_DIR/csspdf.test" \
   -memprofile="$PROFILE_DIR/long-table.mem" -cpuprofile="$PROFILE_DIR/long-table.cpu"
 go tool pprof -top -alloc_space -nodecount=15 "$PROFILE_DIR/long-table.mem"
 
 echo "[phase5] Benchmark-process peak RSS"
 if [[ "$(uname -s)" == "Darwin" ]]; then
-  /usr/bin/time -l go test ./docflowpdf -run '^$' -bench '^BenchmarkRenderWorkloads/long-table$' -benchtime="$BENCHTIME" -count=1 >/dev/null
+  /usr/bin/time -l go test . -run '^$' -bench '^BenchmarkRenderWorkloads/long-table$' -benchtime="$BENCHTIME" -count=1 >/dev/null
 elif /usr/bin/time -v true >/dev/null 2>&1; then
-  /usr/bin/time -v go test ./docflowpdf -run '^$' -bench '^BenchmarkRenderWorkloads/long-table$' -benchtime="$BENCHTIME" -count=1 >/dev/null
+  /usr/bin/time -v go test . -run '^$' -bench '^BenchmarkRenderWorkloads/long-table$' -benchtime="$BENCHTIME" -count=1 >/dev/null
 else
   echo "peak RSS unavailable: /usr/bin/time does not support -l or -v" >&2
 fi

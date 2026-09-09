@@ -40,7 +40,7 @@ collect_go_files() {
   if [[ "$CHECK_SCOPE" == "all" ]]; then
     {
       find . -maxdepth 1 -type f -name '*.go'
-      find docflowpdf internal cmd -type f -name '*.go'
+      find internal cmd -type f -name '*.go'
     } | sort
     return
   fi
@@ -61,7 +61,7 @@ collect_go_files() {
 
   {
     find . -maxdepth 1 -type f -name '*.go'
-    find docflowpdf internal cmd -type f -name '*.go'
+    find internal cmd -type f -name '*.go'
   } | sort
 }
 

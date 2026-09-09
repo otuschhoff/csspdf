@@ -59,8 +59,8 @@ This allows layering from embedded assets, local files, or generated sources.
 csspdf does not implement full browser CSS cascade semantics.
 
 Current model:
-- the executable property matrix is available through `docflowpdf.SupportedCSSProperties`
-- `docflowpdf.AnalyzeCSSSupport` reports ignored properties with stable code `CSS001`
+- the executable property matrix is available through `csspdf.SupportedCSSProperties`
+- `csspdf.AnalyzeCSSSupport` reports ignored properties with stable code `CSS001`
 - rendering logs `CSS001` warnings with layer, property, and selector provenance
 - rules use source order; selector specificity, `!important`, and inheritance are not a browser-compatible cascade
 - inline attributes win over stylesheet declarations

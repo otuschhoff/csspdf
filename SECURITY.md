@@ -3,7 +3,7 @@
 ## Supported Surface
 
 Security fixes apply to the current `main` branch. The supported runtime surface
-is the `docflowpdf` Go package and the Go commands under `cmd`. Root JavaScript
+is the root `csspdf` Go package and the Go commands under `cmd`. Root JavaScript
 utilities are retained as unsupported historical tools and are not covered by
 the Go dependency or CI policy.
 
@@ -40,7 +40,7 @@ must not be represented as an absence of vulnerability.
 
 ## Dependency and CI Policy
 
-- Go 1.25.13 is the minimum supported toolchain.
+- Go 1.26.6 is the minimum supported toolchain.
 - Root dependencies are pinned by `go.mod` and `go.sum`.
 - The repository-owned `third_party/gofpdf` source has provenance and local
   changes documented in its `PATCHES.md`.

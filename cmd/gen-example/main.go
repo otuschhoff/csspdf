@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/otuschhoff/csspdf/docflowpdf"
+	"github.com/otuschhoff/csspdf"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 const defaultCurrencyCode = "EUR"
 
@@ -49,23 +49,23 @@ func renderLayeredPDF(outputPath string) error {
 		return err
 	}
 
-	assetInput := docflowpdf.AssetInput{
-		HTML:       docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "doc.html")},
-		Flow:       docflowpdf.JSONSource{FilePath: filepath.Join(baseDir, "flow.json")},
-		SourceData: docflowpdf.JSONSource{FilePath: filepath.Join(baseDir, "source.json")},
-		CSSLayers: []docflowpdf.CSSLayerInput{
-			{Name: "corporate-base", Source: docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "styles", "corporate", "base.css")}},
-			{Name: "document", Source: docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "styles", "document", "doc.css")}},
-			{Name: "customer-override", Source: docflowpdf.TextSource{FilePath: filepath.Join(baseDir, "styles", "overrides", "customer.css")}, Optional: true},
+	assetInput := csspdf.AssetInput{
+		HTML:       csspdf.TextSource{FilePath: filepath.Join(baseDir, "doc.html")},
+		Flow:       csspdf.JSONSource{FilePath: filepath.Join(baseDir, "flow.json")},
+		SourceData: csspdf.JSONSource{FilePath: filepath.Join(baseDir, "source.json")},
+		CSSLayers: []csspdf.CSSLayerInput{
+			{Name: "corporate-base", Source: csspdf.TextSource{FilePath: filepath.Join(baseDir, "styles", "corporate", "base.css")}},
+			{Name: "document", Source: csspdf.TextSource{FilePath: filepath.Join(baseDir, "styles", "document", "doc.css")}},
+			{Name: "customer-override", Source: csspdf.TextSource{FilePath: filepath.Join(baseDir, "styles", "overrides", "customer.css")}, Optional: true},
 		},
 	}
 
-	return docflowpdf.Render(
+	return csspdf.Render(
 		outputPath,
-		docflowpdf.WithAssetInput(assetInput),
-		docflowpdf.WithDefaultLocale("en"),
-		docflowpdf.WithDefaultCurrencyCode(defaultCurrencyCode),
-		docflowpdf.WithFuncMapFactoryEx(docflowpdf.DefaultTemplateFuncMapWithContext),
+		csspdf.WithAssetInput(assetInput),
+		csspdf.WithDefaultLocale("en"),
+		csspdf.WithDefaultCurrencyCode(defaultCurrencyCode),
+		csspdf.WithFuncMapFactoryEx(csspdf.DefaultTemplateFuncMapWithContext),
 	)
 }
 

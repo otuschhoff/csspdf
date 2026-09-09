@@ -10,7 +10,7 @@ Provide a reusable Go library that renders PDFs from declarative assets:
 
 ## Layers
 
-- Public engine: docflowpdf
+- Public engine: csspdf
 - Rendering internals: internal/pdfrender, internal/pdfdom, internal/templating, internal/flowrender
 - Reference profile and assets: examples/layered
 - Repository-owned PDF backend: third_party/gofpdf
@@ -22,7 +22,7 @@ provenance and update requirements.
 
 ## Public API
 
-Package: github.com/otuschhoff/csspdf/docflowpdf
+Package: github.com/otuschhoff/csspdf
 
 Key entry points:
 - Render(outputPath, options...)
@@ -33,7 +33,7 @@ Key entry points:
 
 ## Input Flexibility
 
-docflowpdf supports:
+csspdf supports:
 - TextSource: bytes, string, file path, io/fs path
 - JSONSource: Go object, JSON bytes/string, file path, io/fs path
 

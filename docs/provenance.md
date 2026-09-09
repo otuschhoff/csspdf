@@ -35,8 +35,8 @@ outside version control and release archives.
 
 | Component | Status | Validation |
 | --- | --- | --- |
-| `docflowpdf` | Supported public Go package | Full tests, external-consumer build/render, race and coverage gates |
+| `csspdf` | Supported public Go package | Full tests, external-consumer build/render, race and coverage gates |
 | `cmd/gen-example` | Supported repository tool | Layered smoke test and rollout script |
 | `cmd/dom-parse` | Supported repository tool | Writer-injected usage, error, and DOM output tests |
-| root `pdfdump.go` | Supported bounded diagnostic tool, not a conformance validator | CLI tests and shared `internal/pdfdump` fuzzing |
+| `cmd/pdfdump` | Supported bounded diagnostic tool, not a conformance validator | CLI tests and shared `internal/pdfdump` fuzzing |
 | generated files under `bin/` and `output/` | Unsupported artifacts | Excluded from source releases |

@@ -5,7 +5,7 @@ that are enforced by `scripts/check-maintainability.sh`.
 
 ## Package Responsibilities
 
-- `docflowpdf`
+- `csspdf`
 - Public API, input normalization, and render orchestration.
 - May compose internal packages; internal packages must not import it.
 - Owns public compatibility adapters, including legacy profile-template names;
@@ -49,7 +49,7 @@ that are enforced by `scripts/check-maintainability.sh`.
 
 Go's `internal` package rule prevents external consumers from importing any
 internal package. The external-consumer fixture additionally compiles the
-supported `docflowpdf` API from a separate module at the minimum Go version.
+supported `csspdf` API from a separate module at the minimum Go version.
 
 ## Maintainability Budgets
 

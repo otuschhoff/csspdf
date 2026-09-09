@@ -34,10 +34,10 @@ toolchain's percentage:
 
 | Package | Floor |
 | --- | ---: |
-| root diagnostic command | 88.9% |
+| `cmd/pdfdump` | 88.9% |
 | `cmd/dom-parse` | 74.5% |
 | `cmd/gen-example` | 65.3% |
-| `docflowpdf` | 78.6% |
+| `csspdf` | 78.6% |
 | `internal/flowrender` | 67.1% |
 | `internal/format` | 57.1% |
 | `internal/i18n` | 88.2% |

@@ -138,7 +138,7 @@ Acceptance criteria:
 - missing optional layers are ignored, required layers fail clearly: done
 
 Verification snapshot:
-- go test ./docflowpdf ./internal/pdfrender ./internal/pdfdom: pass
+- go test . ./internal/pdfrender ./internal/pdfdom: pass
 
 ## Phase 2 - Render pipeline integration - Completed 2026-08-02
 
@@ -160,7 +160,7 @@ Acceptance criteria:
 - layered input produces deterministic overrides by order: done
 
 Verification snapshot:
-- go test ./docflowpdf ./internal/pdfrender ./internal/pdfdom: pass
+- go test . ./internal/pdfrender ./internal/pdfdom: pass
 
 ## Phase 3 - Testing strategy - Completed 2026-08-02
 
@@ -186,7 +186,7 @@ Acceptance criteria:
 - no flaky order-dependent behavior: done
 
 Verification snapshot:
-- go test ./docflowpdf ./internal/pdfrender ./internal/pdfdom: pass
+- go test . ./internal/pdfrender ./internal/pdfdom: pass
 
 ## Phase 4 - Documentation and examples - Completed 2026-08-02
 
@@ -210,7 +210,7 @@ Acceptance criteria:
 
 Verification snapshot:
 - `go run ./cmd/gen-example layered -o output/layered.pdf`: pass
-- `go test ./cmd/gen-example ./docflowpdf ./internal/pdfrender ./internal/pdfdom`: pass
+- `go test ./cmd/gen-example ./csspdf ./internal/pdfrender ./internal/pdfdom`: pass
 
 ## Phase 5 - Migration and rollout - Completed 2026-08-02
 
@@ -238,7 +238,7 @@ Rollout checks:
 - measure whether duplicated CSS decreases in example profiles: done
 
 Verification snapshot:
-- `go test ./docflowpdf ./internal/pdfrender ./internal/pdfdom`: pass
+- `go test . ./internal/pdfrender ./internal/pdfdom`: pass
 - `./scripts/check-layered-rollout.sh`: pass
 - generated outputs:
   - `output/phase5/invoice-legacy.pdf`

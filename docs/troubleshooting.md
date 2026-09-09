@@ -8,8 +8,8 @@ floors, and the pinned reachable-vulnerability scan. Use
 `RUN_VULN_CHECK=false` only after an unchanged successful scan.
 
 For rendering failures, preserve errors with `%w` and inspect them with
-`errors.As`. `*docflowpdf.RenderError` identifies the stage and available
-section, page, layer, and resource context. `*docflowpdf.BudgetError` identifies
+`errors.As`. `*csspdf.RenderError` identifies the stage and available
+section, page, layer, and resource context. `*csspdf.BudgetError` identifies
 which configured limit was exceeded. Library errors do not include ANSI color.
 
 ## Required Content and Partial Rendering
@@ -34,8 +34,8 @@ output cannot retract bytes already accepted by the caller.
 ## HTML and CSS
 
 csspdf is not a browser engine. It supports document-oriented HTML elements and
-a mapped CSS subset. Use `docflowpdf.SupportedCSSProperties()` and
-`docflowpdf.AnalyzeCSSSupport` to inspect declarations. Unsupported properties
+a mapped CSS subset. Use `csspdf.SupportedCSSProperties()` and
+`csspdf.AnalyzeCSSSupport` to inspect declarations. Unsupported properties
 produce `CSS001` diagnostics when warning analysis is enabled. Selector
 specificity, `!important`, scripts, network fetching, and browser layout are
 not supported.

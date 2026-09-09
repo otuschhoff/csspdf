@@ -58,7 +58,7 @@ These limits are acceptable for Phase 1 layered composition because layer compos
 ## Findings: CSS ingress call paths
 
 Primary runtime path for document rendering:
-- docflowpdf build step reads page settings from assets.CSS via ParseCSSPageSettings
+- csspdf build step reads page settings from assets.CSS via ParseCSSPageSettings
 - main flow rendering passes assets.CSS to BuildFlowElementsWithFuncs
 - page number rendering passes assets.CSS to BuildFlowElementsWithFuncs
 - flowrender passes cssStyle to ParseHTMLDocFlow
