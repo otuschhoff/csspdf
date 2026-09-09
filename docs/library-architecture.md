@@ -13,12 +13,11 @@ Provide a reusable Go library that renders PDFs from declarative assets:
 - Public engine: csspdf
 - Rendering internals: internal/pdfrender, internal/pdfdom, internal/templating, internal/flowrender
 - Reference profile and assets: examples/layered
-- Repository-owned PDF backend: third_party/gofpdf
+- PDF backend dependency: github.com/otuschhoff/gofpdf
 
-The root module has no sibling-checkout dependency. The backend source is kept
-as a nested module because required fork APIs and UTF-8 fixes are not all
-available from an externally published revision. See its `PATCHES.md` for
-provenance and update requirements.
+The root module has no sibling-checkout dependency. The fork revision pinned in
+`go.mod` publishes the required APIs and UTF-8 fixes and carries their focused
+regression tests in the backend repository.
 
 ## Public API
 

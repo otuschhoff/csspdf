@@ -16,11 +16,9 @@ The reusable public package is:
 - No sibling repositories or local Go workspace are required
 - Dependencies are pinned in `go.mod` and `go.sum`
 
-The PDF backend is maintained as repository-owned source in
-`third_party/gofpdf` because csspdf depends on fork APIs and UTF-8 fixes that
-are not all available from the fork's published branch. Its exact source
-revision, local patch set, and retained test scope are documented in
-`third_party/gofpdf/PATCHES.md`.
+The PDF backend is the pinned `github.com/otuschhoff/gofpdf` fork dependency.
+The required APIs, UTF-8 fixes, and their regression tests are maintained in
+that repository; csspdf does not require a sibling checkout or local replace.
 
 Supported release lines, compatibility rules, deprecations, provenance, and
 release checks are documented in [API compatibility](docs/api-compatibility.md),
@@ -495,7 +493,6 @@ Run the same test suites used by CI.
 
 ```sh
 go test ./... -count=1
-(cd third_party/gofpdf && go test ./... -count=1)
 ```
 
 ## Supported Components

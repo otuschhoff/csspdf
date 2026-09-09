@@ -7,12 +7,12 @@ source or binary redistribution is blocked until the repository owner selects
 and adds a license. The release checklist treats this as an explicit owner
 decision; no license is inferred from dependencies.
 
-## Repository-Owned PDF Backend
+## PDF Backend Dependency
 
-`third_party/gofpdf` is based on the immutable revision and local patches listed
-in `third_party/gofpdf/PATCHES.md`. Its upstream MIT and ISC license files are
-retained in that nested module. Those licenses apply to that source, not to the
-rest of csspdf.
+`github.com/otuschhoff/gofpdf` is pinned to an immutable pseudo-version in
+`go.mod` and verified by `go.sum`. The fork repository retains the upstream MIT
+and ISC license files and records csspdf-specific changes in its history. Those
+licenses apply to that dependency, not to the rest of csspdf.
 
 ## Test Fonts
 

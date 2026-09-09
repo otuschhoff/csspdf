@@ -42,8 +42,8 @@ must not be represented as an absence of vulnerability.
 
 - Go 1.26.6 is the minimum supported toolchain.
 - Root dependencies are pinned by `go.mod` and `go.sum`.
-- The repository-owned `third_party/gofpdf` source has provenance and local
-  changes documented in its `PATCHES.md`.
+- The `github.com/otuschhoff/gofpdf` backend is pinned to an immutable module
+  revision and maintained in its own repository.
 - CI builds, vets, tests, checks formatting/module tidiness, and runs pinned
   `govulncheck` analysis.
 

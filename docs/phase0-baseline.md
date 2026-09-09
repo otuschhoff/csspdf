@@ -1,7 +1,9 @@
 # Phase 0 Reproducible Baseline
 
 This record closes Phase 0 of the code-quality review. It describes the
-repository state and checks established on 2026-09-07.
+repository state and checks established on 2026-09-07. The backend layout in
+this section is historical; v0.2.0 replaced the embedded nested module with a
+pinned remote fork revision.
 
 ## Dependency and Toolchain Contract
 

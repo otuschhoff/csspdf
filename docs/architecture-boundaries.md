@@ -33,11 +33,9 @@ that are enforced by `scripts/check-maintainability.sh`.
 - `internal/pdfdump`
 - Diagnostic PDF inspection used by repository commands.
 
-- `third_party/gofpdf`
-- Repository-owned external backend source with a separately documented patch
-	set and nested module tests.
-- Excluded from csspdf maintainability budgets; changes require both nested and
-	root quality gates.
+- `github.com/otuschhoff/gofpdf`
+- External PDF backend pinned as a module dependency. Backend implementation
+	changes and focused regression tests belong in the fork repository.
 
 ## Enforced Import Rules
 
@@ -71,8 +69,8 @@ CI uses `CHECK_SCOPE=changed` with an explicit base revision. Use
 `CHECK_SCOPE=all` to inspect all owned Go files; existing debt above the ratchet
 will be reported.
 
-All scopes include root-level Go files when those files are selected. Third-party
-backend source is excluded from these budgets and validated by the quality gate.
+All scopes include root-level Go files when those files are selected. Dependency
+source is outside this repository and therefore outside these budgets.
 
 Run the complete build/test/security gate separately:
 
@@ -83,14 +81,9 @@ scripts/check-quality.sh
 ## Static Analysis Policy
 
 `scripts/check-quality.sh` runs pinned `staticcheck` (default check set) and
-`errcheck` on the root module and `staticcheck -checks 'SA*'` on
-`third_party/gofpdf`. Unused code, dead stores, and silently discarded errors
-fail the gate. `scripts/errcheck-excludes.txt` lists the only functions whose
-results may be ignored; each entry carries a reason. Explicit blank
+`errcheck` on the root module. Unused code, dead stores, and silently discarded
+errors fail the gate. `scripts/errcheck-excludes.txt` lists the only functions
+whose results may be ignored; each entry carries a reason. Explicit blank
 assignments (`_ = f()`) are permitted and mark a deliberate decision; write-side
-`Close` calls are not excluded and must be checked.
-
-The backend module receives correctness checks only because style rewrites of
-imported upstream source would enlarge the documented patch set without
-changing behavior. The applied correctness fixes are listed in
-`third_party/gofpdf/PATCHES.md`.
+`Close` calls are not excluded and must be checked. The backend repository owns
+its implementation-level analysis and regression gates.

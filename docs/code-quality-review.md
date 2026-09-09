@@ -30,7 +30,7 @@ certification, legal assessment, or PDF conformance audit.
 
 | ID | Finding | Status | Evidence |
 | --- | --- | --- | --- |
-| R01 | Builds depended on unpinned sibling checkouts | Closed | `go.mod` pins all dependencies; backend is repository-owned in `third_party/gofpdf`; clean-checkout and read-only container validation in `docs/phase0-baseline.md` |
+| R01 | Builds depended on unpinned sibling checkouts | Closed | `go.mod` pins the remote backend revision; clean-checkout and read-only container validation in `docs/phase0-baseline.md` |
 | R02 | Required-content failures returned success | Closed | Strict rendering is the default; legacy behavior only via `WithLegacyPartialRendering`; `docs/phase1-migration.md` |
 | R03 | Failed rendering destroyed existing output | Closed | Temp-file-and-rename in `output.go` with cleanup tests |
 | R04 | Monetary rounding produced invalid amounts | Closed | Carry-correct formatting with policy tests in `internal/format` |
@@ -305,6 +305,8 @@ gate so the ratchet keeps tightening.
 **Status: Closed in Phase 10.** The nested module declares Go 1.22 and no
 longer has a self-replace directive. All 126 range loops were reviewed with no
 goroutine or deferred closure capture; nested vet, tests, and race tests pass.
+The module was subsequently moved to the external fork and pinned remotely for
+v0.2.0; the following evidence and remediation describe the review baseline.
 
 Evidence: `third_party/gofpdf/go.mod` declares `go 1.12` and contains
 `replace gofpdf => ./`; 126 `range` loops in the package.
@@ -524,7 +526,7 @@ minimum for each package; all exceed their required targets.
 | 10A At-ceiling refactors | Four functions at complexity 15, one PR each, behind Phase 9 tests. | Complete: complexities are 4, 5, 9, and 6; focused characterization tests pass. |
 | 10B Near-budget files | `text_engine.go`, `html_parser.go`, `elements.go`. | Complete: cohesive glyph registry, HTML value builder, and value formatting extractions leave the files at 545, 518, and 514 lines. |
 | 10C Tighten ratchet | `MAX_CYCLO` 12 for changed scope; `MAX_FILE_LINES` 550. | Complete: defaults are 12 and 550; all-scope and worktree gates pass. |
-| 10D Backend language version | `third_party/gofpdf/go.mod` directive and vestigial replace; `PATCHES.md`. | Complete: Go 1.22, no self-replace, semantic review recorded; nested vet and tests pass. |
+| 10D Backend language version | Historical nested module directive and vestigial replace. | Complete: Go 1.22, no self-replace, semantic review recorded; the validated module is now published and pinned as an external dependency. |
 
 **Exit:** Complete. No first-party function is above 12, no production file is
 above 550 lines, and both modules declare a language version at or above 1.22.
@@ -543,6 +545,7 @@ compatibility decision before implementation starts.
 
 Phase 8 resolved the builder-error and legacy-rendering decisions. Phase 9
 retained `cmd/pdfdump` as the sole inspection command and adopted the
-proposed coverage targets. Phase 10 selected Go 1.22 for
-`third_party/gofpdf`, the lowest version with per-iteration loop semantics,
-while leaving the root module's newer minimum independent.
+proposed coverage targets. Phase 10 selected Go 1.22 for the gofpdf module,
+the lowest version with per-iteration loop semantics, while leaving the root
+module's newer minimum independent. The validated module was later published
+from the fork and pinned remotely for v0.2.0.

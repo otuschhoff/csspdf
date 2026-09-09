@@ -8,9 +8,10 @@ of every finding from the original review.
 
 The quality workflow tests Go 1.26.6 and Go 1.27.x on Linux, macOS, and Windows
 amd64. The minimum version is exact and matches the module directive. The full
-root and nested-module race suite runs on Linux. Root tests include integration
-fixtures, the pdfcpu semantic PDF suite, and an external-consumer module that
-builds and renders from an unrelated empty working directory.
+root-module race suite runs on Linux. The backend fork runs its own module
+quality gates. Root tests include integration fixtures, the pdfcpu semantic PDF
+suite, and an external-consumer module that builds and renders from an
+unrelated empty working directory.
 
 The security workflow runs bounded fuzzing on pull requests and for one minute
 on its weekly schedule. The same schedule performs the pinned reachable-code
@@ -54,7 +55,7 @@ behavior; wrapper-only tests added solely to move the percentage are rejected.
 
 | Findings | Status | Permanent evidence |
 | --- | --- | --- |
-| R01 | Closed | Self-contained root/nested modules, clean-checkout and external-consumer gates; `docs/phase0-baseline.md` |
+| R01 | Closed | Pinned remote dependencies, clean-checkout and external-consumer gates; `docs/phase0-baseline.md` |
 | R02-R04 | Closed | Required-content, atomic-output, and currency policy regressions; `docs/phase1-migration.md` |
 | R05-R07 | Closed | Section flow, pagination, colspan, and pdfcpu semantic tests; `docs/phase2-layout.md` |
 | R08-R09 | Closed | Exact JSON-number and self-contained i18n tests; `docs/phase1-migration.md` |

@@ -47,14 +47,14 @@ collect_go_files() {
 
   if [[ "$CHECK_SCOPE" == "worktree" ]]; then
     {
-      git diff --name-only --diff-filter=ACMRTUXB HEAD -- '*.go' ':!third_party/**'
-      git ls-files --others --exclude-standard -- '*.go' ':!third_party/**'
+      git diff --name-only --diff-filter=ACMRTUXB HEAD -- '*.go'
+      git ls-files --others --exclude-standard -- '*.go'
     } | sort -u
     return
   fi
 
   if [[ -n "$comparison_ref" ]]; then
-    git diff --name-only --diff-filter=ACMRTUXB "${comparison_ref}...HEAD" -- '*.go' ':!third_party/**' \
+    git diff --name-only --diff-filter=ACMRTUXB "${comparison_ref}...HEAD" -- '*.go' \
       | sort
     return
   fi

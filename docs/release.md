@@ -45,7 +45,6 @@ From a clean checkout of the candidate commit:
 ```sh
 GOTOOLCHAIN=go1.26.6 scripts/check-quality.sh
 go test -race ./... -count=1
-(cd third_party/gofpdf && go test -race ./... -count=1)
 scripts/check-security.sh
 scripts/check-layered-rollout.sh
 CHECK_SCOPE=all scripts/check-maintainability.sh

@@ -26,11 +26,6 @@ check_formatting() {
 echo "[quality] Checking module manifests..."
 go mod tidy -diff
 go mod verify
-(
-  cd third_party/gofpdf
-  go mod tidy -diff
-  go mod verify
-)
 
 echo "[quality] Checking formatting..."
 check_formatting
@@ -40,29 +35,15 @@ go build ./...
 
 echo "[quality] Running static analysis..."
 go vet ./...
-(
-  cd third_party/gofpdf
-  go vet ./...
-)
 
 echo "[quality] Running staticcheck ${STATICCHECK_VERSION} and errcheck ${ERRCHECK_VERSION}..."
 go run "honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}" ./...
 go run "github.com/kisielk/errcheck@${ERRCHECK_VERSION}" \
   -exclude scripts/errcheck-excludes.txt -ignoretests ./...
 go run ./scripts/errorwrapcheck ./...
-(
-  # Imported backend source: correctness (SA) checks only; style checks would
-  # rewrite upstream code beyond the documented patch set.
-  cd third_party/gofpdf
-  go run "honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}" -checks 'SA*' ./...
-)
 
 echo "[quality] Running all tests..."
 scripts/check-coverage.sh
-(
-  cd third_party/gofpdf
-  go test ./... -count=1
-)
 
 if [[ "$RUN_VULN_CHECK" == "true" ]]; then
   echo "[quality] Scanning reachable dependencies with govulncheck ${GOVULNCHECK_VERSION}..."

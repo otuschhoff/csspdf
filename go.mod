@@ -6,7 +6,7 @@ require (
 	github.com/andybalholm/cascadia v1.3.5
 	github.com/aymerick/douceur v0.2.0
 	github.com/goodsign/monday v1.0.2
-	github.com/otuschhoff/gofpdf v0.0.0-20250501183920-cb47a268fb6d
+	github.com/otuschhoff/gofpdf v0.0.0-20260909105358-90766bef84b1
 	github.com/pdfcpu/pdfcpu v0.15.0
 	golang.org/x/image v0.45.0
 	golang.org/x/net v0.58.0
@@ -24,5 +24,3 @@ require (
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 )
-
-replace github.com/otuschhoff/gofpdf => ./third_party/gofpdf
