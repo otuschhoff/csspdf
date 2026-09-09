@@ -2,10 +2,9 @@
 
 ## Release Line
 
-csspdf is currently pre-v1 and has no published release tags. Until v1.0.0,
-minor releases may contain documented compatibility changes when required for
-correctness or security. Patch releases must remain backward compatible within
-the current minor line.
+csspdf is pre-v1. Starting with v0.1.0, minor releases may contain documented
+compatibility changes when required for correctness or security. Patch releases
+must remain backward compatible within the current minor line.
 
 The supported Go API is the exported surface of
 `github.com/otuschhoff/csspdf/docflowpdf`. Packages below `internal/`, command

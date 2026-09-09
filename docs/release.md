@@ -16,9 +16,9 @@ A public release must not be created until all of the following are true:
 - the scheduled security workflow has a recent successful run; and
 - release notes describe compatibility changes and migrations.
 
-The missing root license is the only known policy blocker after Phase 6. It is
-owned by the repository owner and targeted for the first public release. It
-cannot be resolved by inferring a dependency license.
+The repository owner selected the MIT License for the first public release.
+Dependency and asset licenses remain independently governed by their retained
+license and provenance records.
 
 ## Versioning
 

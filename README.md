@@ -25,8 +25,8 @@ revision, local patch set, and retained test scope are documented in
 Supported release lines, compatibility rules, deprecations, provenance, and
 release checks are documented in [API compatibility](docs/api-compatibility.md),
 [asset provenance](docs/provenance.md), and the
-[release procedure](docs/release.md). Public redistribution remains blocked
-until the repository owner adds a root license.
+[release procedure](docs/release.md). The project is distributed under the
+[MIT License](LICENSE).
 
 ## Status
 
