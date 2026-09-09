@@ -17,11 +17,10 @@ public API is consumable from an external module, and the quality gate covers
 build, vet, format, tests, coverage floors, race, fuzz, and vulnerability
 scanning.
 
-The remaining work is consolidation, not repair. Phases 7 through 9 closed the
-static-analysis, dead-code, error-taxonomy, panic, legacy-policy, and core-test
-depth findings. The highest-value remaining item is headroom under the
-complexity ratchet before it forces waivers. It does not require a redesign and
-should not be bundled with unrelated behavior changes.
+Phases 7 through 10 closed the static-analysis, dead-code, error-taxonomy,
+panic, legacy-policy, core-test-depth, complexity-headroom, and backend-module
+findings. The maintainability gate now enforces complexity 12 and 550-line
+production-file limits across the first-party tree.
 
 This report covers code quality, structure, maintainability, test coverage,
 and error handling. It is an engineering assessment, not a security
@@ -273,6 +272,10 @@ attribute name in the error.
 
 **P2 | Measured | Maintainability**
 
+**Status: Closed in Phase 10.** The four named functions are now at complexity
+4, 5, 9, and 6 respectively. No first-party function exceeds 12, the largest
+production file is 545 lines, and the default gate limits are 12 and 550.
+
 Evidence: `gocyclo` top list; `scripts/check-maintainability.sh` budgets.
 
 Four functions sit exactly at the complexity ceiling of 15:
@@ -298,6 +301,10 @@ gate so the ratchet keeps tightening.
 ### N07. Nested Backend Module Declares Go 1.12 Language Semantics
 
 **P2 | Inspection | Correctness, maintainability**
+
+**Status: Closed in Phase 10.** The nested module declares Go 1.22 and no
+longer has a self-replace directive. All 126 range loops were reviewed with no
+goroutine or deferred closure capture; nested vet, tests, and race tests pass.
 
 Evidence: `third_party/gofpdf/go.mod` declares `go 1.12` and contains
 `replace gofpdf => ./`; 126 `range` loops in the package.
@@ -513,13 +520,13 @@ Phase 9 profile and all exceed their required targets.
 
 | Work item | Scope and dependencies | Completion gate |
 | --- | --- | --- |
-| 10A At-ceiling refactors | Four functions at complexity 15, one PR each, behind Phase 9 tests. | Each at or below 10; output unchanged. |
-| 10B Near-budget files | `text_engine.go`, `html_parser.go`, `elements.go`. | Each below 550 lines via named cohesive extraction. |
-| 10C Tighten ratchet | `MAX_CYCLO` 12 for changed scope; `MAX_FILE_LINES` 550. | Gate passes on `main`. |
-| 10D Backend language version | `third_party/gofpdf/go.mod` directive and vestigial replace; `PATCHES.md`. | Nested vet/tests pass at or above `go 1.22`; review recorded. |
+| 10A At-ceiling refactors | Four functions at complexity 15, one PR each, behind Phase 9 tests. | Complete: complexities are 4, 5, 9, and 6; focused characterization tests pass. |
+| 10B Near-budget files | `text_engine.go`, `html_parser.go`, `elements.go`. | Complete: cohesive glyph registry, HTML value builder, and value formatting extractions leave the files at 545, 518, and 514 lines. |
+| 10C Tighten ratchet | `MAX_CYCLO` 12 for changed scope; `MAX_FILE_LINES` 550. | Complete: defaults are 12 and 550; all-scope and worktree gates pass. |
+| 10D Backend language version | `third_party/gofpdf/go.mod` directive and vestigial replace; `PATCHES.md`. | Complete: Go 1.22, no self-replace, semantic review recorded; nested vet and tests pass. |
 
-**Exit:** No function above 12, no file above 550, both modules on a
-current language version.
+**Exit:** Complete. No first-party function is above 12, no production file is
+above 550 lines, and both modules declare a language version at or above 1.22.
 
 ## Copilot Work Item Protocol
 
@@ -531,10 +538,10 @@ report exact commands and results; do not bundle dependency upgrades,
 mechanical extraction, and behavior changes. The human owner approves any
 compatibility decision before implementation starts.
 
-## Remaining Maintainer Decision
+## Maintainer Decisions
 
 Phase 8 resolved the builder-error and legacy-rendering decisions. Phase 9
 retained root `pdfdump.go` as the sole inspection command and adopted the
-proposed coverage targets. One decision remains for Phase 10: align
-`third_party/gofpdf` to the root Go minimum, or to the lowest version with
-per-iteration loop semantics (Go 1.22).
+proposed coverage targets. Phase 10 selected Go 1.22 for
+`third_party/gofpdf`, the lowest version with per-iteration loop semantics,
+while leaving the root module's newer minimum independent.

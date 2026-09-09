@@ -128,18 +128,13 @@ func (tr *TableRenderer) RenderTable(table *TableDef) error {
 		tr.pdf.SetY(startY)
 	}
 
-	rowHeights := make([]float64, len(table.Rows))
+	rowHeights, err := tr.resolvedRowHeights(table)
+	if err != nil {
+		return err
+	}
 	totalTableHeight := 0.0
-	for rowIdx, row := range table.Rows {
-		rh := row.Height
-		if rh == 0 {
-			rh = layout.rowHeightMin
-		}
-		if calc := tr.calculateRowHeight(&row, rh, layout.padding, layout.colWidths); calc > rh {
-			rh = calc
-		}
-		rowHeights[rowIdx] = rh
-		totalTableHeight += rh
+	for _, rowHeight := range rowHeights {
+		totalTableHeight += rowHeight
 	}
 
 	tr.drawTableBackgroundAndBorder(startX, startY, layout.tableWidth, totalTableHeight, table)
@@ -147,14 +142,7 @@ func (tr *TableRenderer) RenderTable(table *TableDef) error {
 	currentY := startY
 	for rowIdx, row := range table.Rows {
 		rh := rowHeights[rowIdx]
-		bgColor := row.Fill
-		if bgColor == "" {
-			bgColor = row.Background
-		}
-		drawStroke := row.Border
-		if row.Stroke != nil {
-			drawStroke = *row.Stroke
-		}
+		bgColor, drawStroke := tableRowDecoration(row)
 		if bgColor != "" || drawStroke {
 			tr.drawRowBackground(startX, currentY, layout.tableWidth, rh, bgColor, drawStroke)
 		}
@@ -166,6 +154,18 @@ func (tr *TableRenderer) RenderTable(table *TableDef) error {
 	}
 	tr.pdf.SetY(currentY + 5)
 	return nil
+}
+
+func tableRowDecoration(row RowDef) (string, bool) {
+	background := row.Fill
+	if background == "" {
+		background = row.Background
+	}
+	stroke := row.Border
+	if row.Stroke != nil {
+		stroke = *row.Stroke
+	}
+	return background, stroke
 }
 
 // MeasureTableHeight returns the height that RenderTable would consume
@@ -391,36 +391,32 @@ func normalizeTableFontStyle(style string) string {
 	if up == "NORMAL" {
 		return ""
 	}
-	fields := strings.FieldsFunc(up, func(r rune) bool {
-		return r == ' ' || r == ',' || r == ';' || r == '|'
-	})
+	fields := strings.Fields(strings.NewReplacer(",", " ", ";", " ", "|", " ").Replace(up))
 	if len(fields) == 0 {
 		fields = []string{up}
 	}
-	hasB := strings.Contains(up, "B")
-	hasI := strings.Contains(up, "I")
-	hasU := strings.Contains(up, "U")
-	for _, f := range fields {
-		switch f {
-		case "B", "BOLD", "700", "800", "900":
-			hasB = true
-		case "I", "ITALIC", "OBLIQUE":
-			hasI = true
-		case "U", "UNDERLINE":
-			hasU = true
-		case "NORMAL", "400":
-			// no-op
+	var markers string
+	markerByField := map[string]string{
+		"B": "B", "BOLD": "B", "700": "B", "800": "B", "900": "B",
+		"I": "I", "ITALIC": "I", "OBLIQUE": "I",
+		"U": "U", "UNDERLINE": "U",
+	}
+	for _, field := range fields {
+		if marker := markerByField[field]; marker != "" {
+			markers += marker
+		} else if strings.Trim(field, "BIU") == "" {
+			markers += field
 		}
 	}
+	return orderedTableFontStyle(markers)
+}
+
+func orderedTableFontStyle(markers string) string {
 	var b strings.Builder
-	if hasB {
-		b.WriteByte('B')
-	}
-	if hasI {
-		b.WriteByte('I')
-	}
-	if hasU {
-		b.WriteByte('U')
+	for _, marker := range "BIU" {
+		if strings.ContainsRune(markers, marker) {
+			b.WriteRune(marker)
+		}
 	}
 	return b.String()
 }

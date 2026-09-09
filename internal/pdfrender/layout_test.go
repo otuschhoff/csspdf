@@ -144,6 +144,39 @@ func TestCellDefFromTableCell_UsesFillAsBackground(t *testing.T) {
 	}
 }
 
+func TestNormalizeTableFontStyle(t *testing.T) {
+	tests := map[string]string{
+		"":                         "",
+		" NORMAL ":                 "",
+		"ui":                       "IU",
+		"bold, italic|underline":   "BIU",
+		"900;oblique":              "BI",
+		"underline bold underline": "BU",
+	}
+	for input, expected := range tests {
+		if actual := normalizeTableFontStyle(input); actual != expected {
+			t.Errorf("normalizeTableFontStyle(%q) = %q, want %q", input, actual, expected)
+		}
+	}
+}
+
+func TestTemplateElementLength(t *testing.T) {
+	element := pdfdom.NewElemUseTemplate()
+	if value, explicit := templateElementLength(element, "x", 42); value != 42 || explicit {
+		t.Fatalf("missing attribute = %v, %v; want fallback and implicit", value, explicit)
+	}
+
+	element.SetAttribute("x", "invalid")
+	if value, explicit := templateElementLength(element, "x", 42); value != 42 || explicit {
+		t.Fatalf("invalid attribute = %v, %v; want fallback and implicit", value, explicit)
+	}
+
+	element.SetAttribute("x", " 17.5 ")
+	if value, explicit := templateElementLength(element, "x", 42); value != 17.5 || !explicit {
+		t.Fatalf("explicit attribute = %v, %v; want 17.5 and explicit", value, explicit)
+	}
+}
+
 func TestH1MeasureInBox_IncludesDefaultBlockMargins(t *testing.T) {
 	pdf := gofpdf.New("P", "pt", "A4", "")
 	pdf.AddPage()

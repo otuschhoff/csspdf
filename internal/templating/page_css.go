@@ -160,61 +160,53 @@ func parsePageRuleDeclarations(decls []*css.Declaration, defaults PageSettings, 
 		if decl == nil {
 			continue
 		}
-		property := strings.ToLower(strings.TrimSpace(decl.Property))
-		value := strings.TrimSpace(decl.Value)
-		switch property {
-		case "size":
-			width, height, err := parseCSSPageSize(value, defaults, parseLength)
-			if err != nil {
-				return override, err
-			}
-			override.sizeSet = true
-			override.width = width
-			override.height = height
-		case "margin":
-			top, right, bottom, left, err := parseCSSMarginShorthand(value, parseLength)
-			if err != nil {
-				return override, err
-			}
-			override.topSet = true
-			override.rightSet = true
-			override.bottomSet = true
-			override.leftSet = true
-			override.top = top
-			override.right = right
-			override.bottom = bottom
-			override.left = left
-		case "margin-top":
-			v, err := parseCSSPageLength(value, property, parseLength)
-			if err != nil {
-				return override, err
-			}
-			override.topSet = true
-			override.top = v
-		case "margin-right":
-			v, err := parseCSSPageLength(value, property, parseLength)
-			if err != nil {
-				return override, err
-			}
-			override.rightSet = true
-			override.right = v
-		case "margin-bottom":
-			v, err := parseCSSPageLength(value, property, parseLength)
-			if err != nil {
-				return override, err
-			}
-			override.bottomSet = true
-			override.bottom = v
-		case "margin-left":
-			v, err := parseCSSPageLength(value, property, parseLength)
-			if err != nil {
-				return override, err
-			}
-			override.leftSet = true
-			override.left = v
+		if err := applyPageRuleDeclaration(&override, decl, defaults, parseLength); err != nil {
+			return override, err
 		}
 	}
 	return override, nil
+}
+
+func applyPageRuleDeclaration(override *pageSettingsOverride, decl *css.Declaration, defaults PageSettings, parseLength func(string) (float64, bool)) error {
+	property := strings.ToLower(strings.TrimSpace(decl.Property))
+	value := strings.TrimSpace(decl.Value)
+	switch property {
+	case "size":
+		width, height, err := parseCSSPageSize(value, defaults, parseLength)
+		if err != nil {
+			return err
+		}
+		override.sizeSet, override.width, override.height = true, width, height
+	case "margin":
+		top, right, bottom, left, err := parseCSSMarginShorthand(value, parseLength)
+		if err != nil {
+			return err
+		}
+		override.topSet, override.rightSet, override.bottomSet, override.leftSet = true, true, true, true
+		override.top, override.right, override.bottom, override.left = top, right, bottom, left
+	default:
+		return applyIndividualPageMargin(override, property, value, parseLength)
+	}
+	return nil
+}
+
+func applyIndividualPageMargin(override *pageSettingsOverride, property, value string, parseLength func(string) (float64, bool)) error {
+	setters := map[string]func(float64){
+		"margin-top":    func(value float64) { override.topSet, override.top = true, value },
+		"margin-right":  func(value float64) { override.rightSet, override.right = true, value },
+		"margin-bottom": func(value float64) { override.bottomSet, override.bottom = true, value },
+		"margin-left":   func(value float64) { override.leftSet, override.left = true, value },
+	}
+	setter, ok := setters[property]
+	if !ok {
+		return nil
+	}
+	parsed, err := parseCSSPageLength(value, property, parseLength)
+	if err != nil {
+		return err
+	}
+	setter(parsed)
+	return nil
 }
 
 func parseCSSPageSize(raw string, defaults PageSettings, parseLength func(string) (float64, bool)) (float64, float64, error) {
@@ -222,50 +214,56 @@ func parseCSSPageSize(raw string, defaults PageSettings, parseLength func(string
 	if len(parts) == 0 {
 		return 0, 0, fmt.Errorf("@page size cannot be empty")
 	}
-
-	orientation := "portrait"
-	width := 0.0
-	height := 0.0
-	lengths := make([]float64, 0, 2)
-
+	parsed := pageSizeValue{orientation: "portrait", lengths: make([]float64, 0, 2)}
 	for _, part := range parts {
-		switch part {
-		case "portrait", "landscape":
-			orientation = part
-		case "auto":
-			width = defaults.Width
-			height = defaults.Height
-		default:
-			if named, ok := namedPageSizes[part]; ok {
-				width = named[0]
-				height = named[1]
-				continue
-			}
-			value, ok := parseLength(part)
-			if !ok {
-				return 0, 0, fmt.Errorf("unsupported @page size value %q", raw)
-			}
-			lengths = append(lengths, value)
+		if err := parsed.consume(part, defaults, parseLength); err != nil {
+			return 0, 0, fmt.Errorf("unsupported @page size value %q", raw)
 		}
 	}
+	return parsed.resolve(raw)
+}
 
-	if width == 0 || height == 0 {
-		if len(lengths) != 2 {
+type pageSizeValue struct {
+	orientation   string
+	width, height float64
+	lengths       []float64
+}
+
+func (value *pageSizeValue) consume(part string, defaults PageSettings, parseLength func(string) (float64, bool)) error {
+	switch part {
+	case "portrait", "landscape":
+		value.orientation = part
+	case "auto":
+		value.width, value.height = defaults.Width, defaults.Height
+	default:
+		if named, ok := namedPageSizes[part]; ok {
+			value.width, value.height = named[0], named[1]
+			return nil
+		}
+		length, ok := parseLength(part)
+		if !ok {
+			return fmt.Errorf("invalid page size")
+		}
+		value.lengths = append(value.lengths, length)
+	}
+	return nil
+}
+
+func (value pageSizeValue) resolve(raw string) (float64, float64, error) {
+	if value.width == 0 || value.height == 0 {
+		if len(value.lengths) != 2 {
 			return 0, 0, fmt.Errorf("@page size %q must be a known page name or two lengths", raw)
 		}
-		width = lengths[0]
-		height = lengths[1]
+		value.width, value.height = value.lengths[0], value.lengths[1]
 	}
-
-	if orientation == "landscape" {
-		if height > width {
-			width, height = height, width
+	if value.orientation == "landscape" {
+		if value.height > value.width {
+			value.width, value.height = value.height, value.width
 		}
-	} else if width > height && len(lengths) == 0 {
-		width, height = height, width
+	} else if value.width > value.height && len(value.lengths) == 0 {
+		value.width, value.height = value.height, value.width
 	}
-
-	return width, height, nil
+	return value.width, value.height, nil
 }
 
 func parseCSSMarginShorthand(raw string, parseLength func(string) (float64, bool)) (top, right, bottom, left float64, err error) {

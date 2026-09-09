@@ -131,27 +131,49 @@ func (state *textArrayState) consume(character byte) {
 		state.escaped = false
 		return
 	}
-	if character == '\\' && state.inLiteral {
-		state.current.WriteByte(character)
-		state.escaped = true
+	if state.inLiteral {
+		state.consumeLiteral(character)
 		return
 	}
-	switch {
-	case character == '(' && !state.inHex:
+	if state.inHex {
+		state.consumeHex(character)
+		return
+	}
+	switch character {
+	case '(':
 		state.inLiteral = true
 		state.current.Reset()
-	case character == ')' && state.inLiteral:
-		state.parts = append(state.parts, state.current.String())
-		state.inLiteral = false
-	case character == '<' && !state.inLiteral:
+	case '<':
 		state.inHex = true
 		state.current.Reset()
-	case character == '>' && state.inHex:
+	}
+}
+
+func (state *textArrayState) consumeLiteral(character byte) {
+	switch character {
+	case '\\':
+		state.current.WriteByte(character)
+		state.escaped = true
+	case '(':
+		state.current.Reset()
+	case ')':
+		state.parts = append(state.parts, state.current.String())
+		state.inLiteral = false
+	default:
+		state.current.WriteByte(character)
+	}
+}
+
+func (state *textArrayState) consumeHex(character byte) {
+	switch character {
+	case '<':
+		state.current.Reset()
+	case '>':
 		if decoded := decodeHexString(state.current.String()); decoded != "" {
 			state.parts = append(state.parts, decoded)
 		}
 		state.inHex = false
-	case state.inLiteral || state.inHex:
+	default:
 		state.current.WriteByte(character)
 	}
 }
@@ -266,29 +288,32 @@ func hexDump(data []byte, bytesPerLine, maxBytes int) string {
 		if end > limit {
 			end = limit
 		}
-		line := data[off:end]
-		b.WriteString(fmt.Sprintf("%04x: ", off))
-		for i := 0; i < bytesPerLine; i++ {
-			if off+i < end {
-				b.WriteString(fmt.Sprintf("%02x ", line[i]))
-			} else {
-				b.WriteString("   ")
-			}
-		}
-		b.WriteString(" |")
-		for _, c := range line {
-			if c >= 32 && c <= 126 {
-				b.WriteByte(c)
-			} else {
-				b.WriteByte('.')
-			}
-		}
-		b.WriteString("|\n")
+		writeHexDumpLine(&b, data[off:end], off, bytesPerLine)
 	}
 	if truncated {
 		b.WriteString(fmt.Sprintf("... (%d bytes omitted)\n", len(data)-limit))
 	}
 	return b.String()
+}
+
+func writeHexDumpLine(builder *strings.Builder, line []byte, offset, width int) {
+	fmt.Fprintf(builder, "%04x: ", offset)
+	for index := 0; index < width; index++ {
+		if index < len(line) {
+			fmt.Fprintf(builder, "%02x ", line[index])
+		} else {
+			builder.WriteString("   ")
+		}
+	}
+	builder.WriteString(" |")
+	for _, character := range line {
+		if character >= 32 && character <= 126 {
+			builder.WriteByte(character)
+		} else {
+			builder.WriteByte('.')
+		}
+	}
+	builder.WriteString("|\n")
 }
 
 func formatHintStream(decoded []byte, dictStr string) string {
@@ -429,10 +454,7 @@ func formatObjectStreamContent(content []byte) string {
 
 	indexPart := strings.Fields(matches[1])
 	contentPart := strings.TrimSpace(matches[2])
-	objIDs := make([]string, 0, len(indexPart)/2)
-	for i := 0; i+1 < len(indexPart); i += 2 {
-		objIDs = append(objIDs, indexPart[i])
-	}
+	objIDs := objectStreamIDs(indexPart)
 
 	var b strings.Builder
 	b.WriteString("Object stream index:\n")
@@ -441,34 +463,48 @@ func formatObjectStreamContent(content []byte) string {
 	}
 
 	b.WriteString("Embedded object payload:\n")
-	pos := 0
-	objIdx := 0
-	for pos < len(contentPart) {
-		for pos < len(contentPart) && isSpace(contentPart[pos]) {
-			pos++
+	b.WriteString(formatEmbeddedObjectStream(contentPart, objIDs))
+	return b.String()
+}
+
+func objectStreamIDs(index []string) []string {
+	ids := make([]string, 0, len(index)/2)
+	for position := 0; position+1 < len(index); position += 2 {
+		ids = append(ids, index[position])
+	}
+	return ids
+}
+
+func formatEmbeddedObjectStream(content string, objectIDs []string) string {
+	var builder strings.Builder
+	position := 0
+	objectIndex := 0
+	for position < len(content) {
+		for position < len(content) && isSpace(content[position]) {
+			position++
 		}
-		if pos >= len(contentPart) {
+		if position >= len(content) {
 			break
 		}
-		tok, next := parsePDFObjectToken(contentPart, pos)
-		if next <= pos || strings.TrimSpace(tok) == "" {
+		token, next := parsePDFObjectToken(content, position)
+		if next <= position || strings.TrimSpace(token) == "" {
 			break
 		}
-		trimTok := strings.TrimSpace(tok)
+		trimTok := strings.TrimSpace(token)
 		if strings.HasPrefix(trimTok, "<<") && strings.HasSuffix(trimTok, ">>") {
 			pretty := formatDictionary(trimTok)
-			if objIdx < len(objIDs) {
-				pretty = annotateDictStartWithObjectID(pretty, objIDs[objIdx])
+			if objectIndex < len(objectIDs) {
+				pretty = annotateDictStartWithObjectID(pretty, objectIDs[objectIndex])
 			}
-			b.WriteString(pretty)
-			b.WriteString("\n")
-			objIdx++
+			builder.WriteString(pretty)
+			builder.WriteString("\n")
+			objectIndex++
 		} else {
-			b.WriteString(formatStreamContent([]byte(trimTok)))
+			builder.WriteString(formatStreamContent([]byte(trimTok)))
 		}
-		pos = next
+		position = next
 	}
-	return b.String()
+	return builder.String()
 }
 
 func formatPdfCommands(text string) string {

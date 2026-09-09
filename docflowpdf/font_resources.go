@@ -20,8 +20,14 @@ func resolveFontRegistrations(input RenderInput) ([]FontRegistration, error) {
 		return nil, nil
 	}
 	fontDirs := []string{filepath.Join(baseDir, "fonts"), filepath.Join(baseDir, "..", "fonts"), filepath.Join(baseDir, "..", "..", "fonts")}
-	var entries []os.DirEntry
-	selectedFontDir := ""
+	entries, selectedFontDir, err := findFontDirectory(fontDirs)
+	if err != nil || len(entries) == 0 {
+		return nil, err
+	}
+	return dedupeFontRegistrations(fontRegistrationsFromEntries(entries, selectedFontDir)), nil
+}
+
+func findFontDirectory(fontDirs []string) ([]os.DirEntry, string, error) {
 	for _, candidate := range fontDirs {
 		candidate = filepath.Clean(candidate)
 		scanned, err := os.ReadDir(candidate)
@@ -29,14 +35,14 @@ func resolveFontRegistrations(input RenderInput) ([]FontRegistration, error) {
 			if os.IsNotExist(err) {
 				continue
 			}
-			return nil, fmt.Errorf("failed to scan font directory %q: %w", candidate, err)
+			return nil, "", fmt.Errorf("failed to scan font directory %q: %w", candidate, err)
 		}
-		entries, selectedFontDir = scanned, candidate
-		break
+		return scanned, candidate, nil
 	}
-	if len(entries) == 0 {
-		return nil, nil
-	}
+	return nil, "", nil
+}
+
+func fontRegistrationsFromEntries(entries []os.DirEntry, fontDir string) []FontRegistration {
 	registrations := make([]FontRegistration, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -51,9 +57,9 @@ func resolveFontRegistrations(input RenderInput) ([]FontRegistration, error) {
 		if family == "" {
 			continue
 		}
-		registrations = append(registrations, normalizeFontRegistration(FontRegistration{Family: family, Sources: []string{filepath.Join(selectedFontDir, name)}}))
+		registrations = append(registrations, normalizeFontRegistration(FontRegistration{Family: family, Sources: []string{filepath.Join(fontDir, name)}}))
 	}
-	return dedupeFontRegistrations(registrations), nil
+	return registrations
 }
 
 func normalizeFontRegistration(registration FontRegistration) FontRegistration {

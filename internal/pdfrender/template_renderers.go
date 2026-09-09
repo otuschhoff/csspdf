@@ -72,13 +72,8 @@ func renderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode, persi
 		if err := l.ctx.Err(); err != nil {
 			return fmt.Errorf("layout canceled: %w", err)
 		}
-		if ShouldBreakPageBefore(elem) {
-			if !persistCursor {
-				return fmt.Errorf("page-local overlay cannot contain break-before: page")
-			}
-			if err := state.nextPage(); err != nil {
-				return err
-			}
+		if err := state.applyPageBreak(ShouldBreakPageBefore(elem), "before"); err != nil {
+			return err
 		}
 		skipPageAfter, err := state.renderElement(elem)
 		if err != nil {
@@ -88,17 +83,22 @@ func renderDocTemplateFlow(l *LayoutPDF, elements []pdfdom.PDFElementNode, persi
 			continue
 		}
 
-		if ShouldBreakPageAfter(elem) {
-			if !persistCursor {
-				return fmt.Errorf("page-local overlay cannot contain break-after: page")
-			}
-			if err := state.nextPage(); err != nil {
-				return err
-			}
+		if err := state.applyPageBreak(ShouldBreakPageAfter(elem), "after"); err != nil {
+			return err
 		}
 	}
 	state.persist()
 	return nil
+}
+
+func (state *docFlowState) applyPageBreak(required bool, position string) error {
+	if !required {
+		return nil
+	}
+	if !state.persistCursor {
+		return fmt.Errorf("page-local overlay cannot contain break-%s: page", position)
+	}
+	return state.nextPage()
 }
 
 type docFlowState struct {
@@ -169,25 +169,12 @@ func (state *docFlowState) renderElement(elem pdfdom.PDFElementNode) (bool, erro
 func (state *docFlowState) renderBlock(node pdfdom.PDFElementNode) (bool, error) {
 	topMargin, bottomMargin := flowBlockMargins(node, nil)
 	collapseMargins := isVerticalMarginCollapsible(node)
-	xPos, yPos, width, absolute := state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
-	if !absolute {
-		contentTop := state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, collapseMargins)
-		yPos = contentTop - topMargin
-		metrics, err := state.engine.MeasureInBox(node, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: width, Fit: pdfdom.TextFitWrap})
-		if err != nil {
-			return true, state.layout.recoverableRenderError("failed to measure doc flow element", err)
-		}
-		contentHeight := max(0, metrics.Height-topMargin-bottomMargin)
-		if state.currentY > state.y && contentTop+contentHeight+bottomMargin > state.layout.CurrentFlowBottom() {
-			if err := state.nextPage(); err != nil {
-				return false, err
-			}
-			xPos, _, width, absolute = state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
-			contentTop = state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, collapseMargins)
-			yPos = contentTop - topMargin
-		}
+	xPos, yPos, width, absolute, err := state.prepareBlockPlacement(node, topMargin, bottomMargin, collapseMargins)
+	if err != nil {
+		return false, err
 	}
-	measured, err := state.engine.MeasureInBox(node, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: width, Fit: pdfdom.TextFitWrap})
+	box := pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: width, Fit: pdfdom.TextFitWrap}
+	measured, err := state.engine.MeasureInBox(node, &box)
 	if err != nil {
 		return true, state.layout.recoverableRenderError("failed to measure doc flow element", err)
 	}
@@ -196,12 +183,12 @@ func (state *docFlowState) renderBlock(node pdfdom.PDFElementNode) (bool, error)
 			if !state.persistCursor {
 				return false, validateWholeBlockHeight("page-local overlay", measured.Height, state.layout.CurrentFlowBottom()-yPos)
 			}
-			return false, state.renderBlockContinuation(node, pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: width, Fit: pdfdom.TextFitWrap}, bottomMargin)
+			return false, state.renderBlockContinuation(node, box, bottomMargin)
 		}
 	} else if err := validateAbsoluteElementBounds(node.ElementType(), xPos, yPos, measured.Width, measured.Height, state.layout.pageWidth, state.layout.pageHeight); err != nil {
 		return false, err
 	}
-	metrics, err := state.engine.RenderInBox(node, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: width, Fit: pdfdom.TextFitWrap})
+	metrics, err := state.engine.RenderInBox(node, &box)
 	if err != nil {
 		return true, state.layout.recoverableRenderError("failed to render doc flow element", err)
 	}
@@ -210,6 +197,29 @@ func (state *docFlowState) renderBlock(node pdfdom.PDFElementNode) (bool, error)
 		state.pendingBottomMargin = bottomMargin
 	}
 	return false, nil
+}
+
+func (state *docFlowState) prepareBlockPlacement(node pdfdom.PDFElementNode, topMargin, bottomMargin float64, collapseMargins bool) (float64, float64, float64, bool, error) {
+	xPos, yPos, width, absolute := state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
+	if absolute {
+		return xPos, yPos, width, true, nil
+	}
+	contentTop := state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, collapseMargins)
+	yPos = contentTop - topMargin
+	metrics, err := state.engine.MeasureInBox(node, &pdfdom.PDFTextBox{X: xPos, Y: yPos, Width: width, Fit: pdfdom.TextFitWrap})
+	if err != nil {
+		return 0, 0, 0, false, state.layout.recoverableRenderError("failed to measure doc flow element", err)
+	}
+	contentHeight := max(0, metrics.Height-topMargin-bottomMargin)
+	if state.currentY <= state.y || contentTop+contentHeight+bottomMargin <= state.layout.CurrentFlowBottom() {
+		return xPos, yPos, width, false, nil
+	}
+	if err := state.nextPage(); err != nil {
+		return 0, 0, 0, false, err
+	}
+	xPos, _, width, absolute = state.layout.ResolveFlowPlacement(node, state.x, state.currentY, state.maxWidth)
+	contentTop = state.currentY + interElementSpacing(state.pendingBottomMargin, topMargin, collapseMargins)
+	return xPos, contentTop - topMargin, width, absolute, nil
 }
 
 func (state *docFlowState) renderImage(node *pdfdom.ElemImg) (bool, error) {

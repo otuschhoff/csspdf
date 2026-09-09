@@ -466,22 +466,9 @@ func (l *LayoutPDF) RenderUseTemplateElement(elem *pdfdom.ElemUseTemplate, fallb
 		return 0, false, fmt.Errorf("use-template missing name attribute")
 	}
 
-	x, y := fallbackX, fallbackY
-	hasExplicitPos := false
-	if raw, hasX := elem.Attribute("x"); hasX {
-		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
-			x = v
-			absolute = true
-			hasExplicitPos = true
-		}
-	}
-	if raw, hasY := elem.Attribute("y"); hasY {
-		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
-			y = v
-			absolute = true
-			hasExplicitPos = true
-		}
-	}
+	x, hasX := templateElementLength(elem, "x", fallbackX)
+	y, hasY := templateElementLength(elem, "y", fallbackY)
+	absolute = hasX || hasY
 
 	tpl, err := l.TemplateByName(name)
 	if err != nil {
@@ -491,25 +478,14 @@ func (l *LayoutPDF) RenderUseTemplateElement(elem *pdfdom.ElemUseTemplate, fallb
 	// width and height may come from HTML attributes or from CSS (which
 	// CSSDeclarationToAttr has already baked into the element's attributes).
 	_, nativeSize := tpl.Size()
-	width, height := nativeSize.Wd, nativeSize.Ht
-	hasExplicitSize := false
-	if raw, ok := elem.Attribute("width"); ok {
-		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
-			width = v
-			hasExplicitSize = true
-		}
-	}
-	if raw, ok := elem.Attribute("height"); ok {
-		if v, e := strconv.ParseFloat(strings.TrimSpace(raw), 64); e == nil {
-			height = v
-			hasExplicitSize = true
-		}
-	}
+	width, hasWidth := templateElementLength(elem, "width", nativeSize.Wd)
+	height, hasHeight := templateElementLength(elem, "height", nativeSize.Ht)
+	hasExplicitSize := hasWidth || hasHeight
 
 	// When no explicit position or size was given, let gofpdf place the
 	// template at its own registered corner/size (UseTemplate).  Otherwise
 	// use UseTemplateScaled so the caller's coordinates are respected.
-	if !hasExplicitPos && !hasExplicitSize {
+	if !absolute && !hasExplicitSize {
 		l.PDF.UseTemplate(tpl)
 	} else {
 		l.PDF.UseTemplateScaled(
@@ -520,4 +496,16 @@ func (l *LayoutPDF) RenderUseTemplateElement(elem *pdfdom.ElemUseTemplate, fallb
 	}
 
 	return height, absolute, nil
+}
+
+func templateElementLength(elem pdfdom.PDFElementNode, name string, fallback float64) (float64, bool) {
+	raw, ok := elem.Attribute(name)
+	if !ok {
+		return fallback, false
+	}
+	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil {
+		return fallback, false
+	}
+	return value, true
 }

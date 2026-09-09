@@ -348,52 +348,6 @@ func NewElemManDaysValue(days float64) *ElemManDaysValue {
 	return n
 }
 
-// --- Format methods for value elements ---
-
-// Format returns the locale-formatted currency string.
-func (e *ElemCurrencyValue) Format(f ValueFormatter) string {
-	if f == nil {
-		return fmt.Sprintf("%.2f", e.Value)
-	}
-	return f.FormatCurrency(e.Value)
-}
-
-// Format returns the formatted date, using long format when the "long"
-// attribute is set to "true".
-func (e *ElemDateValue) Format(f ValueFormatter) string {
-	if f == nil {
-		return e.Value
-	}
-	long := false
-	if v, ok := e.Attribute("long"); ok && v == "true" {
-		long = true
-	}
-	return f.FormatDate(e.Value, long)
-}
-
-// Format returns the duration as "H:MM".
-func (e *ElemDurationValue) Format(f ValueFormatter) string {
-	if f == nil {
-		return fmt.Sprintf("%g", e.Value)
-	}
-	return f.FormatDuration(e.Value)
-}
-
-// Format returns the man-days value formatted with locale decimal separators.
-// When the "unit" attribute is "true" a " PT" suffix is appended.
-func (e *ElemManDaysValue) Format(f ValueFormatter) string {
-	var formatted string
-	if f == nil {
-		formatted = fmt.Sprintf("%g", e.Value)
-	} else {
-		formatted = f.FormatFloat(e.Value, 2)
-	}
-	if v, ok := e.Attribute("unit"); ok && v == "true" {
-		formatted += " PT"
-	}
-	return formatted
-}
-
 // --- validateChild implementations ---
 
 func (e *ElemDiv) validateChild(child PDFNode) error {

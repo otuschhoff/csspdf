@@ -2,7 +2,6 @@ package pdfrender
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/otuschhoff/csspdf/internal/pdfdom"
@@ -35,50 +34,6 @@ type PDFTextMetrics struct {
 	Height     float64
 	LineCount  int
 	WasClipped bool
-}
-
-// FontGlyphRegistry tracks used glyphs per font for later subsetting.
-type FontGlyphRegistry struct {
-	used map[string]map[rune]struct{}
-}
-
-func NewFontGlyphRegistry() *FontGlyphRegistry {
-	return &FontGlyphRegistry{used: make(map[string]map[rune]struct{})}
-}
-
-func (g *FontGlyphRegistry) Record(fontFace, text string) {
-	if g == nil || fontFace == "" || text == "" {
-		return
-	}
-	if _, ok := g.used[fontFace]; !ok {
-		g.used[fontFace] = make(map[rune]struct{})
-	}
-	for _, r := range text {
-		g.used[fontFace][r] = struct{}{}
-	}
-}
-
-func (g *FontGlyphRegistry) UsedGlyphs(fontFace string) []rune {
-	if g == nil || g.used[fontFace] == nil {
-		return nil
-	}
-	out := make([]rune, 0, len(g.used[fontFace]))
-	for r := range g.used[fontFace] {
-		out = append(out, r)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
-	return out
-}
-
-func (g *FontGlyphRegistry) Snapshot() map[string][]rune {
-	out := make(map[string][]rune)
-	if g == nil {
-		return out
-	}
-	for font := range g.used {
-		out[font] = g.UsedGlyphs(font)
-	}
-	return out
 }
 
 // PDFTextEngine hides low-level PDF calls and renders declarative PDFNode trees.

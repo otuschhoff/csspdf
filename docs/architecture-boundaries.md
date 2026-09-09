@@ -55,9 +55,9 @@ supported `docflowpdf` API from a separate module at the minimum Go version.
 
 Default thresholds (can be overridden by env vars):
 
-- Cyclomatic complexity (`MAX_CYCLO`): `15`
+- Cyclomatic complexity (`MAX_CYCLO`): `12`
 - Function length in non-test Go files (`MAX_FUNC_LINES`): `80`
-- Go file length (`MAX_FILE_LINES`): `600`
+- Go file length (`MAX_FILE_LINES`): `550`
 
 ## Local Usage
 

@@ -32,6 +32,16 @@ this imported source; the gate runs `staticcheck -checks 'SA*'` here.
    deprecated `os.SEEK_*` constants.
 7. Four index-free `range []rune(s)` loops range over the string directly;
    rune sequences are identical.
+8. Deprecated `io/ioutil` calls use their identical `io` and `os`
+   replacements required by the Go 1.22 static-analysis baseline.
+
+The nested module now declares Go 1.22 language semantics, matching the oldest
+release with per-iteration loop variables while remaining independent of the
+root module's newer minimum. The vestigial `replace gofpdf => ./` directive was
+removed. All 126 range loops were reviewed; none launches a goroutine or defers
+a closure that captures its loop variables, so the semantic change does not
+alter current behavior. Nested formatting, vet, tests, and the root quality
+gate validate the updated directive.
 
 The upstream MIT and ISC license files are preserved. Update this source only
 as an explicit dependency change: record the new immutable base revision,

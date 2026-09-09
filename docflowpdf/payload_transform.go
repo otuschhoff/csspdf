@@ -125,29 +125,33 @@ func renderI18nTemplateNodeAtPath(node any, funcs htmltmpl.FuncMap, data any, pa
 		}
 		return out, nil
 	case string:
-		tmpl := htmltmpl.New("i18n-value").Option("missingkey=error")
-		if len(funcs) > 0 {
-			tmpl = tmpl.Funcs(funcs)
-		}
-		parsed, err := tmpl.Parse(typed)
-		if err != nil {
-			return nil, &i18nTemplateValueError{Path: path, Err: fmt.Errorf("failed to parse i18n template value: %w", err)}
-		}
-		var buf bytes.Buffer
-		writer := &budgetWriter{writer: &buf, remaining: *remaining, limit: limit, stage: "i18n template output bytes", ctx: ctx}
-		if limit <= 0 {
-			writer.remaining = math.MaxInt64
-		}
-		if err := parsed.Execute(writer, data); err != nil {
-			return nil, &i18nTemplateValueError{Path: path, Err: fmt.Errorf("failed to execute i18n template value: %w", err)}
-		}
-		if limit > 0 {
-			*remaining = writer.remaining
-		}
-		return buf.String(), nil
+		return renderI18nTemplateString(typed, funcs, data, path, ctx, remaining, limit)
 	default:
 		return typed, nil
 	}
+}
+
+func renderI18nTemplateString(value string, funcs htmltmpl.FuncMap, data any, path string, ctx context.Context, remaining *int64, limit int64) (string, error) {
+	tmpl := htmltmpl.New("i18n-value").Option("missingkey=error")
+	if len(funcs) > 0 {
+		tmpl = tmpl.Funcs(funcs)
+	}
+	parsed, err := tmpl.Parse(value)
+	if err != nil {
+		return "", &i18nTemplateValueError{Path: path, Err: fmt.Errorf("failed to parse i18n template value: %w", err)}
+	}
+	var buf bytes.Buffer
+	writer := &budgetWriter{writer: &buf, remaining: *remaining, limit: limit, stage: "i18n template output bytes", ctx: ctx}
+	if limit <= 0 {
+		writer.remaining = math.MaxInt64
+	}
+	if err := parsed.Execute(writer, data); err != nil {
+		return "", &i18nTemplateValueError{Path: path, Err: fmt.Errorf("failed to execute i18n template value: %w", err)}
+	}
+	if limit > 0 {
+		*remaining = writer.remaining
+	}
+	return buf.String(), nil
 }
 
 func resolvePayloadLocale(localePath string, ctx transformContext) string {

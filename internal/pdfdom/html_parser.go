@@ -3,7 +3,6 @@ package pdfdom
 import (
 	"bytes"
 	"fmt"
-	"strconv"
 	"strings"
 
 	tmpl "github.com/otuschhoff/csspdf/internal/templating"
@@ -150,35 +149,41 @@ func htmlAppendSectionChild(div *ElemDiv, child *html.Node, style *PDFTextStyle,
 	if child.Type != html.ElementNode {
 		return nil
 	}
+	if handled, err := htmlAppendInlineSectionChild(div, child, style, options); handled {
+		return err
+	}
+	element, supported, err := htmlBuildNestedBlock(child, style, options)
+	if err != nil {
+		return err
+	}
+	if supported {
+		return div.AddLine(element)
+	}
+	return nil
+}
+
+func htmlAppendInlineSectionChild(div *ElemDiv, child *html.Node, style *PDFTextStyle, options ParseOptions) (bool, error) {
 	if element, supported, err := htmlBuildValueElement(child); supported {
 		if err != nil {
-			return wrapHTMLNodeError(child, err)
+			return true, wrapHTMLNodeError(child, err)
 		}
-		return div.Add(element)
+		return true, div.Add(element)
 	}
 	switch child.Data {
 	case "span":
 		span, err := htmlBuildSpanWithInherited(child, style, options)
 		if err != nil {
-			return wrapHTMLNodeError(child, err)
+			return true, wrapHTMLNodeError(child, err)
 		}
-		return div.Add(span)
+		return true, div.Add(span)
 	case "img":
-		return div.Add(htmlBuildImage(child))
+		return true, div.Add(htmlBuildImage(child))
 	case "use-template":
-		return div.Add(htmlBuildUseTemplate(child))
+		return true, div.Add(htmlBuildUseTemplate(child))
 	case "br":
-		return div.Add(NewElemBr())
-	default:
-		element, supported, err := htmlBuildNestedBlock(child, style, options)
-		if err != nil {
-			return err
-		}
-		if supported {
-			return div.AddLine(element)
-		}
+		return true, div.Add(NewElemBr())
 	}
-	return nil
+	return false, nil
 }
 
 func htmlBuildNestedBlock(node *html.Node, style *PDFTextStyle, options ParseOptions) (PDFElementNode, bool, error) {
@@ -510,68 +515,4 @@ func htmlNormaliseFontStyle(value string) string {
 		}
 	}
 	return out.String()
-}
-
-// ─── value elements ──────────────────────────────────────────────────────────
-
-func htmlBuildCurrencyValue(n *html.Node) (*ElemCurrencyValue, error) {
-	raw := htmlAttrValWithFallback(n, "v", "value")
-	f, err := strconv.ParseFloat(raw, 64)
-	if err != nil {
-		return nil, fmt.Errorf("<currency-value> invalid v=%q: %w", raw, err)
-	}
-	elem := NewElemCurrencyValue(f)
-	for _, a := range n.Attr {
-		if a.Key != "value" && a.Key != "v" {
-			elem.SetAttribute(htmlNormaliseAttrKey(a.Key), a.Val)
-		}
-	}
-	return elem, nil
-}
-
-func htmlBuildDateValue(n *html.Node) (*ElemDateValue, error) {
-	elem := NewElemDateValue(tmpl.AttrVal(n, "value"))
-	for _, a := range n.Attr {
-		if a.Key != "value" {
-			elem.SetAttribute(htmlNormaliseAttrKey(a.Key), a.Val)
-		}
-	}
-	return elem, nil
-}
-
-func htmlBuildDurationValue(n *html.Node) (*ElemDurationValue, error) {
-	raw := htmlAttrValWithFallback(n, "v", "value")
-	f, err := strconv.ParseFloat(raw, 64)
-	if err != nil {
-		return nil, fmt.Errorf("<duration-value> invalid v=%q: %w", raw, err)
-	}
-	elem := NewElemDurationValue(f)
-	for _, a := range n.Attr {
-		if a.Key != "value" && a.Key != "v" {
-			elem.SetAttribute(htmlNormaliseAttrKey(a.Key), a.Val)
-		}
-	}
-	return elem, nil
-}
-
-func htmlBuildManDaysValue(n *html.Node) (*ElemManDaysValue, error) {
-	raw := htmlAttrValWithFallback(n, "v", "value")
-	f, err := strconv.ParseFloat(raw, 64)
-	if err != nil {
-		return nil, fmt.Errorf("<man-days-value> invalid v=%q: %w", raw, err)
-	}
-	elem := NewElemManDaysValue(f)
-	for _, a := range n.Attr {
-		if a.Key != "value" && a.Key != "v" {
-			elem.SetAttribute(htmlNormaliseAttrKey(a.Key), a.Val)
-		}
-	}
-	return elem, nil
-}
-
-func htmlAttrValWithFallback(n *html.Node, primary, fallback string) string {
-	if v := tmpl.AttrVal(n, primary); v != "" {
-		return v
-	}
-	return tmpl.AttrVal(n, fallback)
 }

@@ -35,17 +35,8 @@ func (s TextSource) resolve(ctx context.Context, resolver ResourceResolver, maxB
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
-	if s.Raw != nil {
-		if maxBytes > 0 && int64(len(s.Raw)) > maxBytes {
-			return "", &BudgetError{Stage: label + " source bytes", Limit: maxBytes, Actual: int64(len(s.Raw))}
-		}
-		return string(s.Raw), nil
-	}
-	if s.Text != "" {
-		if maxBytes > 0 && int64(len(s.Text)) > maxBytes {
-			return "", &BudgetError{Stage: label + " source bytes", Limit: maxBytes, Actual: int64(len(s.Text))}
-		}
-		return s.Text, nil
+	if value, resolved, err := s.resolveInline(maxBytes, label); resolved {
+		return value, err
 	}
 	if s.FilePath != "" {
 		buf, err := resolver.ReadFile(ctx, s.FilePath, maxBytes)
@@ -62,6 +53,23 @@ func (s TextSource) resolve(ctx context.Context, resolver ResourceResolver, maxB
 		return string(buf), nil
 	}
 	return "", fmt.Errorf("missing %s source", label)
+}
+
+func (s TextSource) resolveInline(maxBytes int64, label string) (string, bool, error) {
+	if s.Raw != nil {
+		return boundedSourceText(string(s.Raw), maxBytes, label)
+	}
+	if s.Text != "" {
+		return boundedSourceText(s.Text, maxBytes, label)
+	}
+	return "", false, nil
+}
+
+func boundedSourceText(value string, maxBytes int64, label string) (string, bool, error) {
+	if maxBytes > 0 && int64(len(value)) > maxBytes {
+		return "", true, &BudgetError{Stage: label + " source bytes", Limit: maxBytes, Actual: int64(len(value))}
+	}
+	return value, true, nil
 }
 
 // JSONSource resolves JSON payloads from a Go object, raw JSON bytes/string,

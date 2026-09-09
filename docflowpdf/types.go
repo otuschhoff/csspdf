@@ -201,15 +201,11 @@ func (s Section) Validate() error {
 	if s.Transformer != "generic" {
 		return fmt.Errorf("unsupported transformer %q", s.Transformer)
 	}
-	for path := range s.Payload.Runtime {
-		if !payloadPathPattern.MatchString(path) {
-			return fmt.Errorf("invalid runtime target path %q", path)
-		}
+	if err := validatePayloadPathMap(s.Payload.Runtime, "runtime"); err != nil {
+		return err
 	}
-	for path := range s.Payload.Static {
-		if !payloadPathPattern.MatchString(path) {
-			return fmt.Errorf("invalid static target path %q", path)
-		}
+	if err := validatePayloadPathMap(s.Payload.Static, "static"); err != nil {
+		return err
 	}
 	if err := validatePayloadTargetPaths(s.Payload.Runtime, s.Payload.Static); err != nil {
 		return err
@@ -225,6 +221,15 @@ func (s Section) Validate() error {
 	for _, expr := range s.Payload.Runtime {
 		if err := validateRuntimeExpression(expr); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func validatePayloadPathMap[T any](values map[string]T, kind string) error {
+	for path := range values {
+		if !payloadPathPattern.MatchString(path) {
+			return fmt.Errorf("invalid %s target path %q", kind, path)
 		}
 	}
 	return nil

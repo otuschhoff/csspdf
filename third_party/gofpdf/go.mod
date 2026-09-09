@@ -1,5 +1,3 @@
 module github.com/otuschhoff/gofpdf
 
-go 1.12
-
-replace gofpdf => ./
+go 1.22

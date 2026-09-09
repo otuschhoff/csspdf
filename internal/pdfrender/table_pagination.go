@@ -28,38 +28,26 @@ func (state *docFlowState) renderPaginatedTable(node *pdfdom.ElemTable, initial 
 		fragmentRows, end, baseHeight := selectTableFragment(tableDef, rowHeights, headerCount, dataIndex, available, firstFragment)
 		if end == dataIndex {
 			if firstFragment && state.currentY > state.y {
-				if err := state.nextPage(); err != nil {
+				var err error
+				tableDef, xPos, yPos, err = state.nextTablePage(node)
+				if err != nil {
 					return err
-				}
-				var rebuildErr error
-				tableDef, xPos, yPos, rebuildErr = state.rebuildTableForCurrentPage(node)
-				if rebuildErr != nil {
-					return rebuildErr
 				}
 				continue
 			}
 			return fmt.Errorf("table row %d height %.2f exceeds available content height %.2f with repeated headers", dataIndex, rowHeights[dataIndex], available-baseHeight)
 		}
 
-		fragment := *tableDef
-		fragment.Rows = fragmentRows
-		if !firstFragment {
-			fragment.Title = ""
-		}
-		state.layout.PDF.SetXY(xPos, yPos)
-		if err := state.layout.tableRenderer.RenderTable(&fragment); err != nil {
+		if err := state.renderTableFragment(tableDef, fragmentRows, xPos, yPos, firstFragment); err != nil {
 			return fmt.Errorf("failed to render table fragment beginning at row %d: %w", dataIndex, err)
 		}
 		dataIndex = end
 		firstFragment = false
 		if dataIndex < len(tableDef.Rows) {
-			if err := state.nextPage(); err != nil {
+			var err error
+			tableDef, xPos, yPos, err = state.nextTablePage(node)
+			if err != nil {
 				return err
-			}
-			var rebuildErr error
-			tableDef, xPos, yPos, rebuildErr = state.rebuildTableForCurrentPage(node)
-			if rebuildErr != nil {
-				return rebuildErr
 			}
 		}
 	}
@@ -67,6 +55,23 @@ func (state *docFlowState) renderPaginatedTable(node *pdfdom.ElemTable, initial 
 	state.currentY = state.layout.PDF.GetY()
 	state.pendingBottomMargin = tableDef.MarginBottom
 	return nil
+}
+
+func (state *docFlowState) renderTableFragment(table *TableDef, rows []RowDef, x, y float64, first bool) error {
+	fragment := *table
+	fragment.Rows = rows
+	if !first {
+		fragment.Title = ""
+	}
+	state.layout.PDF.SetXY(x, y)
+	return state.layout.tableRenderer.RenderTable(&fragment)
+}
+
+func (state *docFlowState) nextTablePage(node *pdfdom.ElemTable) (*TableDef, float64, float64, error) {
+	if err := state.nextPage(); err != nil {
+		return nil, 0, 0, err
+	}
+	return state.rebuildTableForCurrentPage(node)
 }
 
 func selectTableFragment(table *TableDef, rowHeights []float64, headerCount, dataIndex int, available float64, firstFragment bool) ([]RowDef, int, float64) {

@@ -203,6 +203,41 @@ func TestParseCSSPageSettingsRejectsInvalidDeclarations(t *testing.T) {
 	}
 }
 
+func TestPageCSSRefactoredHelperEdgeCases(t *testing.T) {
+	override, err := parsePageRuleDeclarations([]*css.Declaration{
+		nil,
+		{Property: "marks", Value: "crop"},
+	}, testDefaultPageSettings(), ParseLengthValue)
+	if err != nil {
+		t.Fatalf("parsePageRuleDeclarations returned error: %v", err)
+	}
+	if override != (pageSettingsOverride{}) {
+		t.Fatalf("unsupported declaration changed override: %#v", override)
+	}
+
+	tests := []struct {
+		name   string
+		value  string
+		width  float64
+		height float64
+	}{
+		{name: "portrait named landscape sheet", value: "ledger", width: 792, height: 1224},
+		{name: "auto landscape", value: "auto landscape", width: 841.89, height: 595.28},
+		{name: "already landscape", value: "1224pt 792pt landscape", width: 1224, height: 792},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			width, height, err := parseCSSPageSize(test.value, testDefaultPageSettings(), ParseLengthValue)
+			if err != nil {
+				t.Fatalf("parseCSSPageSize returned error: %v", err)
+			}
+			if width != test.width || height != test.height {
+				t.Fatalf("parseCSSPageSize(%q) = %v x %v, want %v x %v", test.value, width, height, test.width, test.height)
+			}
+		})
+	}
+}
+
 func TestParseRunningFooterNameRejectsIncompleteRules(t *testing.T) {
 	for _, cssText := range []string{"", "footer { color: red; }", "footer { position: running(x); }", "@page { @bottom-center { content: element(x); } }"} {
 		if name, ok := ParseRunningFooterName(cssText); ok || name != "" {

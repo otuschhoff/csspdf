@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
-MAX_CYCLO="${MAX_CYCLO:-15}"
+MAX_CYCLO="${MAX_CYCLO:-12}"
 MAX_FUNC_LINES="${MAX_FUNC_LINES:-80}"
-MAX_FILE_LINES="${MAX_FILE_LINES:-600}"
+MAX_FILE_LINES="${MAX_FILE_LINES:-550}"
 CHECK_SCOPE="${CHECK_SCOPE:-worktree}"
 BASE_REF="${BASE_REF:-}"
 

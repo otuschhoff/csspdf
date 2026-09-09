@@ -27,47 +27,61 @@ var normalizedHTMLAttributes = map[string]string{
 
 func htmlBuildSpan(n *html.Node, options ParseOptions) (*PDFTextNode, error) {
 	style := &PDFTextStyle{}
-	fontStyle, fontWeight, fontStyleSet := "", "", false
+	fontState := spanFontState{}
 	for _, attribute := range n.Attr {
 		handled, err := applySpanFontAttribute(style, attribute)
 		if err != nil {
-			err = fmt.Errorf("invalid span attribute %s=%q: %w", attribute.Key, attribute.Val, err)
-			if !options.AllowInvalidSpanAttributes {
+			if err := handleInvalidSpanAttribute(options, attribute, err); err != nil {
 				return nil, err
-			}
-			if options.Warnf != nil {
-				options.Warnf("ignored %v", err)
 			}
 			continue
 		}
 		if handled {
-			if attribute.Key == "font-style" {
-				fontStyle = attribute.Val
-			}
-			if attribute.Key == "font-weight" {
-				fontWeight = attribute.Val
-			}
-			fontStyleSet = fontStyleSet || attribute.Key == "font-style" || attribute.Key == "font-weight"
+			fontState.capture(attribute)
 			continue
 		}
 		if err := applySpanBoxAttribute(style, attribute); err != nil {
-			err = fmt.Errorf("invalid span attribute %s=%q: %w", attribute.Key, attribute.Val, err)
-			if !options.AllowInvalidSpanAttributes {
+			if err := handleInvalidSpanAttribute(options, attribute, err); err != nil {
 				return nil, err
-			}
-			if options.Warnf != nil {
-				options.Warnf("ignored %v", err)
 			}
 		}
 	}
-	if fontStyleSet {
-		style.FontStyle = htmlNormaliseFontStyle(fontStyle + " " + fontWeight)
+	if fontState.set {
+		style.FontStyle = htmlNormaliseFontStyle(fontState.style + " " + fontState.weight)
 		style.FontStyleSet = true
 	}
 	if emptyTextStyle(style) {
 		style = nil
 	}
 	return &PDFTextNode{Text: tmpl.CollectText(n), Style: style}, nil
+}
+
+type spanFontState struct {
+	style  string
+	weight string
+	set    bool
+}
+
+func (state *spanFontState) capture(attribute html.Attribute) {
+	switch attribute.Key {
+	case "font-style":
+		state.style = attribute.Val
+		state.set = true
+	case "font-weight":
+		state.weight = attribute.Val
+		state.set = true
+	}
+}
+
+func handleInvalidSpanAttribute(options ParseOptions, attribute html.Attribute, cause error) error {
+	err := fmt.Errorf("invalid span attribute %s=%q: %w", attribute.Key, attribute.Val, cause)
+	if !options.AllowInvalidSpanAttributes {
+		return err
+	}
+	if options.Warnf != nil {
+		options.Warnf("ignored %v", err)
+	}
+	return nil
 }
 
 func applySpanFontAttribute(style *PDFTextStyle, attribute html.Attribute) (bool, error) {

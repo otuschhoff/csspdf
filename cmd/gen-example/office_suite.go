@@ -76,34 +76,41 @@ func runOfficeSuite(programName string, args []string) int {
 		return 1
 	}
 
-	failed := false
-	for _, example := range cases {
-		err := renderOfficeSuiteCase(baseDir, *outputDir, logoPath, example)
-		if example.ExpectedError != "" {
-			if err == nil {
-				fmt.Fprintf(os.Stderr, "FAIL %-24s expected error containing %q\n", example.ID, example.ExpectedError)
-				failed = true
-				continue
-			}
-			if !strings.Contains(err.Error(), example.ExpectedError) {
-				fmt.Fprintf(os.Stderr, "FAIL %-24s wrong error: %s\n", example.ID, formatCommandError(err))
-				failed = true
-				continue
-			}
-			fmt.Printf("PASS %-24s caught expected error: %s\n", example.ID, example.ExpectedError)
-			continue
-		}
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "FAIL %-24s %s\n", example.ID, formatCommandError(err))
-			failed = true
-			continue
-		}
-		fmt.Printf("PASS %-24s %s\n", example.ID, filepath.Join(*outputDir, example.ID+".pdf"))
-	}
-	if failed {
+	if runOfficeSuiteCases(baseDir, *outputDir, logoPath, cases) {
 		return 1
 	}
 	return 0
+}
+
+func runOfficeSuiteCases(baseDir, outputDir, logoPath string, cases []officeSuiteCase) bool {
+	failed := false
+	for _, example := range cases {
+		if reportOfficeSuiteResult(outputDir, example, renderOfficeSuiteCase(baseDir, outputDir, logoPath, example)) {
+			failed = true
+		}
+	}
+	return failed
+}
+
+func reportOfficeSuiteResult(outputDir string, example officeSuiteCase, err error) bool {
+	if example.ExpectedError != "" {
+		if err == nil {
+			fmt.Fprintf(os.Stderr, "FAIL %-24s expected error containing %q\n", example.ID, example.ExpectedError)
+			return true
+		}
+		if !strings.Contains(err.Error(), example.ExpectedError) {
+			fmt.Fprintf(os.Stderr, "FAIL %-24s wrong error: %s\n", example.ID, formatCommandError(err))
+			return true
+		}
+		fmt.Printf("PASS %-24s caught expected error: %s\n", example.ID, example.ExpectedError)
+		return false
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "FAIL %-24s %s\n", example.ID, formatCommandError(err))
+		return true
+	}
+	fmt.Printf("PASS %-24s %s\n", example.ID, filepath.Join(outputDir, example.ID+".pdf"))
+	return false
 }
 
 func listOfficeSuiteCases(out io.Writer, cases []officeSuiteCase) {

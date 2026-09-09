@@ -20,25 +20,16 @@ func resolvePageDimensions(input RenderInput) (float64, float64, error) {
 	if formatName == "" {
 		formatName = DefaultPageFormat
 	}
-	orientation := strings.ToLower(strings.TrimSpace(input.PageOrientation))
-	if orientation == "" {
-		orientation = PageOrientationPortrait
-	}
-	if orientation != PageOrientationPortrait && orientation != PageOrientationLandscape {
-		return 0, 0, fmt.Errorf("unsupported page orientation %q (expected %q or %q)", input.PageOrientation, PageOrientationPortrait, PageOrientationLandscape)
+	orientation, err := normalizedPageOrientation(input.PageOrientation)
+	if err != nil {
+		return 0, 0, err
 	}
 
 	width, height, ok := templateload.ResolveNamedPageSize(formatName)
 	if !ok {
 		return 0, 0, fmt.Errorf("unsupported page format %q", input.PageFormat)
 	}
-	if orientation == PageOrientationLandscape {
-		if height > width {
-			width, height = height, width
-		}
-	} else if width > height {
-		width, height = height, width
-	}
+	width, height = orientPageDimensions(width, height, orientation)
 	if input.PageWidth > 0 {
 		width = input.PageWidth
 	}
@@ -46,6 +37,26 @@ func resolvePageDimensions(input RenderInput) (float64, float64, error) {
 		height = input.PageHeight
 	}
 	return width, height, nil
+}
+
+func normalizedPageOrientation(raw string) (string, error) {
+	orientation := strings.ToLower(strings.TrimSpace(raw))
+	if orientation == "" {
+		return PageOrientationPortrait, nil
+	}
+	if orientation != PageOrientationPortrait && orientation != PageOrientationLandscape {
+		return "", fmt.Errorf("unsupported page orientation %q (expected %q or %q)", raw, PageOrientationPortrait, PageOrientationLandscape)
+	}
+	return orientation, nil
+}
+
+func orientPageDimensions(width, height float64, orientation string) (float64, float64) {
+	landscapeSwap := orientation == PageOrientationLandscape && height > width
+	portraitSwap := orientation == PageOrientationPortrait && width > height
+	if landscapeSwap || portraitSwap {
+		return height, width
+	}
+	return width, height
 }
 
 func validatePageDimensionOverride(name string, value float64) error {
