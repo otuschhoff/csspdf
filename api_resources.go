@@ -86,7 +86,19 @@ func (TrustedFileResolver) ReadDir(ctx context.Context, name string) ([]fs.DirEn
 
 func validateResourceName(name string) error {
 	trimmed := strings.TrimSpace(name)
-	if trimmed == "" || !filepath.IsLocal(trimmed) {
+	if trimmed == "" {
+		return fmt.Errorf("resource path %q must be a local path beneath the configured root", name)
+	}
+	if filepath.IsAbs(trimmed) || strings.HasPrefix(trimmed, "\\") || strings.HasPrefix(trimmed, "/") {
+		return fmt.Errorf("resource path %q must be a local path beneath the configured root", name)
+	}
+	if len(trimmed) >= 2 && trimmed[1] == ':' {
+		return fmt.Errorf("resource path %q must be a local path beneath the configured root", name)
+	}
+	if strings.HasPrefix(trimmed, "//") || strings.HasPrefix(trimmed, "\\\\") {
+		return fmt.Errorf("resource path %q must be a local path beneath the configured root", name)
+	}
+	if !filepath.IsLocal(trimmed) {
 		return fmt.Errorf("resource path %q must be a local path beneath the configured root", name)
 	}
 	return nil

@@ -59,3 +59,25 @@ func TestConfinedFileResolverEnforcesByteLimitAndCancellation(t *testing.T) {
 		t.Fatalf("cancellation error leaked root: %v", err)
 	}
 }
+
+func TestValidateResourceNameRejectsAbsoluteAndWindowsPaths(t *testing.T) {
+	for _, name := range []string{
+		"/tmp/escape.txt",
+		"../outside.txt",
+		"\\\\server\\share\\escape.txt",
+		"C:/tmp/escape.txt",
+		"C:\\tmp\\escape.txt",
+		"C:relative/path.txt",
+		"//server/share/escape.txt",
+	} {
+		if err := validateResourceName(name); err == nil {
+			t.Fatalf("validateResourceName(%q) unexpectedly accepted absolute or drive-qualified path", name)
+		}
+	}
+
+	for _, name := range []string{"inside.txt", "nested/inside.txt", "./inside.txt", "a/../nested/inside.txt"} {
+		if err := validateResourceName(name); err != nil {
+			t.Fatalf("validateResourceName(%q) rejected a relative local path: %v", name, err)
+		}
+	}
+}
