@@ -29,6 +29,13 @@ Checks occur before preparation, while reading and expanding sources, between
 flow elements and pages, and before output. Custom functions and some backend
 operations are not preemptible; hard deadlines require process isolation.
 
+## CSS Parsing
+
+CSS tokens are validated before stylesheet preparation, support analysis, and
+page-settings parsing. A semicolon outside a declaration block or an at-rule
+terminator returns a CSS parse error instead of hanging the underlying parser.
+Quoted strings, comments, and valid at-rule terminators are unaffected.
+
 ## PDF Inspection
 
 The canonical PDF dumper limits input bytes and per-stream Flate expansion and

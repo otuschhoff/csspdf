@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	css "github.com/aymerick/douceur/css"
-	"github.com/aymerick/douceur/parser"
 )
 
 type PageMargins struct {
@@ -78,7 +77,7 @@ func ParseCSSPageSettings(cssText string, defaults PageSettings, parseLength fun
 		return defaults, defaults, nil
 	}
 
-	sheet, err := parser.Parse(cssText)
+	sheet, err := parseCSSStylesheet(cssText)
 	if err != nil {
 		return PageSettings{}, PageSettings{}, fmt.Errorf("css parse: %w", err)
 	}

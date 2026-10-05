@@ -7,7 +7,6 @@ import (
 
 	"github.com/andybalholm/cascadia"
 	css "github.com/aymerick/douceur/css"
-	"github.com/aymerick/douceur/parser"
 	"golang.org/x/net/html"
 )
 
@@ -33,7 +32,7 @@ func PrepareStylesheet(cssText string) (*PreparedStylesheet, error) {
 	if strings.TrimSpace(cssText) == "" {
 		return prepared, nil
 	}
-	sheet, err := parser.Parse(cssText)
+	sheet, err := parseCSSStylesheet(cssText)
 	if err != nil {
 		return nil, fmt.Errorf("css parse: %w", err)
 	}

@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	"github.com/aymerick/douceur/parser"
 )
 
 const UnsupportedCSSPropertyCode = "CSS001"
@@ -34,7 +32,7 @@ func AnalyzeCSSSupport(cssText string) ([]CSSSupportDiagnostic, error) {
 	if strings.TrimSpace(cssText) == "" {
 		return nil, nil
 	}
-	sheet, err := parser.Parse(cssText)
+	sheet, err := parseCSSStylesheet(cssText)
 	if err != nil {
 		return nil, fmt.Errorf("css parse: %w", err)
 	}

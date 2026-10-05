@@ -9,6 +9,7 @@ func FuzzParseHTMLDocFlow(f *testing.F) {
 	f.Add(`<table><tr><td rowspan="999999999999999999999">x</table>`, `* { unknown: url(../../secret); }`)
 	f.Add(`<img src="../../etc/passwd"><script>{{.}}</script>`, `img:not(:not(:not(.x))) { color: #ggg; }`)
 	f.Add("\x00\xff<div>&#999999999999;</div>", "@page { size: -1pt -1pt; margin: 1e999pt; }")
+	f.Add(`<div>x</div>`, `div width: calc(1/0); }`)
 	f.Fuzz(func(t *testing.T, html, css string) {
 		if len(html)+len(css) > 64<<10 {
 			t.Skip()
