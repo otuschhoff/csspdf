@@ -12,7 +12,7 @@ The reusable public package is:
 
 ## Requirements and Dependency Policy
 
-- Go 1.26.6 or newer
+- Go 1.26.9 or newer
 - No sibling repositories or local Go workspace are required
 - Dependencies are pinned in `go.mod` and `go.sum`
 

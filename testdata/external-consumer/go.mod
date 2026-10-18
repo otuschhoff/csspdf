@@ -1,6 +1,6 @@
 module example.com/csspdf-external-consumer
 
-go 1.26.6
+go 1.26.9
 
 require github.com/otuschhoff/csspdf v0.0.0
 

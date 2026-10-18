@@ -6,7 +6,7 @@ of every finding from the original review.
 
 ## Supported Matrix and Sustained Gates
 
-The quality workflow tests Go 1.26.6 and Go 1.27.x on Linux, macOS, and Windows
+The quality workflow tests Go 1.26.9 and Go 1.27.x on Linux, macOS, and Windows
 amd64. The minimum version is exact and matches the module directive. The full
 root-module race suite runs on Linux. The backend fork runs its own module
 quality gates. Root tests include integration fixtures, the pdfcpu semantic PDF

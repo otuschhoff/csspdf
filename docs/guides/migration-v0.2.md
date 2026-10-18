@@ -25,6 +25,16 @@ Replace `docflowpdf.` qualifiers with `csspdf.`. The exported API behavior is
 otherwise unchanged. The old package path is not retained because all known
 consumers are migrated together before the v0.2.0 release.
 
+## Unreleased Toolchain Security Update
+
+The minimum Go version increases from 1.26.6 to 1.26.9 to address
+[GO-2026-6604](https://pkg.go.dev/vuln/GO-2026-6604) in `os` and
+[GO-2026-6600](https://pkg.go.dev/vuln/GO-2026-6600) and
+[GO-2026-6599](https://pkg.go.dev/vuln/GO-2026-6599) in `html/template`.
+Upgrade build and deployment toolchains before updating the module. CI's
+minimum-version jobs use Go 1.26.9; the Go 1.27.x matrix remains supported.
+There are no exported API changes or vulnerability-scan exceptions.
+
 ## Strict Rendering
 
 Rendering now fails by default when a required template, template map value,

@@ -54,7 +54,7 @@ no remaining callers.
 
 ## Supported Toolchains and Platforms
 
-The minimum supported toolchain is Go 1.26.6. CI tests Go 1.26.6 and Go 1.27.x
+The minimum supported toolchain is Go 1.26.9. CI tests Go 1.26.9 and Go 1.27.x
 on current GitHub-hosted Linux, macOS, and Windows amd64 runners. New Go release
 lines enter the matrix after a green quality and race run. A minimum-version
 change requires vulnerability or dependency evidence, documentation, and a

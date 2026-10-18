@@ -40,7 +40,7 @@ must not be represented as an absence of vulnerability.
 
 ## Dependency and CI Policy
 
-- Go 1.26.6 is the minimum supported toolchain.
+- Go 1.26.9 is the minimum supported toolchain.
 - Root dependencies are pinned by `go.mod` and `go.sum`.
 - The `github.com/otuschhoff/gofpdf` backend is pinned to an immutable module
   revision and maintained in its own repository.
