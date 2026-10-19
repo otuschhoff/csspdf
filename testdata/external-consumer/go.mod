@@ -10,7 +10,7 @@ require (
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/otuschhoff/gofpdf v0.0.0-20260909105358-90766bef84b1 // indirect
-	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/net v0.61.0 // indirect
 )
 
 replace github.com/otuschhoff/csspdf => ../..

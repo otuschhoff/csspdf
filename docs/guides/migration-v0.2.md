@@ -35,6 +35,12 @@ Upgrade build and deployment toolchains before updating the module. CI's
 minimum-version jobs use Go 1.26.9; the Go 1.27.x matrix remains supported.
 There are no exported API changes or vulnerability-scan exceptions.
 
+The quality gate also updates its pinned analyzers to staticcheck v0.8.2 and
+errcheck v1.30.0, and the error-wrapping checker's `golang.org/x/tools`
+dependency to v0.52.0, so they can read Go 1.27.2 export data. All analyzers
+remain enabled across the supported Go matrix with the existing checks and
+exclusions.
+
 ## Strict Rendering
 
 Rendering now fails by default when a required template, template map value,
