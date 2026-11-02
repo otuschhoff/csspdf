@@ -41,6 +41,14 @@ dependency to v0.52.0, so they can read Go 1.27.2 export data. All analyzers
 remain enabled across the supported Go matrix with the existing checks and
 exclusions.
 
+## Unreleased HTML Dependency Security Update
+
+The `golang.org/x/net` dependency increases from v0.61.0 to v0.62.0 to address
+[GO-2026-6866](https://pkg.go.dev/vuln/GO-2026-6866) in HTML rendering and
+[GO-2026-6860](https://pkg.go.dev/vuln/GO-2026-6860) in HTML parsing.
+The minimum Go version remains 1.26.9. No application API changes or
+vulnerability-scan exceptions are introduced.
+
 ## Strict Rendering
 
 Rendering now fails by default when a required template, template map value,

@@ -10,7 +10,7 @@ require (
 	github.com/otuschhoff/gofpdf v0.0.0-20260909105358-90766bef84b1
 	github.com/pdfcpu/pdfcpu v0.15.0
 	golang.org/x/image v0.45.0
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 	golang.org/x/tools v0.52.0
 )
 
